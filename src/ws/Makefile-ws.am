@@ -45,6 +45,8 @@ cockpitwsenumtypes.c: src/ws/cockpitwsenumtypes.c.template $(libcockpit_ws_enumh
 	  $(addprefix $(srcdir)/,$(libcockpit_ws_enumheaders)) ) > $@.tmp && \
 	  mv $@.tmp $@
 
+EXTRA_DIST += src/ws/cockpitwsenumtypes.h.template src/ws/cockpitwsenumtypes.c.template
+
 BUILT_SOURCES += cockpitwsenumtypes.c cockpitwsenumtypes.h
 
 # ----------------------------------------------------------------------------------------------------
