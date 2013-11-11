@@ -11,10 +11,10 @@ $(dbus_built_sources) : Makefile.am $(top_srcdir)/data/com.redhat.Cockpit.xml
 		$(NULL)
 BUILT_SOURCES += $(dbus_built_sources)
 
-cockpitenumtypes.h: src/cockpit/cockpitenums.h src/cockpit/cockpitenumtypes.h.template
+cockpitenumtypes.h: $(srcdir)/src/cockpit/cockpitenums.h $(srcdir)/src/cockpit/cockpitenumtypes.h.template
 	glib-mkenums --template $(top_srcdir)/src/cockpit/cockpitenumtypes.h.template $(top_srcdir)/src/cockpit/cockpitenums.h > $@.tmp && mv $@.tmp $@
 
-cockpitenumtypes.c: src/cockpit/cockpitenums.h src/cockpit/cockpitenumtypes.c.template
+cockpitenumtypes.c: $(srcdir)/src/cockpit/cockpitenums.h src/cockpit/cockpitenumtypes.c.template
 	glib-mkenums --template $(top_srcdir)/src/cockpit/cockpitenumtypes.c.template $(top_srcdir)/src/cockpit/cockpitenums.h  > $@.tmp && mv $@.tmp $@
 
 BUILT_SOURCES += cockpitenumtypes.h cockpitenumtypes.c

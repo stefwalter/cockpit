@@ -52,8 +52,8 @@ include src/cockpit/Makefile-libcockpit.am
 include src/websocket/Makefile-websocket.am
 include tools/Makefile-tools.am
 
-libgsystem_srcpath := src/libgsystem
-libgsystem_cflags := -Isrc/libgsystem $(GIO_CFLAGS)
+libgsystem_srcpath := $(top_srcdir)/src/libgsystem
+libgsystem_cflags := -I$(top_srcdir)/src/libgsystem $(GIO_CFLAGS)
 libgsystem_libs := $(GIO_LIBS)
 include src/libgsystem/Makefile-libgsystem.am
 noinst_LTLIBRARIES += libgsystem.la

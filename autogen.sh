@@ -31,6 +31,9 @@ PKG_NAME="Cockpit"
     exit 1
 }
 
+# While setting up the source, move into the srcdir
+pushd $srcdir
+
 # Fetch submodules if needed
 if test ! -f src/libgsystem/README;
 then
@@ -44,6 +47,9 @@ rm -rf autom4te.cache
 autoreconf -f -i
 
 intltoolize --force --copy || exit $?
+
+# Done setting up the source, now operate in the builddir
+popd
 
 set +x
 

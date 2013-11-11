@@ -33,13 +33,13 @@ libcockpit_ws_enumheaders = 				\
 	src/ws/cockpitwebserver.h 				\
 	$(NULL)
 
-cockpitwsenumtypes.h:  src/ws/cockpitwsenumtypes.h.template $(libcockpit_ws_enumheaders)
+cockpitwsenumtypes.h:  $(srcdir)/src/ws/cockpitwsenumtypes.h.template $(libcockpit_ws_enumheaders)
 	$(AM_V_GEN) ( \
 	  glib-mkenums  --template $< \
 	  $(addprefix $(srcdir)/,$(libcockpit_ws_enumheaders)) > $@.tmp \
 	  && (cmp -s $@.tmp $@ || mv $@.tmp $@))
 
-cockpitwsenumtypes.c: src/ws/cockpitwsenumtypes.c.template $(libcockpit_ws_enumheaders)
+cockpitwsenumtypes.c: $(srcdir)/src/ws/cockpitwsenumtypes.c.template $(libcockpit_ws_enumheaders)
 	$(AM_V_GEN) ( \
 	  glib-mkenums --template $< \
 	  $(addprefix $(srcdir)/,$(libcockpit_ws_enumheaders)) ) > $@.tmp && \

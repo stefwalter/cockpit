@@ -32,8 +32,8 @@ cockpit_js_PARTS = \
 	$(NULL)
 
 cockpit.js: $(cockpit_js_PARTS)
-	(cd $(srcdir) && JSL=$(JSL) ./src/web/js-lint $(cockpit_js_PARTS))
-	(cd $(srcdir) && ./src/web/minify $(cockpit_js_PARTS)) >$@.tmp && mv $@.tmp $@
+	(cd $(srcdir) && JSL=$(JSL) $(srcdir)/src/web/js-lint $(cockpit_js_PARTS))
+	(cd $(srcdir) && $(srcdir)/src/web/minify $(cockpit_js_PARTS)) >$@.tmp && mv $@.tmp $@
 
 # Theme acrobatics.
 #
@@ -42,12 +42,12 @@ cockpit.js: $(cockpit_js_PARTS)
 # accessible to SASS, and finally use that to generate our theme by
 # modifying some parameters and adding additional CSS.
 
-src/web/lib/jquery.mobile.theme-1.3.0.scss: src/web/lib/jquery.mobile.theme-1.3.0.css src/web/fix-jqm-theme.patch src/web/sassify-jqm
-	patch -i src/web/fix-jqm-theme.patch -o - $< | \
+$(srcdir)/src/web/lib/jquery.mobile.theme-1.3.0.scss: $(srcdir)/src/web/lib/jquery.mobile.theme-1.3.0.css $(srcdir)/src/web/fix-jqm-theme.patch $(srcdir)/src/web/sassify-jqm
+	patch -i $(srcdir)/src/web/fix-jqm-theme.patch -o - $< | \
 	  $(srcdir)/src/web/sassify-jqm >$@.tmp && mv $@.tmp $@
 
-src/web/lib/jquery.mobile.adwaita-1.3.0.css: src/web/adwaita.scss src/web/lib/jquery.mobile.theme-1.3.0.scss
-	$(SASS) -I src/web/ -t expanded $< >$@.tmp && mv $@.tmp $@
+$(srcdir)/src/web/lib/jquery.mobile.adwaita-1.3.0.css: $(srcdir)/src/web/adwaita.scss $(srcdir)/src/web/lib/jquery.mobile.theme-1.3.0.scss
+	$(SASS) -I $(srcdir)/src/web/ -t expanded $< >$@.tmp && mv $@.tmp $@
 
 contentdatadir = $(pkgdatadir)/content
 contentdata_DATA = 						\
