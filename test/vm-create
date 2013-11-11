@@ -34,7 +34,8 @@ parser.add_argument('-v', '--verbose', action='store_true', help='Display verbos
 args = parser.parse_args()
 
 try:
-    machine = testvm.QemuMachine(verbose=args.verbose)
+    # TODO: type of machine needs to be argument
+    machine = testvm.NovaMachine(verbose=args.verbose)
     machine.build()
 except testvm.Failure, ex:
     print >> sys.stderr, "vm-create:", ex

@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
 
+import errno
 import fcntl
 import os
 import re
@@ -54,13 +55,17 @@ class Machine:
         """Prints args if in verbose mode"""
         if not self.verbose:
             return
-        print " ".join(args)
+        msg = " ".join(args)
+        if not "\r" in msg:
+            msg += "\n"
+        sys.stdout.write(msg)
+        sys.stdout.flush()
 
     def start(self, maintain=False, macaddr=None):
         """Overridden by machine classes to start the machine"""
         self.message("Assuming machine is already running")
 
-    def stop(self):
+    def stop(self, failing=False):
         """Overridden by machine classes to stop the machine"""
         self.message("Not shutting down already running machine")
 
@@ -100,6 +105,7 @@ class Machine:
             if not os.path.exists(rpm):
                 raise Failure("file does not exist: %s" % rpm)
 
+        failing = True
         self.start(maintain=True)
         try:
             self.wait_boot()
@@ -112,11 +118,13 @@ class Machine:
             env = {
                 "TEST_OS": self.os,
                 "TEST_ARCH": self.arch,
-                "TEST_PACKAGES": " ".join(uploaded),
+                "TEST_RPMS": " ".join(uploaded),
+                "TEST_PACKAGES": "NetworkManager"
             }
             self.execute(script=INSTALL_SCRIPT, environment=env)
+            failing = False
         finally:
-            self.stop()
+            self.stop(failing)
 
     def execute(self, command=None, script=None, input=None, environment={}):
         """Execute a shell command in the test machine and return its output.
@@ -501,7 +509,7 @@ class QemuMachine(Machine):
         self.address = address
         Machine.wait_boot(self)
 
-    def stop(self):
+    def stop(self, failing=False):
         if self._maintaining:
             self.shutdown()
         else:
@@ -615,6 +623,208 @@ class QemuMachine(Machine):
         if "proc" in disk and disk["proc"] and disk["proc"].poll() is not None:
             disk["proc"].terminate()
 
+class NovaMachine(Machine):
+    flavor_name = "m1.tiny"
+    poll_period = 1
+    nova_cls = None
+
+    def __init__(self, **args):
+        Machine.__init__(self, **args)
+
+        # TODO: Think about an alternative place to store these
+        auth_url = os.environ.get("OS_AUTH_URL")
+        username = os.environ.get("OS_USERNAME")
+        password = os.environ.get("OS_PASSWORD")
+        tenant = os.environ.get("OS_TENANT_NAME", "")
+
+        if not auth_url or not username or not password:
+            raise Failure("Setup openstack credentials in environment via openrc.sh")
+
+        # Yes the documentation is completely wrong
+        import novaclient
+        import novaclient.client
+        NovaMachine.nova_cls = novaclient
+        self._client = novaclient.client.Client("1.1", username, password,
+                                               tenant, auth_url, auth_system=None)
+
+        self._image_name = "rhsc-%s" % self.image
+        self._flavor = None
+        self._server = None
+
+    def _poll_until(self, poll, action, until_states, field='status'):
+        def progress(at):
+            msg = "\rPerforming %s... " % action
+            if at:
+                msg += str(at)
+            self.message(msg)
+
+        printed = False
+        try:
+            while True:
+                obj = poll()
+                status = getattr(obj, field)
+                if status:
+                    status = status.lower()
+                if status in until_states:
+                    progress(100)
+                    break
+                elif status == "error":
+                    raise Failure("Instance %(action)s failed with error" % dict(action=action))
+
+                printed = True
+                progress(getattr(obj, 'progress', None) or 0)
+                time.sleep(self.poll_period)
+        finally:
+            if printed and self.verbose:
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+
+    def _choose_flavor(self):
+        if self._flavor:
+            return self._flavor
+        chosen = None
+        for flavor in self._client.flavors.list():
+            if self.flavor_name:
+                if self.flavor_name != flavor.name:
+                    continue
+                chosen = flavor
+                break
+            if flavor.ram < MEMORY_MB:
+                continue
+            if chosen is None or flavor.ram < chosen.ram:
+                chosen = flavor
+        if chosen is None:
+            if self.flavor_name:
+                raise Failure("Couldn't find flavor %s" % self.flavor_name)
+            else:
+                raise Failure("Couldn't find a valid flavor with at least %d MB of RAM" % MEMORY_MB)
+        self._flavor = chosen
+        return self._flavor
+
+    def _start_instance(self, image, prefix):
+        name = "%s-%s" % (prefix, image.name)
+        flavor = self._choose_flavor()
+
+        self.message("Image:", image.name)
+        self.message("Flavor:", flavor.name)
+
+        files = { }
+        with open(os.path.join(self.test_dir, "identity.pub"), "r") as f:
+            files["/root/.ssh/authorized_keys"] = f.read()
+        files["/etc/systemd/system/sockets.target.wants/sshd.socket"] = SSHD_SOCKET
+        files["/etc/systemd/system/sshd@.service"] = SSHD_SERVICE
+        files["/etc/NetworkManager/dispatcher.d/99-rhsc"] = QEMU_ADDR_SCRIPT
+
+        # TODO: Associate meta data so we can purge when necessary
+        self._server = self._client.servers.create(name, image, flavor, files=files)
+
+    def build(self):
+        # We expect the base images to be prebuilt
+        pass
+
+    def start(self, maintain=False):
+        try:
+            image = self._client.images.find(name=self._image_name)
+        except NovaMachine.nova_cls.exceptions.NotFound:
+            if not maintain:
+                raise Failure("No image found: %s" % self._image_name)
+            try:
+                image = self._client.images.find(name=self.image)
+            except NovaMachine.nova_cls.exceptions.NotFound:
+                raise Failure("Unsupported OS %s: not found." % (self.image))
+
+        prefix = maintain and "maintain" or "test"
+        self._start_instance(image, prefix)
+        self._maintaining = maintain
+
+    def wait_boot(self):
+        assert self._server
+        def refresh_and_return():
+            self._server.get()
+            return self._server
+        self._poll_until(refresh_and_return, 'build', ['active'])
+        self.address = None
+        for network, addrs in self._server.networks.items():
+            for addr in addrs:
+                if not addr.startswith("192.168."):
+                    self.address = addr
+                    break
+        if not self.address:
+            raise Failure("Couldn't find address of running instance")
+        for i in range(1, 400):
+            try:
+                sock = socket.create_connection((addr, 22), 2)
+                sock.close()
+                self.message("Port 22 is up\r")
+                break
+            except socket.timeout:
+                self.message("Port 22 is timing out\r")
+                pass
+            except socket.error, ex:
+                if ex.errno not in [errno.EHOSTUNREACH, errno.EHOSTDOWN,
+                                    errno.ECONNREFUSED, errno.ETIMEDOUT]:
+                    raise
+                self.message("Port failed to connect: %s\r" % str(ex))
+                time.sleep(0.25)
+        else:
+            raise Failure("Failed to wait for ssh to come up on instance")
+
+        # TODO: Yes, this is a hack, because for some reason we sometimes
+        # still get a 'lost connection' reported back from ssh
+        time.sleep(1)
+        self.message("Machine is up and accessible")
+
+        Machine.wait_boot(self)
+
+    def _cleanup(self):
+        try:
+            self.address = None
+            self._server = None
+            self._maintaining = False
+        except:
+            (type, value, traceback) = sys.exc_info()
+            print >> sys.stderr, "WARNING: Cleanup failed:", str(value)
+
+    def stop(self, failing=False):
+        if failing or not self._maintaining:
+            self.kill()
+            pass
+        else:
+            self.shutdown()
+
+    def kill(self):
+        try:
+            if self._server:
+                self._client.servers.delete(self._server)
+        finally:
+            self._cleanup();
+
+    def wait_poweroff(self):
+        xxxx
+
+    def shutdown(self):
+        assert self._server
+
+        # Save this server back to the main image
+        if self._maintaining:
+            time.sleep(5)
+            image_uuid = self._client.servers.create_image(self._server, self._image_name)
+            def get_image():
+                return self._client.images.get(image_uuid)
+            self._poll_until(get_image, 'snapshot', ['active'])
+
+            # TODO: Apparently openstack has a race where the server is
+            # still referenced for a moment after image snapshot created
+            time.sleep(1)
+
+        self.kill()
+
+    def add_disk(self, size, speed=None, serial=None):
+        xxxx
+
+    def rem_disk(self, index):
+        xxxx
+
 TestMachine = QemuMachine
 
 QEMU_ADDR_SCRIPT = """#!/bin/sh
@@ -628,7 +838,15 @@ set -euf
 
 echo 'SELINUX=disabled' > /etc/selinux/config
 
+if ! grep -q 'console=ttyS0' /etc/default/grub; then
+    echo 'GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0"' >> /etc/default/grub
+    grub2-mkconfig -o /boot/grub2/grub.cfg
+fi
+
 rm -rf /etc/sysconfig/iptables
+
+# In case this came back ... remember we use socket activated ssh
+rm -f /etc/systemd/system/multi-user.target.wants/sshd.service
 
 echo "[cockpit-deps]
 name=Unreleased Cockpit dependencies
@@ -636,6 +854,7 @@ baseurl=http://cockpit-project.github.io/cockpit-deps/$TEST_OS/$TEST_ARCH
 enabled=1
 gpgcheck=0" > /etc/yum.repos.d/cockpit-deps.repo
 
+mkdir -p /etc/firewalld/zones
 echo '<?xml version="1.0" encoding="utf-8"?>
 <zone>
   <short>Public</short>
@@ -675,12 +894,19 @@ yes | yum --disablerepo=* --enablerepo=cockpit-deps update -y
 
 reinstall=""
 install=""
-for pkg in $TEST_PACKAGES; do
+for pkg in $TEST_RPMS; do
     name=$(rpm -qp $pkg)
     if rpm -q $name > /dev/null; then
         reinstall="$reinstall $pkg"
     else
         install="$install $pkg"
+    fi
+done
+for name in $TEST_PACKAGES; do
+    if rpm -q $name > /dev/null; then
+        reinstall="$reinstall $name"
+    else
+        install="$install $name"
     fi
 done
 if [ -n "$install" ]; then
@@ -701,4 +927,5 @@ if [ -f $f ] && ! grep -q TimeoutStopSec $f; then
 fi
 
 rm -rf /var/log/journal/*
+sync
 """

@@ -67,7 +67,7 @@ arg_sit_on_failure = False
 arg_trace = False
 
 class Browser:
-    phantom_wait_timeout = 10
+    phantom_wait_timeout = 20
 
     def __init__(self, address):
         self.address = address
@@ -230,7 +230,8 @@ class Browser:
 
 class MachineCase(unittest.TestCase):
     runner = None
-    machine_class = testvm.QemuMachine
+    # TODO: make this an argument
+    machine_class = testvm.NovaMachine
     machine = None
     do_check_journal_messages = True
 
