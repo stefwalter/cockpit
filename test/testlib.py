@@ -230,7 +230,8 @@ class Browser:
 
 class MachineCase(unittest.TestCase):
     runner = None
-    machine_class = testvm.QemuMachine
+    # TODO: make this an argument
+    machine_class = testvm.NovaMachine
     machine = None
     do_check_journal_messages = True
 

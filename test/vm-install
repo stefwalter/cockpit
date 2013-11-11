@@ -27,7 +27,8 @@ parser.add_argument('rpms', metavar='RPM', nargs='*', help='RPMS to install')
 args = parser.parse_args()
 
 try:
-    machine = testvm.QemuMachine(verbose=args.verbose)
+    # TODO: type of machine needs to be argument
+    machine = testvm.NovaMachine(verbose=args.verbose)
     machine.install(args.rpms)
 except testvm.Failure, ex:
     print >> sys.stderr, "vm-install:", ex
