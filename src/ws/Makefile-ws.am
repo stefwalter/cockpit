@@ -57,6 +57,9 @@ EXTRA_DIST += \
 	src/ws/mock_dsa_key \
 	src/ws/mock_cert \
 	src/ws/mock_known_hosts \
+	src/ws/mock-kdc \
+	src/ws/mock-krb5.conf.in \
+	src/ws/mock-kdc.conf.in \
 	$(NULL)
 
 CLEANFILES += \
@@ -115,6 +118,7 @@ WS_CHECKS = \
 	test-sshtransport \
 	test-webservice \
 	test-handlers \
+	test-kerberos \
 	test-server \
 	$(NULL)
 
@@ -186,6 +190,10 @@ test_webserver_LDADD = \
 	libcockpit-ws.a \
 	$(cockpit_ws_LDADD) \
 	$(NULL)
+
+test_kerberos_SOURCES = src/ws/test-kerberos.c
+test_kerberos_LDADD = libcockpit-ws.a $(cockpit_ws_LDADD)
+test_kerberos_CFLAGS = $(cockpit_ws_CFLAGS)
 
 mock_sshd_SOURCES = src/ws/mock-sshd.c
 mock_sshd_CFLAGS =  $(COCKPIT_WS_CFLAGS)

@@ -596,6 +596,12 @@ cockpit_auth_gssapi_authenticate (CockpitAuth *auth,
   input.value = parse_gssapi_input_header (in_headers, &input.length);
   if (input.value == NULL)
     {
+      /*
+       * TODO: How do we know if kerberos authentication is available. We can't
+       * check for the presence of a keytab, that would break in the presence
+       * of gss-proxy.
+       */
+
       build_gssapi_output_header (out_headers, NULL, 0);
       goto out;
     }
@@ -605,6 +611,13 @@ cockpit_auth_gssapi_authenticate (CockpitAuth *auth,
   major_status = gss_accept_sec_context (&minor_status, &context, server, &input,
                                          GSS_C_NO_CHANNEL_BINDINGS, &name, NULL,
                                          &output, &flags, NULL, &client);
+
+  /*
+   * TODO: How do we validate the flags?
+   *
+   * It seems there are return flags that indicate things are pretty
+   * broken and/or insecure.
+   */
 
   if (output.length)
     build_gssapi_output_header (out_headers, output.value, output.length);
