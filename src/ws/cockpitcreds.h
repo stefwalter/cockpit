@@ -23,6 +23,8 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <gssapi/gssapi.h>
+
 G_BEGIN_DECLS
 
 typedef struct _CockpitCreds       CockpitCreds;
@@ -36,6 +38,9 @@ CockpitCreds *  cockpit_creds_new_password   (const gchar *user,
 
 CockpitCreds *  cockpit_creds_take_password  (gchar *user,
                                               gchar *password);
+
+CockpitCreds *  cockpit_creds_new_gssapi     (gss_name_t name,
+                                              gss_cred_id_t client);
 
 CockpitCreds *  cockpit_creds_ref            (CockpitCreds *creds);
 

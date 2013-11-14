@@ -20,6 +20,9 @@
 #include "config.h"
 
 #include "cockpitcreds.h"
+#include "cockpit/cockpit.h"
+
+#include <krb5/krb5.h>
 
 struct _CockpitCreds {
   gint refs;
@@ -28,6 +31,14 @@ struct _CockpitCreds {
 };
 
 G_DEFINE_BOXED_TYPE (CockpitCreds, cockpit_creds, cockpit_creds_ref, cockpit_creds_unref);
+
+static CockpitCreds *
+cockpit_creds_new (void)
+{
+  CockpitCreds *creds = g_new0 (CockpitCreds, 1);
+  creds->refs = 1;
+  return creds;
+}
 
 static void
 cockpit_creds_free (gpointer data)
@@ -42,10 +53,9 @@ CockpitCreds *
 cockpit_creds_take_password (gchar *user,
                              gchar *password)
 {
-  CockpitCreds *creds = g_new0 (CockpitCreds, 1);
+  CockpitCreds *creds = cockpit_creds_new ();
   creds->user = user;
   creds->password = password;
-  creds->refs = 1;
   return creds;
 }
 
@@ -85,4 +95,75 @@ cockpit_creds_get_password (CockpitCreds *creds)
 {
   g_return_val_if_fail (creds != NULL, NULL);
   return creds->password;
+}
+
+CockpitCreds *
+cockpit_creds_new_gssapi (gss_name_t name,
+                          gss_cred_id_t client)
+{
+  OM_uint32 major, minor;
+  CockpitCreds *creds;
+  krb5_context krb = NULL;
+  krb5_error_code code;
+  gss_buffer_desc display = { 0, NULL };
+  krb5_principal principal = NULL;
+  gchar *user = NULL;
+
+  major = gss_display_name (&minor, name, &display, NULL);
+  g_return_val_if_fail (!GSS_ERROR (major), NULL);
+
+  code = krb5_init_context (&krb);
+  if (code != 0) {
+      g_critical ("Couldn't initialize krb5 context: %s",
+                  krb5_get_error_message (NULL, code));
+      goto out;
+  }
+
+  code = krb5_parse_name (krb, display.value, &principal);
+  if (code != 0) {
+      g_warning ("Couldn't parse name as kerberos principal: %s: %s",
+                 (gchar *)display.value, krb5_get_error_message (krb, code));
+      goto out;
+  }
+
+  user = g_malloc0 (LOGIN_NAME_MAX + 1);
+  code = krb5_aname_to_localname (krb, principal, LOGIN_NAME_MAX, user);
+  if (code == KRB5_LNAME_NOTRANS)
+    {
+      g_info ("No local user mapping for kerberos principal '%s'",
+              (gchar *)display.value);
+      g_free (user);
+      user = g_strdup (display.value);
+    }
+  else if (code != 0)
+    {
+      g_warning ("Couldn't map kerberos principal '%s' to user: %s",
+                 (gchar *)display.value, krb5_get_error_message (krb, code));
+      g_free (user);
+      user = NULL;
+    }
+  else
+    {
+      g_debug ("Mapped kerberos principal '%s' to user '%s'",
+               (gchar *)display.value, user);
+    }
+
+  if (user)
+    {
+      creds = cockpit_creds_new ();
+      creds->user = user;
+      user = NULL;
+    }
+
+out:
+  if (principal)
+    krb5_free_principal (krb, principal);
+  if (krb)
+    krb5_free_context (krb);
+  if (display.value)
+    gss_release_buffer (&minor, &display);
+  if (user)
+    g_free (user);
+
+  return creds;
 }

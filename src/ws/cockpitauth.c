@@ -29,6 +29,10 @@
 
 #include <glib/gstdio.h>
 
+#include <gssapi/gssapi.h>
+#include <gssapi/gssapi_generic.h>
+#include <gssapi/gssapi_krb5.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -48,6 +52,10 @@ enum {
 static guint signals[NUM_SIGNALS] = { 0, };
 
 static CockpitCreds *    cockpit_auth_cookie_authenticate      (CockpitAuth *auth,
+                                                                GHashTable *in_headers,
+                                                                GHashTable *out_headers);
+
+static CockpitCreds *    cockpit_auth_gssapi_authenticate      (CockpitAuth *auth,
                                                                 GHashTable *in_headers,
                                                                 GHashTable *out_headers);
 
@@ -80,6 +88,9 @@ cockpit_auth_init (CockpitAuth *self)
   g_mutex_init (&self->mutex);
   self->authenticated = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                g_free, cockpit_creds_unref);
+
+  g_signal_connect (self, "authenticate",
+                    G_CALLBACK (cockpit_auth_gssapi_authenticate), NULL);
 }
 
 #define PAM_MAX_INPUTS 10
@@ -446,6 +457,193 @@ cockpit_auth_cookie_authenticate (CockpitAuth *auth,
     return NULL;
 
   return cookie_to_creds (auth, auth_cookie);
+}
+
+static inline const gchar *
+str_skip (const gchar *v,
+          const gchar c)
+{
+  while (v[0] == c)
+    v++;
+  return v;
+}
+
+static void
+build_gssapi_output_header (GHashTable *headers,
+                            gconstpointer output,
+                            gsize length)
+{
+  gs_free gchar *encoded = NULL;
+  gchar *value;
+
+  if (length)
+    {
+      encoded = g_base64_encode (output, length);
+      value = g_strdup_printf ("Negotiate %s", encoded);
+    }
+  else
+    {
+      value = g_strdup ("Negotiate");
+    }
+
+  g_hash_table_replace (headers, g_strdup ("WWW-Authenticate"), value);
+  g_debug ("gssapi: WWW-Authenticate: %s", value);
+}
+
+static gpointer
+parse_gssapi_input_header (GHashTable *headers,
+                           gsize *length)
+{
+  const gchar *line;
+
+  line = g_hash_table_lookup (headers, "Authorization");
+  if (!line)
+    return NULL;
+
+  line = str_skip (line, ' ');
+  if (g_ascii_strncasecmp (line, "Negotiate", 9) != 0)
+    return NULL;
+
+  g_debug ("gssapi: Authorization: %s", line);
+
+  line = str_skip (line + 9, ' ');
+  if (!line[0])
+    return NULL;
+
+  return g_base64_decode (line, length);
+}
+
+static gchar *
+gssapi_strerror (OM_uint32 major_status,
+                 OM_uint32 minor_status)
+{
+   OM_uint32 major, minor;
+   OM_uint32 ctx = 0;
+   gss_buffer_desc status;
+   gboolean had_minor;
+   GString *result;
+
+   g_debug ("gssapi: major_status: %8.8x, minor_status: %8.8x",
+            major_status, minor_status);
+
+   result = g_string_new ("");
+
+   for (;;)
+     {
+       major = gss_display_status (&minor, major_status, GSS_C_GSS_CODE,
+                                   GSS_C_NO_OID, &ctx, &status);
+       if (GSS_ERROR (major))
+         break;
+
+       if (result->len > 0)
+         g_string_append (result, ": ");
+
+       g_string_append_len (result, status.value, status.length);
+       gss_release_buffer (&minor, &status);
+
+       if (!ctx)
+         break;
+     }
+
+   ctx = 0;
+   had_minor = FALSE;
+   for (;;)
+     {
+       major = gss_display_status (&minor, minor_status, GSS_C_MECH_CODE,
+                                   GSS_C_NULL_OID, &ctx, &status);
+       if (GSS_ERROR (major))
+         break;
+
+       if (status.length)
+         {
+           if (!had_minor)
+             g_string_append (result, " (");
+           else
+             g_string_append (result, ", ");
+           had_minor = TRUE;
+           g_string_append_len (result, status.value, status.length);
+         }
+
+       gss_release_buffer (&minor, &status);
+
+       if (!ctx)
+         break;
+     }
+
+   if (had_minor)
+     g_string_append (result, ")");
+
+   return g_string_free (result, FALSE);
+}
+
+
+static CockpitCreds *
+cockpit_auth_gssapi_authenticate (CockpitAuth *auth,
+                                  GHashTable *in_headers,
+                                  GHashTable *out_headers)
+{
+  OM_uint32 major_status, minor_status;
+  gss_cred_id_t server = GSS_C_NO_CREDENTIAL;
+  gss_cred_id_t client = GSS_C_NO_CREDENTIAL;
+  gss_buffer_desc output = GSS_C_EMPTY_BUFFER;
+  gss_name_t name = GSS_C_NO_NAME;
+  gss_ctx_id_t context = GSS_C_NO_CONTEXT;
+  CockpitCreds *creds = NULL;
+  gs_free gchar *failure = NULL;
+  gss_buffer_desc input;
+  OM_uint32 flags = 0;
+
+  input.value = parse_gssapi_input_header (in_headers, &input.length);
+  if (input.value == NULL)
+    {
+      build_gssapi_output_header (out_headers, NULL, 0);
+      goto out;
+    }
+
+  server = GSS_C_NO_CREDENTIAL;
+
+  major_status = gss_accept_sec_context (&minor_status, &context, server, &input,
+                                         GSS_C_NO_CHANNEL_BINDINGS, &name, NULL,
+                                         &output, &flags, NULL, &client);
+
+  if (output.length)
+    build_gssapi_output_header (out_headers, output.value, output.length);
+
+  if (GSS_ERROR (major_status))
+    {
+      failure = gssapi_strerror (major_status, minor_status);
+      g_message ("gssapi: auth failed: %s", failure);
+      goto out;
+    }
+
+  /*
+   * In general gssapi mechanisms can require mulitple challenge response
+   * iterations keeping &context between each, however Kerberos doesn't
+   * require this, so we don't care :O
+   *
+   * If we ever want this to work with something other than Kerberos, then
+   * we'll have to have some sorta session that holds the context.
+   */
+  if (major_status & GSS_S_CONTINUE_NEEDED)
+    goto out;
+
+  creds = cockpit_creds_new_gssapi (name, client);
+
+out:
+  if (input.value)
+    g_free (input.value);
+  if (output.value)
+    gss_release_buffer (&minor_status, &output);
+  if (client != GSS_C_NO_CREDENTIAL)
+    gss_release_cred (&minor_status, &client);
+  if (server != GSS_C_NO_CREDENTIAL)
+    gss_release_cred (&minor_status, &server);
+  if (name != GSS_C_NO_NAME)
+     gss_release_name (&minor_status, &name);
+  if (context != GSS_C_NO_CONTEXT)
+     gss_delete_sec_context (&minor_status, &context, GSS_C_NO_BUFFER);
+
+  return creds;
 }
 
 CockpitAuth *
