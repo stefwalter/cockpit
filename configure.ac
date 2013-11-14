@@ -163,6 +163,21 @@ AC_CHECK_FILE($LVM2_INTERFACE, ,
 )
 AC_SUBST(LVM2_INTERFACE)
 
+# Kerberos
+
+# HACK: We can't yet use the new krb5 pkg-config file
+AC_PATH_PROG(KRB5_CONFIG, krb5-config)
+AC_MSG_CHECKING(for working krb5-config)
+if test -x "$KRB5_CONFIG"; then
+  COCKPIT_WS_CFLAGS="$COCKPIT_WS_CFLAGS $($KRB5_CONFIG --cflags gssapi)"
+  COCKPIT_WS_LIBS="$COCKPIT_WS_LIBS $($KRB5_CONFIG --libs gssapi)"
+  AC_MSG_RESULT(yes)
+else
+  if test x$KRB5_PASSED_LIBS = x; then
+    AC_MSG_ERROR(no. Please install MIT kerberos devel package)
+  fi
+fi
+
 # Config
 
 AC_DEFINE_UNQUOTED([COCKPIT_CONFIG_FILE],["$sysconfdir/cockpit/config"],[Configuration file])

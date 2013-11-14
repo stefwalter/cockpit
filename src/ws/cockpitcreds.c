@@ -20,12 +20,16 @@
 #include "config.h"
 
 #include "cockpitcreds.h"
+#include "cockpit/cockpit.h"
+
+#include <krb5/krb5.h>
 
 struct _CockpitCreds {
   gint refs;
   gchar *user;
   gchar *password;
   gchar *rhost;
+  gss_cred_id_t gssapi;
 };
 
 G_DEFINE_BOXED_TYPE (CockpitCreds, cockpit_creds, cockpit_creds_ref, cockpit_creds_unref);
@@ -34,9 +38,13 @@ static void
 cockpit_creds_free (gpointer data)
 {
   CockpitCreds *creds = data;
+  OM_uint32 minor;
+
   g_free (creds->user);
   g_free (creds->password);
   g_free (creds->rhost);
+  if (creds->gssapi != GSS_C_NO_CREDENTIAL)
+    gss_release_cred (&minor, &creds->gssapi);
   g_free (creds);
 }
 
@@ -72,6 +80,8 @@ cockpit_creds_new (const gchar *user,
         creds->password = g_strdup (va_arg (va, const char *));
       else if (g_str_equal (type, COCKPIT_CRED_RHOST))
         creds->rhost = g_strdup (va_arg (va, const char *));
+      else if (g_str_equal (type, COCKPIT_CRED_GSSAPI))
+        creds->gssapi = va_arg (va, gss_cred_id_t);
       else
         g_assert_not_reached ();
     }
@@ -128,6 +138,21 @@ cockpit_creds_get_rhost (CockpitCreds *creds)
   return creds->rhost;
 }
 
+/**
+ * cockpit_creds_get_gssapi:
+ * @creds: the credentials
+ *
+ * Get GSSAPI client credentials, or NULL if not present.
+ *
+ * Returns: the GSSAPI creds or NULL
+ */
+gss_cred_id_t
+cockpit_creds_get_gssapi (CockpitCreds *creds)
+{
+  g_return_val_if_fail (creds != NULL, NULL);
+  return creds->gssapi;
+}
+
 gboolean
 cockpit_creds_equal (gconstpointer v1,
                      gconstpointer v2)
@@ -163,3 +188,4 @@ cockpit_creds_hash (gconstpointer v)
     }
   return hash;
 }
+

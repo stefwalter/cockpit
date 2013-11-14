@@ -54,6 +54,7 @@ struct _CockpitAuthClass
 
   /* signals */
   CockpitCreds * (* authenticate)        (CockpitAuth *auth,
+                                          const gchar *remote_peer,
                                           GHashTable *in_headers,
                                           GHashTable *out_headers);
 
@@ -77,6 +78,7 @@ CockpitCreds *  cockpit_auth_check_userpass  (CockpitAuth *auth,
                                               GError **error);
 
 CockpitCreds *  cockpit_auth_check_headers   (CockpitAuth *auth,
+                                              const gchar *remote_peer,
                                               GHashTable *in_headers,
                                               GHashTable *out_headers);
 
