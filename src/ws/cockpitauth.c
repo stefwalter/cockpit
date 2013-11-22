@@ -662,3 +662,10 @@ cockpit_auth_verify_password (CockpitAuth *auth,
   g_return_val_if_fail (klass->verify_password != NULL, FALSE);
   return klass->verify_password (auth, user, password, error);
 }
+
+void
+cockpit_auth_set_keytab (const gchar *keytab)
+{
+  g_setenv ("KRB5_KTNAME", keytab, TRUE);
+  gsskrb5_register_acceptor_identity (keytab);
+}

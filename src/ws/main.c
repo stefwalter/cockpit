@@ -37,6 +37,7 @@
 
 static gint      opt_port         = 21064;
 static gchar   **opt_http_roots   = NULL;
+static gchar    *opt_keytab       = NULL;
 static gboolean  opt_no_tls       = FALSE;
 static gboolean  opt_disable_auth = FALSE;
 static gboolean  opt_debug = FALSE;
@@ -51,6 +52,7 @@ static GOptionEntry cmd_entries[] = {
   {"no-auth", 0, 0, G_OPTION_ARG_NONE, &opt_disable_auth, "Don't require authentication", NULL},
   {"agent-path", 0, 0, G_OPTION_ARG_FILENAME, &opt_agent_program, "Change path to agent program", NULL},
 #endif
+  {"keytab", 0, 0, G_OPTION_ARG_FILENAME, &opt_keytab, "Path to kerberos keytab", NULL},
   {NULL}
 };
 
@@ -263,6 +265,8 @@ main (int argc,
 
   if (opt_http_roots == NULL)
     opt_http_roots = g_strdupv ((gchar **)default_roots);
+  if (opt_keytab)
+    cockpit_auth_set_keytab (opt_keytab);
 
   if (opt_no_tls)
     {
@@ -321,6 +325,7 @@ main (int argc,
 out:
   g_strfreev (opt_http_roots);
   g_free (opt_agent_program);
+  g_free (opt_keytab);
   if (local_error)
     {
       g_printerr ("%s (%s, %d)\n", local_error->message, g_quark_to_string (local_error->domain), local_error->code);

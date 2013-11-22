@@ -83,6 +83,8 @@ gboolean        cockpit_auth_verify_password (CockpitAuth *auth,
 struct passwd * cockpit_getpwnam_a           (const gchar *user,
                                               int *errp);
 
+void            cockpit_auth_set_keytab      (const gchar *keytab);
+
 G_END_DECLS
 
 #endif
