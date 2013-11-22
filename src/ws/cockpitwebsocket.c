@@ -260,7 +260,7 @@ typedef struct
 {
   WebSocketConnection      *web_socket;
   GSocketConnection        *connection;
-  CockpitCreds             *authenticated;
+  CockpitCreds             *creds;
   gchar                    *target_host;
   gint                      specific_port;
   gchar                    *agent_program;
@@ -286,8 +286,7 @@ web_socket_data_free (WebSocketData   *data)
   g_bytes_unref (data->control_prefix);
   g_free (data->agent_program);
   g_free (data->known_hosts);
-  if (data->authenticated)
-    cockpit_creds_unref (data->authenticated);
+  cockpit_creds_unref (data->creds);
   g_free (data->rhost);
   g_free (data);
 }
@@ -523,8 +522,8 @@ process_open (WebSocketData *data,
     }
   else
     {
-      creds = data->authenticated;
-      user = cockpit_creds_get_user (data->authenticated);
+      creds = data->creds;
+      user = cockpit_creds_get_user (creds);
     }
 
   if (!cockpit_json_get_string (options, "host-key", NULL, &host_key))
@@ -680,21 +679,7 @@ on_web_socket_open (WebSocketConnection *web_socket,
   g_info ("New connection from %s:%d for %s", data->rhost, data->rport,
           data->user ? data->user : "");
 
-  /* We send auth errors as regular messages after establishing the
-     connection because the WebSocket API doesn't let us see the HTTP
-     status code.  We can't just use 'close' control frames to return a
-     meaningful status code, but the old protocol doesn't have them.
-  */
-  if (!data->authenticated)
-    {
-      report_close (data, 0, "no-session");
-      web_socket_connection_close (web_socket,
-                                   WEB_SOCKET_CLOSE_GOING_AWAY,
-                                   "not-authenticated");
-    }
-  else
-    g_signal_connect (web_socket, "message",
-                      G_CALLBACK (on_web_socket_message), data);
+  g_signal_connect (web_socket, "message", G_CALLBACK (on_web_socket_message), data);
 }
 
 static void
@@ -768,12 +753,14 @@ cockpit_web_socket_serve_dbus (CockpitWebServer *server,
                                GIOStream *io_stream,
                                GHashTable *headers,
                                GByteArray *input_buffer,
-                               CockpitAuth *auth)
+                               CockpitCreds *creds)
 {
   const gchar *protocols[] = { "cockpit1", NULL };
   WebSocketData *data;
   guint ping_id;
   gchar *url;
+
+  g_return_if_fail (creds != NULL);
 
   data = g_new0 (WebSocketData, 1);
   data->specific_port = specific_port;
@@ -793,9 +780,8 @@ cockpit_web_socket_serve_dbus (CockpitWebServer *server,
   data->control_prefix = g_bytes_new_static ("0\n", 2);
   cockpit_sessions_init (&data->sessions);
 
-  data->authenticated = cockpit_auth_check_headers (auth, headers, NULL);
-  if (data->authenticated)
-    data->user = cockpit_creds_get_user (data->authenticated);
+  data->creds = cockpit_creds_ref (creds);
+  data->user = cockpit_creds_get_user (data->creds);
 
   /* TODO: We need to validate Host throughout */
   url = g_strdup_printf ("%s://host-not-yet-used/socket",

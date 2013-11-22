@@ -63,7 +63,7 @@ on_handle_resource_socket (CockpitWebServer *server,
                            GDataOutputStream *out,
                            gpointer user_data)
 {
-  CockpitAuth *auth = user_data;
+  CockpitCreds *creds = user_data;
   GByteArray *buffer;
   gconstpointer data;
   gsize length;
@@ -83,19 +83,10 @@ on_handle_resource_socket (CockpitWebServer *server,
   g_filter_output_stream_set_close_base_stream (G_FILTER_OUTPUT_STREAM (out), FALSE);
 
   cockpit_web_socket_serve_dbus (server, 0, "./test-agent", NULL,
-                                 io_stream, headers, buffer, auth);
+                                 io_stream, headers, buffer, creds);
 
   g_byte_array_unref (buffer);
   return TRUE;
-}
-
-static CockpitCreds *
-on_auth_authenticate (CockpitAuth *auth,
-                      GHashTable *in_headers,
-                      GHashTable *out_headers)
-{
-  /* Dummy auth, overrides all other auth */
-  return cockpit_creds_new_password (g_get_user_name (), "<noauth>");
 }
 
 static void
@@ -122,7 +113,7 @@ server_ready (void)
   const gchar *roots[] = { ".", NULL };
   GError *error = NULL;
   CockpitWebServer *server;
-  CockpitAuth *auth;
+  CockpitCreds *creds;
   gchar *args[5];
   gint port;
   gchar *url;
@@ -144,13 +135,12 @@ server_ready (void)
                   error->message, g_quark_to_string (error->domain), error->code);
     }
 
-  auth = cockpit_auth_new ();
-  g_signal_connect (auth, "authenticate", G_CALLBACK (on_auth_authenticate), NULL);
+  creds = cockpit_creds_new_password (g_get_user_name (), "<noauth>");
 
   g_signal_connect_data (server,
                          "handle-resource::/socket",
                          G_CALLBACK (on_handle_resource_socket),
-                         auth, (GClosureNotify)g_object_unref, 0);
+                         creds, (GClosureNotify)cockpit_creds_unref, 0);
 
   g_object_get (server, "port", &port, NULL);
   url = g_strdup_printf("http://localhost:%d/dbus-test.html", port);

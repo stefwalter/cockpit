@@ -20,8 +20,6 @@
 function cockpit_client_error_description (error) {
     if (error == "terminated")
         return _("Your session has been terminated.");
-    else if (error == "no-session")
-        return _("Your session has expired.  Please log in again.");
     else if (error == "not-authorized")
         return _("Login failed");
     else if (error == "unknown-hostkey")

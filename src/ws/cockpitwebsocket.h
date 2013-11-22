@@ -33,7 +33,7 @@ void         cockpit_web_socket_serve_dbus   (CockpitWebServer *server,
                                               GIOStream *io_stream,
                                               GHashTable *headers,
                                               GByteArray *input_buffer,
-                                              CockpitAuth *auth);
+                                              CockpitCreds *creds);
 
 G_END_DECLS
 
