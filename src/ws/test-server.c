@@ -65,6 +65,7 @@ on_handle_resource_socket (CockpitWebServer *server,
                            gpointer user_data)
 {
   CockpitAuth *auth = user_data;
+  CockpitCreds *creds;
   GByteArray *buffer;
   gconstpointer data;
   gsize length;
@@ -73,6 +74,10 @@ on_handle_resource_socket (CockpitWebServer *server,
         (g_ascii_strcasecmp (g_hash_table_lookup (headers, "Upgrade"), "websocket") == 0 ||
          g_ascii_strcasecmp (g_hash_table_lookup (headers, "Connection"), "Upgrade") == 0)))
     return FALSE;
+
+  /* Authenticate the connection */
+  creds = cockpit_auth_check_headers (auth, headers, NULL);
+  g_assert (creds != NULL);
 
   /* Save the data which has already been read from input */
   buffer = g_byte_array_new ();
@@ -83,8 +88,9 @@ on_handle_resource_socket (CockpitWebServer *server,
   g_filter_input_stream_set_close_base_stream (G_FILTER_INPUT_STREAM (in), FALSE);
   g_filter_output_stream_set_close_base_stream (G_FILTER_OUTPUT_STREAM (out), FALSE);
 
-  cockpit_web_socket_serve_dbus (server, io_stream, headers, buffer, auth);
+  cockpit_web_socket_serve_dbus (server, io_stream, headers, buffer, auth, creds);
 
+  cockpit_creds_unref (creds);
   g_byte_array_unref (buffer);
   return TRUE;
 }

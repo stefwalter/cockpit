@@ -54,6 +54,7 @@ typedef struct {
   CockpitWebServer *web_server;
   gchar *cookie;
   CockpitAuth *auth;
+  CockpitCreds *creds;
 
   /* setup_io_pair */
   GIOStream *io_a;
@@ -156,12 +157,8 @@ setup_mock_webserver (TestCase *test,
                       gconstpointer data)
 {
   const gchar *roots[] = { SRCDIR "/src/ws", NULL };
-  CockpitCreds *creds;
   GError *error = NULL;
-  GHashTable *headers;
   const gchar *user;
-  gchar *userpass;
-  gchar *end;
 
   /* Zero port makes server choose its own */
   test->web_server = cockpit_web_server_new (0, NULL, roots, NULL, &error);
@@ -169,21 +166,7 @@ setup_mock_webserver (TestCase *test,
 
   user = g_get_user_name ();
   test->auth = mock_auth_new (user, PASSWORD);
-
-  headers = web_socket_util_new_headers ();
-  userpass = g_strdup_printf ("%s\n%s", user, PASSWORD);
-  creds = cockpit_auth_check_userpass (test->auth, userpass, FALSE, NULL, headers, &error);
-  g_assert_no_error (error);
-  cockpit_creds_unref (creds);
-  g_free (userpass);
-
-  /* Dig out the cookie */
-  test->cookie = g_strdup (g_hash_table_lookup (headers, "Set-Cookie"));
-  end = strchr (test->cookie, ';');
-  g_assert (end != NULL);
-  end[0] = '\0';
-
-  g_hash_table_unref (headers);
+  test->creds = cockpit_creds_new (user, COCKPIT_CRED_PASSWORD, PASSWORD, NULL);
 }
 
 static void
@@ -191,8 +174,7 @@ teardown_mock_webserver (TestCase *test,
                          gconstpointer data)
 {
   g_clear_object (&test->web_server);
-  g_clear_object (&test->auth);
-  g_free (test->cookie);
+  cockpit_creds_unref (test->creds);
 }
 
 static void
@@ -305,9 +287,8 @@ serve_thread_func (gpointer data)
   buffer = g_buffered_input_stream_peek_buffer (bis, &count);
   g_byte_array_append (consumed, (guchar *)buffer, count);
 
-  cockpit_web_socket_serve_dbus (test->web_server,
-                              test->io_b, headers,
-                              consumed, test->auth);
+  cockpit_web_socket_serve_dbus (test->web_server, test->io_b, headers,
+                                 consumed, test->auth, test->creds);
 
   g_io_stream_close (test->io_b, NULL, &error);
   g_assert_no_error (error);
@@ -431,7 +412,6 @@ start_web_service_and_create_client (TestCase *test,
                      NULL);
 
   g_signal_connect (*ws, "error", G_CALLBACK (on_error_not_reached), NULL);
-  web_socket_client_include_header (WEB_SOCKET_CLIENT (*ws), "Cookie", test->cookie);
   *thread = g_thread_new ("serve-thread", serve_thread_func, test);
 }
 
@@ -672,32 +652,6 @@ test_specified_creds_fail (TestCase *test,
   close_client_and_stop_web_service (test, ws, thread);
 }
 
-static void
-test_socket_unauthenticated (TestCase *test,
-                             gconstpointer data)
-{
-  WebSocketConnection *ws;
-  GThread *thread;
-  GBytes *received = NULL;
-
-  start_web_service_and_create_client (test, 0, &ws, &thread);
-  g_signal_connect (ws, "message", G_CALLBACK (on_message_get_bytes), &received);
-
-  /* No authentication cookie */
-  web_socket_client_include_header (WEB_SOCKET_CLIENT (ws), "Cookie", NULL);
-
-  /* Should close right after opening */
-  WAIT_UNTIL (web_socket_connection_get_ready_state (ws) == WEB_SOCKET_STATE_CLOSED);
-
-  /* And we should have received a message */
-  g_assert (received != NULL);
-  expect_control_message (received, "close", 4, "reason", "no-session", NULL);
-  g_bytes_unref (received);
-  received = NULL;
-
-  close_client_and_stop_web_service (test, ws, thread);
-}
-
 static const gchar MOCK_RSA_KEY[] = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCYzo07OA0H6f7orVun9nIVjGYrkf8AuPDScqWGzlKpAqSipoQ9oY/mwONwIOu4uhKh7FTQCq5p+NaOJ6+Q4z++xBzSOLFseKX+zyLxgNG28jnF06WSmrMsSfvPdNuZKt9rZcQFKn9fRNa8oixa+RsqEEVEvTYhGtRf7w2wsV49xIoIza/bln1ABX1YLaCByZow+dK3ZlHn/UU0r4ewpAIZhve4vCvAsMe5+6KJH8ft/OKXXQY06h6jCythLV4h18gY/sYosOa+/4XgpmBiE7fDeFRKVjP3mvkxMpxce+ckOFae2+aJu51h513S9kxY2PmKaV/JU9HBYO+yO4j+j24v";
 
 static const gchar MOCK_RSA_FP[] = "0e:6a:c8:b1:07:72:e2:04:95:9f:0e:b3:56:af:48:e2";
@@ -837,9 +791,7 @@ main (int argc,
   g_test_add ("/web-service/close-error", TestCase,
               NULL, setup_for_socket,
               test_close_error, teardown_for_socket);
-  g_test_add ("/web-service/unauthenticated", TestCase,
-              NULL, setup_for_socket,
-              test_socket_unauthenticated, teardown_for_socket);
+
   g_test_add ("/web-service/unknown-hostkey", TestCase,
               NULL, setup_for_socket,
               test_unknown_host_key, teardown_for_socket);

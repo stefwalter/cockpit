@@ -51,6 +51,8 @@ cockpit_handler_socket (CockpitWebServer *server,
                         GDataOutputStream *out,
                         CockpitHandlerData *ws)
 {
+  GHashTable *out_headers;
+  CockpitCreds *creds;
   GByteArray *buffer;
   gconstpointer data;
   gsize length;
@@ -59,6 +61,16 @@ cockpit_handler_socket (CockpitWebServer *server,
       || (g_ascii_strcasecmp (g_hash_table_lookup (headers, "Upgrade"), "websocket") != 0
           && g_ascii_strcasecmp (g_hash_table_lookup (headers, "Connection"), "Upgrade") != 0))
     return FALSE;
+
+  /* Authenticate the connection */
+  out_headers = cockpit_web_server_new_table ();
+  creds = cockpit_auth_check_headers (ws->auth, headers, out_headers);
+  if (creds == NULL)
+    {
+      cockpit_web_server_return_error (G_OUTPUT_STREAM (out), 401, out_headers, "Unauthorized");
+      g_hash_table_unref (out_headers);
+      return TRUE;
+    }
 
   /* Save the data which has already been read from input */
   buffer = g_byte_array_new ();
@@ -69,9 +81,10 @@ cockpit_handler_socket (CockpitWebServer *server,
   g_filter_input_stream_set_close_base_stream (G_FILTER_INPUT_STREAM (in), FALSE);
   g_filter_output_stream_set_close_base_stream (G_FILTER_OUTPUT_STREAM (out), FALSE);
 
-  cockpit_web_socket_serve_dbus (server, io_stream, headers, buffer, ws->auth);
+  cockpit_web_socket_serve_dbus (server, io_stream, headers, buffer, ws->auth, creds);
 
   g_byte_array_unref (buffer);
+  g_hash_table_unref (out_headers);
   return TRUE;
 }
 

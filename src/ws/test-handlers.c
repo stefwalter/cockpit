@@ -311,6 +311,25 @@ test_logout (Test *test,
   cockpit_assert_strmatch (output, "HTTP/1.1 200 OK\r\n*Set-Cookie: CockpitAuth=blank;*Logged out*");
 }
 
+static void
+test_socket_noauth (Test *test,
+                    gconstpointer data)
+{
+  gboolean ret;
+
+  g_hash_table_insert (test->headers, g_strdup ("Upgrade"), g_strdup ("websocket"));
+  g_hash_table_insert (test->headers, g_strdup ("Connection"), g_strdup ("Upgrade"));
+
+  ret = cockpit_handler_socket (test->server,
+                                COCKPIT_WEB_SERVER_REQUEST_GET, "/socket",
+                                test->io, test->headers,
+                                test->datain, test->dataout, &test->data);
+
+  g_assert (ret == TRUE);
+
+  cockpit_assert_strmatch (output_as_string (test), "HTTP/1.1 401 Unauthorized\r\n*");
+}
+
 int
 main (int argc,
       char *argv[])
@@ -333,6 +352,9 @@ main (int argc,
 
   g_test_add ("/handlers/cockpitdyn", Test, NULL,
               setup, test_cockpitdyn, teardown);
+
+  g_test_add ("/handlers/socket/no-auth", Test, NULL,
+              setup, test_socket_noauth, teardown);
 
   return g_test_run ();
 }

@@ -273,8 +273,7 @@ typedef struct
   WebSocketConnection      *web_socket;
   GSocketConnection        *connection;
   CockpitAuth              *auth;
-  CockpitCreds             *authenticated;
-
+  CockpitCreds *creds;
   CockpitSessions sessions;
   gboolean closing;
   GBytes *control_prefix;
@@ -289,8 +288,7 @@ web_socket_data_free (WebSocketData   *data)
   g_object_unref (data->web_socket);
   g_bytes_unref (data->control_prefix);
   g_object_unref (data->auth);
-  if (data->authenticated)
-    cockpit_creds_unref (data->authenticated);
+  cockpit_creds_unref (data->creds);
   g_free (data);
 }
 
@@ -507,14 +505,14 @@ process_open (WebSocketData *data,
         password = NULL;
       creds = cockpit_creds_new (specific_user,
                                  COCKPIT_CRED_PASSWORD, password,
-                                 COCKPIT_CRED_RHOST, cockpit_creds_get_rhost (data->authenticated),
+                                 COCKPIT_CRED_RHOST, cockpit_creds_get_rhost (data->creds),
                                  NULL);
       user = specific_user;
     }
   else
     {
-      creds = cockpit_creds_ref (data->authenticated);
-      user = cockpit_creds_get_user (data->authenticated);
+      creds = cockpit_creds_ref (data->creds);
+      user = cockpit_creds_get_user (creds);
     }
 
   if (!cockpit_json_get_string (options, "host-key", NULL, &host_key))
@@ -537,7 +535,7 @@ process_open (WebSocketData *data,
       if (g_strcmp0 (host, "localhost") == 0)
         {
           /* Any failures happen asyncronously */
-          pipe = cockpit_auth_start_session (data->auth, data->authenticated);
+          pipe = cockpit_auth_start_session (data->auth, data->creds);
           transport = cockpit_pipe_transport_new (pipe);
           g_object_unref (pipe);
         }
@@ -675,27 +673,11 @@ static void
 on_web_socket_open (WebSocketConnection *web_socket,
                     WebSocketData *data)
 {
-  /* We send auth errors as regular messages after establishing the
-     connection because the WebSocket API doesn't let us see the HTTP
-     status code.  We can't just use 'close' control frames to return a
-     meaningful status code, but the old protocol doesn't have them.
-  */
-  if (!data->authenticated)
-    {
-      g_info ("Closing unauthenticated connection");
-      report_close (data, 0, "no-session");
-      web_socket_connection_close (web_socket,
-                                   WEB_SOCKET_CLOSE_GOING_AWAY,
-                                   "not-authenticated");
-    }
-  else
-    {
-      g_info ("New connection from %s for %s",
-              cockpit_creds_get_rhost (data->authenticated),
-              cockpit_creds_get_user (data->authenticated));
-      g_signal_connect (web_socket, "message",
-                        G_CALLBACK (on_web_socket_message), data);
-    }
+  g_info ("New connection from %s for %s",
+          cockpit_creds_get_rhost (data->creds),
+          cockpit_creds_get_user (data->creds));
+  g_signal_connect (web_socket, "message",
+                    G_CALLBACK (on_web_socket_message), data);
 }
 
 static void
@@ -740,11 +722,11 @@ static void
 on_web_socket_close (WebSocketConnection *web_socket,
                      WebSocketData *data)
 {
-  if (data->authenticated)
+  if (data->creds)
     {
       g_info ("Connection from %s for %s closed",
-              cockpit_creds_get_rhost (data->authenticated),
-              cockpit_creds_get_user (data->authenticated));
+              cockpit_creds_get_rhost (data->creds),
+              cockpit_creds_get_user (data->creds));
     }
 }
 
@@ -771,12 +753,15 @@ cockpit_web_socket_serve_dbus (CockpitWebServer *server,
                                GIOStream *io_stream,
                                GHashTable *headers,
                                GByteArray *input_buffer,
-                               CockpitAuth *auth)
+                               CockpitAuth *auth,
+                               CockpitCreds *creds)
 {
   const gchar *protocols[] = { "cockpit1", NULL };
   WebSocketData *data;
   guint ping_id;
   gchar *url;
+
+  g_return_if_fail (creds != NULL);
 
   data = g_new0 (WebSocketData, 1);
   if (G_IS_SOCKET_CONNECTION (io_stream))
@@ -793,7 +778,7 @@ cockpit_web_socket_serve_dbus (CockpitWebServer *server,
   cockpit_sessions_init (&data->sessions);
 
   data->auth = g_object_ref (auth);
-  data->authenticated = cockpit_auth_check_headers (auth, headers, NULL);
+  data->creds = cockpit_creds_ref (creds);
 
   /* TODO: We need to validate Host throughout */
   url = g_strdup_printf ("%s://host-not-yet-used/socket",
