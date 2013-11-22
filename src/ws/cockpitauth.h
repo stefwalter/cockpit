@@ -94,6 +94,8 @@ CockpitPipe *   cockpit_auth_start_session   (CockpitAuth *auth,
 struct passwd * cockpit_getpwnam_a           (const gchar *user,
                                               int *errp);
 
+void            cockpit_auth_set_keytab      (const gchar *keytab);
+
 G_END_DECLS
 
 #endif

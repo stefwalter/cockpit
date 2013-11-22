@@ -1008,3 +1008,10 @@ cockpit_auth_start_session (CockpitAuth *self,
 
   return pipe;
 }
+
+void
+cockpit_auth_set_keytab (const gchar *keytab)
+{
+  g_setenv ("KRB5_KTNAME", keytab, TRUE);
+  gsskrb5_register_acceptor_identity (keytab);
+}
