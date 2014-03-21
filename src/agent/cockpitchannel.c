@@ -21,7 +21,10 @@
 
 #include "cockpitchannel.h"
 #include "cockpitdbusjson.h"
+#include "cockpitrestjson.h"
 #include "cockpittextstream.h"
+
+#include "cockpit/cockpitjson.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -296,20 +299,6 @@ cockpit_channel_class_init (CockpitChannelClass *klass)
   g_type_class_add_private (klass, sizeof (CockpitChannelPrivate));
 }
 
-static const gchar *
-safe_read_option (JsonObject *options,
-                  const char *name)
-{
-  JsonNode *node;
-  const gchar *value = NULL;
-
-  node = json_object_get_member (options, name);
-  if (node && json_node_get_value_type (node) == G_TYPE_STRING)
-    value = json_node_get_string (node);
-
-  return value;
-}
-
 /**
  * cockpit_channel_open:
  * @transport: the transport to send/receive messages on
@@ -332,9 +321,12 @@ cockpit_channel_open (CockpitTransport *transport,
   GType channel_type;
   const gchar *payload;
 
-  payload = safe_read_option (options, "payload");
+  if (!cockpit_json_get_string (options, "payload", NULL, &payload))
+    payload = NULL;
   if (g_strcmp0 (payload, "dbus-json1") == 0)
     channel_type = COCKPIT_TYPE_DBUS_JSON;
+  else if (g_strcmp0 (payload, "rest-json1") == 0)
+    channel_type = COCKPIT_TYPE_REST_JSON;
   else if (g_strcmp0 (payload, "text-stream") == 0)
     channel_type = COCKPIT_TYPE_TEXT_STREAM;
   else
@@ -459,5 +451,28 @@ const gchar *
 cockpit_channel_get_option (CockpitChannel *self,
                             const gchar *name)
 {
-  return safe_read_option (self->priv->options, name);
+  const gchar *value;
+  if (!cockpit_json_get_string (self->priv->options, name, NULL, &value))
+    value = NULL;
+  return value;
+}
+
+/**
+ * cockpit_channel_get_int_option:
+ * @self: a channel
+ * @name: the option name
+ *
+ * Called by implementations to get an int value from the
+ * channel's options.
+ *
+ * Returns: the option value or G_MAXINT64
+ */
+gint64
+cockpit_channel_get_int_option (CockpitChannel *self,
+                                const gchar *name)
+{
+  gint64 value;
+  if (!cockpit_json_get_int (self->priv->options, name, G_MAXINT64, &value))
+    value = G_MAXINT64;
+  return value;
 }
