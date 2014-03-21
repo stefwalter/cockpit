@@ -76,6 +76,49 @@ cockpit_json_get_string (JsonObject *options,
   return TRUE;
 }
 
+#define DEBUG_JSON_EQUAL 1
+#if defined(WITH_DEBUG) && defined(DEBUG_JSON_EQUAL)
+static gboolean
+mismatch (JsonNode *a,
+          JsonNode *b)
+{
+  JsonGenerator *generator;
+  gchar *stra;
+  gchar *strb;
+
+  generator = json_generator_new ();
+
+  if (a == NULL)
+    {
+      stra = g_strdup ("(null)");
+    }
+  else
+    {
+      json_generator_set_root (generator, a);
+      stra = json_generator_to_data (generator, NULL);
+    }
+
+  if (b == NULL)
+    {
+      strb = g_strdup ("(null)");
+    }
+  else
+    {
+      json_generator_set_root (generator, b);
+      strb = json_generator_to_data (generator, NULL);
+    }
+
+  g_printerr ("%s != %s\n", stra, strb);
+  g_object_unref (generator);
+  g_free (stra);
+  g_free (strb);
+
+  return FALSE;
+}
+#else
+#define mismatch(one, two) FALSE
+#endif /* WITH_DEBUG && DEBUG_JSON_EQUAL */
+
 static gboolean
 cockpit_json_equal_object (JsonObject *previous,
                            JsonObject *current)
@@ -149,49 +192,55 @@ cockpit_json_equal (JsonNode *previous,
 {
   JsonNodeType type = 0;
   GType gtype = 0;
+  gboolean ret;
 
   if (previous == current)
     return TRUE;
   if (!previous || !current)
-    return FALSE;
+    return mismatch (previous, current);
 
   type = json_node_get_node_type (previous);
   if (type != json_node_get_node_type (current))
-    return FALSE;
+    return mismatch (previous, current);
   if (type == JSON_NODE_VALUE)
     {
       gtype = json_node_get_value_type (previous);
       if (gtype != json_node_get_value_type (current))
-        return FALSE;
+        return mismatch (previous, current);
     }
 
   /* Now compare values */
   switch (type)
     {
     case JSON_NODE_OBJECT:
-      return cockpit_json_equal_object (json_node_get_object (previous),
-                                        json_node_get_object (current));
+      ret = cockpit_json_equal_object (json_node_get_object (previous),
+                                       json_node_get_object (current));
     case JSON_NODE_ARRAY:
-      return cockpit_json_equal_array (json_node_get_array (previous),
-                                       json_node_get_array (current));
+      ret = cockpit_json_equal_array (json_node_get_array (previous),
+                                      json_node_get_array (current));
     case JSON_NODE_NULL:
       return TRUE;
 
     case JSON_NODE_VALUE:
       if (gtype == G_TYPE_INT64)
-        return json_node_get_int (previous) == json_node_get_int (current);
+        ret = json_node_get_int (previous) == json_node_get_int (current);
       else if (gtype == G_TYPE_DOUBLE)
-        return json_node_get_double (previous) == json_node_get_double (current);
+        ret = json_node_get_double (previous) == json_node_get_double (current);
       else if (gtype == G_TYPE_BOOLEAN)
-        return json_node_get_boolean (previous) == json_node_get_boolean (current);
+        ret = json_node_get_boolean (previous) == json_node_get_boolean (current);
       else if (gtype == G_TYPE_STRING)
-        return g_strcmp0 (json_node_get_string (previous), json_node_get_string (current)) == 0;
+        ret = g_strcmp0 (json_node_get_string (previous), json_node_get_string (current)) == 0;
       else
         return TRUE;
 
     default:
-      return FALSE;
+      ret = FALSE;
     }
+
+  if (!ret)
+    return mismatch (previous, current);
+
+  return TRUE;
 }
 
 /**
