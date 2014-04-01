@@ -29,6 +29,11 @@ a {
     cursor: pointer;
 }
 
+/* Red Hat Branding */
+.navbar-pf {
+    border-color: #cc0000;
+}
+
 .dropdown-menu > .disabled > a:hover {
     cursor: default;
 }
