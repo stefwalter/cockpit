@@ -21,6 +21,11 @@
 
 @import url("patternfly.css");
 
+/* Red Hat Branding */
+.navbar-pf {
+    border-color: #cc0000;
+}
+
 a {
     cursor: pointer;
 }
