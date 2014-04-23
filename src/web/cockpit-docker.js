@@ -127,10 +127,15 @@ function container_from_cgroup(cgroup) {
 }
 
 function insert_table_sorted(table, row) {
-    var key = $(row).text();
+    insert_table_sorted_generic(table, row, function(row1, row2) {
+        return row1.text().localeCompare(row2.text());
+    });
+}
+
+function insert_table_sorted_generic(table, row, cmp) {
     var rows = $(table).find("tbody tr");
     for (var j = 0; j < rows.length; j++) {
-        if ($(rows[j]).text().localeCompare(key) > 0) {
+        if (cmp($(rows[j]), row) > 0) {
             $(row).insertBefore(rows[j]);
             row = null;
             break;
@@ -267,6 +272,10 @@ PageContainers.prototype = {
                                      { title: _("Running"),             choice: 'running' }
                                    ]);
             $('#containers-containers .panel-heading span').append(this.container_filter_btn);
+            $('#containers-images-search').on("click", function() {
+                  PageSearchImage.display(self.client);
+                  return false;
+              });
         }
 
         var client = get_docker_client();
@@ -671,6 +680,105 @@ function PageRunImage() {
 }
 
 cockpit_pages.push(new PageRunImage());
+
+PageSearchImage.prototype = {
+    _init: function() {
+        this.id = "containers_search_image_dialog";
+    },
+
+    getTitle: function() {
+        return C_("page-title", "Search Image");
+    },
+
+    show: function() {
+    },
+
+    leave: function() {
+        this.cancel_search();
+    },
+
+    enter: function(first_visit) {
+        var page = this;
+
+        if (first_visit) {
+            $("#containers-search-image-search").on('input', $.proxy(this, "input"));
+            this.search_timeout = null;
+            this.search_request = null;
+        }
+
+        $('#containers-search-image-results tbody tr').remove();
+    },
+
+    input: function(event) {
+        this.cancel_search();
+
+        if(event.target.value.length < 3)
+            return;
+
+        this.search_timeout = window.setTimeout(this.perform_search, 2000);
+    },
+
+    perform_search: function() {
+        var term = $('#containers-search-image-search')[0].value;
+
+        // TODO: Show spinner in search field
+
+        this.search_request = PageSearchImage.client.search(term).
+          done(function(resp){
+              //TODO: Hide spinner in search field
+              $('#containers-search-image-results tbody tr').remove();
+              resp.forEach(function(entry) {
+                  var row = $('<tr>').append(
+                                $('<td>').text(entry.name),
+                                $('<td>').text(entry.description));
+                  row.on('click', function(event) {
+                      window.alert('Clicked on me: ' + entry.name);
+                  });
+                  row.data('entry', entry);
+
+                  insert_table_sorted_generic($('#container-search-image-results'), row, function(row1, row2) {
+                      //Bigger than 0 means row1 after row2
+                      //Smaller than 0 means row1 before row2
+                      if (row1.data('entry').is_official && !row2.data('entry').is_official)
+                          return -1;
+                      if (!row1.data('entry').is_official && row2.data('entry').is_official)
+                          return 1;
+                      if (row1.data('entry').is_trusted && !row2.data('entry').is_trusted)
+                          return -1;
+                      if (!row1.data('entry').is_trusted && row2.data('entry').is_trusted)
+                          return 1;
+                      if (row1.data('entry').star_count != row2.data('entry').star_count)
+                          return row2.data('entry').star_count - row1.data('entry').star_count;
+                      return row1.data('entry').name.localeCompare(row2.data('entry').name);
+                  });
+            });
+          }).
+          fail(function(ex){
+              window.alert("Search failed: " + ex);
+         });
+    },
+
+    cancel_search: function() {
+        window.clearTimeout(this.search_timeout);
+        $('#container-search-image-results tbody').empty();
+        if (this.search_request !== null) {
+            this.search_request.cancel();
+            this.search_request = null;
+        }
+        // TODO: Hide spinner in search field
+    }
+};
+
+PageSearchImage.display = function(client) {
+    PageSearchImage.client = client;
+    $("#containers_search_image_dialog").modal('show');
+};
+
+function PageSearchImage() {
+    this._init();
+}
+
+cockpit_pages.push(new PageSearchImage());
 
 PageContainerDetails.prototype = {
     _init: function() {
@@ -1321,6 +1429,17 @@ function DockerClient(machine) {
             }).
             done(function(resp) {
                 docker_debug("created:", name, resp);
+            });
+    };
+
+    this.search = function search(term) {
+        docker_debug("searching:", term);
+        return rest.get("/images/search", { "term": term }).
+            fail(function(ex) {
+                docker_debug("search failed:", term, ex);
+            }).
+            done(function(resp) {
+                docker_debug("searched:", term, resp);
             });
     };
 
