@@ -509,8 +509,12 @@ PageContainers.prototype = {
         $(row[2]).children("div").attr("value", image.VirtualSize);
         $(row[3]).text($cockpit.format_bytes(image.VirtualSize, 1024).join(" "));
 
-        if (added)
+        if (added) {
+            // Remove downloading row if it exists
+            $("#imagedl" + image.RepoTags[0].split(':')[0]).remove();
+
             insert_table_sorted($('#containers-images table'), tr);
+        }
     },
 
     filter: function() {
@@ -732,7 +736,8 @@ PageSearchImage.prototype = {
                                 $('<td>').text(entry.name),
                                 $('<td>').text(entry.description));
                   row.on('click', function(event) {
-                      window.alert('Clicked on me: ' + entry.name);
+                      PageSearchImage.client.pull(entry.name);
+                      $("#containers_search_image_dialog").modal('hide');
                   });
                   row.data('entry', entry);
 
@@ -754,7 +759,7 @@ PageSearchImage.prototype = {
             });
           }).
           fail(function(ex){
-              window.alert("Search failed: " + ex);
+              $(this).trigger("failure", [ex]);
          });
     },
 
@@ -1171,6 +1176,9 @@ function DockerClient(machine) {
     /* All active poll requests for containers/images indexed by Id */
     var polls = { };
 
+    /* All current download actions */
+    var progress = { };
+
     /*
      * Exposed API, all containers and images
      * Contains the combined /container/json and /container/xxx/json
@@ -1303,6 +1311,28 @@ function DockerClient(machine) {
         fail(function(ex) {
             $(me).trigger("failure", [ex]);
         });
+
+    /* Pull an image from the central registry
+     */
+    this.pull = function pull(name) {
+        docker_debug("pulling:", name);
+        var tr = $('<tr id="imagedl' + name + '">').append(
+            $('<td class="container-col-tags">').text(name),
+            $('<td class="container-col-created">').text('Downloading'),
+            $('<td class="image-col-size-graph">').text('Replace with cool bar'),
+            $('<td class="image-col-size-text">'),
+            $('<td class="cell-buttons">'));
+        
+        insert_table_sorted($('#containers-images table'), tr);
+
+        return rest.post("/images/create?fromImage=" + name).
+            stream(function(progress) {
+                //TODO: Do something with progress... or not?
+            }).
+            fail(function(ex) {
+                $(me).trigger("failure", [ex]);
+            });
+    };
 
     /* We listen to the resource monitor and include the measurements
      * in the container objects.
