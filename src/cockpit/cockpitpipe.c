@@ -52,7 +52,8 @@ enum {
   PROP_NAME,
   PROP_IN_FD,
   PROP_OUT_FD,
-  PROP_PID
+  PROP_PID,
+  PROP_PROBLEM
 };
 
 struct _CockpitPipePrivate {
@@ -85,6 +86,8 @@ typedef struct {
 
 static guint cockpit_pipe_sig_read;
 static guint cockpit_pipe_sig_close;
+
+static void  cockpit_close_later (CockpitPipe *self);
 
 G_DEFINE_TYPE (CockpitPipe, cockpit_pipe, G_TYPE_OBJECT);
 
@@ -543,6 +546,11 @@ cockpit_pipe_set_property (GObject *obj,
       case PROP_PID:
         self->priv->pid = g_value_get_int (value);
         break;
+      case PROP_PROBLEM:
+        self->priv->problem = g_value_dup_string (value);
+        if (self->priv->problem)
+          cockpit_close_later (self);
+        break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
         break;
@@ -570,6 +578,9 @@ cockpit_pipe_get_property (GObject *obj,
       break;
     case PROP_PID:
       g_value_set_int (value, self->priv->pid);
+      break;
+    case PROP_PROBLEM:
+      g_value_set_string (value, self->priv->problem);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -676,6 +687,17 @@ cockpit_pipe_class_init (CockpitPipeClass *klass)
    */
   g_object_class_install_property (gobject_class, PROP_NAME,
                 g_param_spec_string ("name", "name", "name", "<unnamed>",
+                                     G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  /**
+   * CockpitPipe:problem:
+   *
+   * The problem that the pipe closed with. If used as a constructor argument then
+   * the pipe will be created in a closed/failed state. Although 'closed' signal will
+   * only fire once main loop is hit.
+   */
+  g_object_class_install_property (gobject_class, PROP_PROBLEM,
+                g_param_spec_string ("problem", "problem", "problem", NULL,
                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   /**
@@ -798,7 +820,7 @@ on_later_close (gpointer user_data)
 }
 
 static void
-close_later (CockpitPipe *self)
+cockpit_close_later (CockpitPipe *self)
 {
   GSource *source = g_idle_source_new ();
   g_source_set_priority (source, G_PRIORITY_HIGH);
@@ -873,7 +895,7 @@ cockpit_pipe_connect (const gchar *name,
   if (errn != 0)
     {
       set_problem_from_connect_errno (pipe, errn);
-      close_later (pipe);
+      cockpit_close_later (pipe);
     }
 
   return pipe;
@@ -950,7 +972,7 @@ cockpit_pipe_spawn (const gchar **argv,
           problem = "internal-error";
         }
       pipe->priv->problem = g_strdup (problem);
-      close_later (pipe);
+      cockpit_close_later (pipe);
       g_error_free (error);
     }
   else
@@ -1107,7 +1129,7 @@ cockpit_pipe_pty (const gchar **argv,
   if (fd < 0)
     {
       pipe->priv->problem = g_strdup ("internal-error");
-      close_later (pipe);
+      cockpit_close_later (pipe);
     }
 
   return pipe;
