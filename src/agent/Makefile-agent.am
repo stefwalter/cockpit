@@ -58,12 +58,19 @@ install-data-hook:
 # -----------------------------------------------------------------------------
 # TESTS
 
-noinst_PROGRAMS += test-agent
+noinst_PROGRAMS += \
+	test-agent \
+	mock-polkit \
+	$(NULL)
 testassets_programs += test-agent
 
 test_agent_SOURCES = src/agent/agent.c
 test_agent_CFLAGS = $(libcockpit_agent_a_CFLAGS)
 test_agent_LDADD = $(libcockpit_agent_LIBS)
+
+mock_polkit_SOURCES = src/agent/mock-polkit.c
+mock_polkit_CFLAGS = $(libcockpit_agent_a_CFLAGS)
+mock_polkit_LDADD = $(COCKPIT_AGENT_LIBS)
 
 AGENT_CHECKS = \
 	test-channel \
