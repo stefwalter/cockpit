@@ -561,7 +561,7 @@ a {
 }
 
 /* Vertically center dropdown buttons in panel headers */
-.panel-heading .dropdown {
+.panel-heading .btn {
     margin-top: -3px;
 }
 
@@ -715,4 +715,17 @@ a {
 .terminal-cursor {
     color: #000;
     background: #f0f0f0;
+}
+
+#container-search-image-results {
+    display: block;
+    height: 300px;
+    overflow-y: scroll;
+    border: 1px solid #BABABA;
+    margin-top: 10px;
+}
+
+#container-search-image-results tr:hover {
+    cursor: pointer;
+    background-color: #f5f9fc;
 }
