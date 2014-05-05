@@ -106,6 +106,7 @@ contentdataimages_DATA = 					\
 	src/web/images/dialog-error.png	                        \
 	src/web/images/face-smile.png	                        \
 	src/web/images/refresh.png	                        \
+	src/web/images/search-icon.png	                        \
 	$(NULL)
 
 contentdatalibdir = $(pkgdatadir)/content/lib
