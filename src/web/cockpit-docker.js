@@ -691,7 +691,7 @@ PageSearchImage.prototype = {
     },
 
     getTitle: function() {
-        return C_("page-title", "Search Image");
+        return C_("page-title", "Get new image");
     },
 
     show: function() {
@@ -706,6 +706,7 @@ PageSearchImage.prototype = {
 
         if (first_visit) {
             $("#containers-search-image-search").on('input', $.proxy(this, "input"));
+            $("#containers-search-image-search").attr( "placeholder", "search by name, namespace or description" );
             this.search_timeout = null;
             this.search_request = null;
         }
