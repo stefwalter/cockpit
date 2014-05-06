@@ -873,6 +873,7 @@ cockpit_pipe_connect (const gchar *name,
  * @argv: null terminated string array of command arguments
  * @env: optional null terminated string array of child environment
  * @directory: optional working directory of child process
+ * @stderr_fd: optional place to put stderr fd
  *
  * Launch a child process and create a CockpitPipe for it. Standard
  * in and standard out are connected to the pipe. Standard error
@@ -880,6 +881,9 @@ cockpit_pipe_connect (const gchar *name,
  *
  * If the spawn fails, a pipe is still returned. It will
  * close once the main loop is run with an appropriate problem.
+ *
+ * If @stderr_fd is not specified, then stderr will just route to
+ * the parent process stderr.
  *
  * NOTE: Although we could probably implement this as construct arguments
  * and without the @pipe_gtype argument, this is just simpler
@@ -890,11 +894,13 @@ cockpit_pipe_connect (const gchar *name,
 CockpitPipe *
 cockpit_pipe_spawn (const gchar **argv,
                     const gchar **env,
-                    const gchar *directory)
+                    const gchar *directory,
+                    int *stderr_fd)
 {
   CockpitPipe *pipe = NULL;
   int session_stdin = -1;
   int session_stdout = -1;
+  int session_stderr = -1;
   GError *error = NULL;
   const gchar *problem = NULL;
   gchar *name;
@@ -904,7 +910,8 @@ cockpit_pipe_spawn (const gchar **argv,
 
   g_spawn_async_with_pipes (directory, (gchar **)argv, (gchar **)env,
                             flags, NULL, NULL,
-                            &pid, &session_stdin, &session_stdout, NULL,
+                            &pid, &session_stdin, &session_stdout,
+                            stderr_fd ? &session_stderr : NULL,
                             &error);
 
   name = g_path_get_basename (argv[0]);
@@ -944,6 +951,8 @@ cockpit_pipe_spawn (const gchar **argv,
     }
   else
     {
+      if (stderr_fd)
+        *stderr_fd = session_stderr;
       g_debug ("%s: spawned: %s", name, argv[0]);
     }
 

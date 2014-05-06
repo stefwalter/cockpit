@@ -22,10 +22,13 @@
 #include "cockpittextstream.h"
 
 #include "cockpit/cockpitpipe.h"
+#include "cockpit/cockpitunixfd.h"
 
+#include <glib-unix.h>
 #include <gio/gunixsocketaddress.h>
 
 #include <sys/wait.h>
+#include <errno.h>
 
 /**
  * CockpitTextStream:
@@ -51,6 +54,13 @@ typedef struct {
   gboolean closing;
   guint sig_read;
   guint sig_close;
+
+  /* Dealing with sudo */
+  gboolean with_sudo;
+  gboolean had_output;
+  gboolean askpass_complaint;
+  int stderr_fd;
+  guint stderr_watch;
 } CockpitTextStream;
 
 typedef struct {
@@ -134,6 +144,8 @@ on_pipe_read (CockpitPipe *pipe,
 
   if (data->len || !end_of_data)
     {
+      self->had_output = TRUE;
+
       /* When array is reffed, this just clears byte array */
       g_byte_array_ref (data);
       message = g_byte_array_free_to_bytes (data);
@@ -166,7 +178,11 @@ on_pipe_close (CockpitPipe *pipe,
     {
       status = cockpit_pipe_exit_status (pipe);
       if (WIFEXITED (status))
-        cockpit_channel_close_int_option (channel, "exit-status", WEXITSTATUS (status));
+        {
+          if (!problem && self->with_sudo && self->askpass_complaint)
+            problem = "not-authorized";
+          cockpit_channel_close_int_option (channel, "exit-status", WEXITSTATUS (status));
+        }
       else if (WIFSIGNALED (status))
         cockpit_channel_close_int_option (channel, "exit-signal", WTERMSIG (status));
       else if (status)
@@ -174,6 +190,52 @@ on_pipe_close (CockpitPipe *pipe,
     }
 
   cockpit_channel_close (channel, problem);
+}
+
+static gboolean
+on_spawn_stderr (gint fd,
+                 GIOCondition cond,
+                 gpointer user_data)
+{
+  CockpitTextStream *self = user_data;
+  char buffer[1024];
+  gssize res;
+
+  if (cond & G_IO_IN)
+    {
+      res = read (fd, buffer, sizeof (buffer));
+      if (res < 0)
+        {
+          if (errno == EAGAIN || errno == EINTR)
+            return TRUE;
+          self->stderr_watch = 0;
+          g_warning ("couldn't read from spawned process stderr: %s", g_strerror (errno));
+          return FALSE;
+        }
+      else
+        {
+          /*
+           * If sudo is complaining about a missing 'askpass' that means it's
+           * trying to prompt for a password, but isn't successful. We want to
+           * return 'not-authorized' in that case.
+           */
+          if (self->with_sudo && !self->had_output &&
+              g_strstr_len (buffer, res, "askpass") == 0)
+            self->askpass_complaint = TRUE;
+
+          /* Write to our stderr */
+          write (2, buffer, res);
+        }
+    }
+
+  if (cond & G_IO_HUP)
+    {
+      self->stderr_watch = 0;
+      g_debug ("spawned process stderr closed");
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 static gboolean
@@ -187,7 +249,7 @@ on_idle_protocol_error (gpointer user_data)
 static void
 cockpit_text_stream_init (CockpitTextStream *self)
 {
-
+  self->stderr_fd = -1;
 }
 
 static void
@@ -204,6 +266,9 @@ cockpit_text_stream_constructed (GObject *object)
 
   unix_path = cockpit_channel_get_option (channel, "unix");
   argv = cockpit_channel_get_strv_option (channel, "spawn");
+
+  if (argv[0] == NULL)
+    argv = NULL;
 
   if (argv == NULL && unix_path == NULL)
     {
@@ -229,12 +294,29 @@ cockpit_text_stream_constructed (GObject *object)
   else if (argv)
     {
       self->name = argv[0];
+
+      if (g_str_has_suffix (argv[0], "sudo"))
+        {
+          if (argv[1])
+            self->name = argv[1];
+          self->with_sudo = TRUE;
+        }
+
       env = cockpit_channel_get_strv_option (channel, "environ");
       if (cockpit_channel_get_bool_option (channel, "pty"))
         self->pipe = cockpit_pipe_pty (argv, env, NULL);
       else
-        self->pipe = cockpit_pipe_spawn (argv, env, NULL);
+        self->pipe = cockpit_pipe_spawn (argv, env, NULL, &self->stderr_fd);
+
+      if (self->stderr_fd != -1)
+        {
+          if (!g_unix_set_fd_nonblocking (self->stderr_fd, TRUE, NULL))
+            g_warning ("couldn't set spawned process stderr to non-blocking");
+          self->stderr_watch = cockpit_unix_fd_add (self->stderr_fd, G_IO_IN,
+                                                    on_spawn_stderr, self);
+        }
     }
+
 
   self->sig_read = g_signal_connect (self->pipe, "read", G_CALLBACK (on_pipe_read), self);
   self->sig_close = g_signal_connect (self->pipe, "close", G_CALLBACK (on_pipe_close), self);
@@ -247,6 +329,16 @@ cockpit_text_stream_dispose (GObject *object)
 {
   CockpitTextStream *self = COCKPIT_TEXT_STREAM (object);
 
+  if (self->stderr_watch)
+    {
+      g_source_remove (self->stderr_watch);
+      self->stderr_watch = 0;
+    }
+  if (self->stderr_fd != -1)
+    {
+      close (self->stderr_fd);
+      self->stderr_fd = -1;
+    }
   if (self->pipe)
     {
       if (self->open)
