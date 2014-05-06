@@ -513,8 +513,80 @@
       </div>
 
       <div id="networking" class="container-fluid">
+      
+      (Traffic graphs goes here)<br/><br/><br/>
+      
+      <div class="panel panel-default" id="containers-images">
+          <div class="panel-heading">
+            Interfaces
+          </div>
+
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>IP address</th>
+                <th>Sending</th>
+                <th>Recieving</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>eth0</td>
+                <td>192.168.1.12</td>
+                <td>75 MiB/s</td>
+                <td>75 MiB/s</td>
+              </tr>
+              <tr>
+                <td>eth1</td>
+                <td>192.168.1.13</td>
+                <td>75 MiB/s</td>
+                <td>75 MiB/s</td>
+              </tr>
+              <tr>
+                <td>eth2</td>
+                <td>192.168.1.14</td>
+                <td>75 MiB/s</td>
+                <td>75 MiB/s</td>
+              </tr>
+              <tr>
+                <td>eth3</td>
+                <td>192.168.1.15</td>
+                <td>75 MiB/s</td>
+                <td>75 MiB/s</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel panel-default" id="containers-images">
+          <div class="panel-heading">
+            Journal
+          </div>
+          
+            <table class="table table-hover">
+            <tbody>
+              <tr>
+                <td><span class="cockpit-logident">NetworkManager: </span><span class="cockpit-logmsg"><span class="cockpit-logprio-3">nm_utils_get_ip_config_method: assertion 's_ip6 != NULL' failed</span><span class="cockpit-logtime"><span class="badge">2</span>13:35</span></span></td>
+              </tr>
+              <tr>              
+                <td><span class="cockpit-logident">NetworkManager: </span><span class="cockpit-logmsg"><span class="cockpit-logprio-3">nm_utils_get_ip_config_method: assertion 's_ip6 != NULL' failed</span><span class="cockpit-logtime"><span class="badge">2</span>13:35</span></span></td>
+              </tr>
+              <tr>
+                <td><span class="cockpit-logident">NetworkManager: </span><span class="cockpit-logmsg"><span class="cockpit-logprio-3">nm_utils_get_ip_config_method: assertion 's_ip6 != NULL' failed</span><span class="cockpit-logtime"><span class="badge">2</span>13:35</span></span></td>
+              </tr>
+              <tr>
+                <td><span class="cockpit-logident">NetworkManager: </span><span class="cockpit-logmsg"><span class="cockpit-logprio-3">nm_utils_get_ip_config_method: assertion 's_ip6 != NULL' failed</span><span class="cockpit-logtime"><span class="badge">2</span>13:35</span></span></td>
+              </tr>
+              <tr>
+                <td><span class="cockpit-logident">NetworkManager: </span><span class="cockpit-logmsg"><span class="cockpit-logprio-3">nm_utils_get_ip_config_method: assertion 's_ip6 != NULL' failed</span><span class="cockpit-logtime"><span class="badge">2</span>13:35</span></span></td>
+              </tr>
+            </tbody>
+            </table>
+        </div>
+        (If I hide these guys below things break down)<br/><br/>
         <ul class="list-group" id="networking_content">
-	</ul>
+	    </ul>
+
       </div>
 
       <div id="shutdown" class="container-fluid">
