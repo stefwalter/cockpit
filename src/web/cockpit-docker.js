@@ -712,12 +712,14 @@ PageSearchImage.prototype = {
         }
 
         $('#containers-search-image-results tbody tr').remove();
+        $('#containers-search-image-results').hide();
         $('#containers-search-image-search')[0].value = '';
     },
 
     input: function(event) {
         this.cancel_search();
 
+        // Only handle if the new value is at least 3 characters long
         if(event.target.value.length < 3)
             return;
 
@@ -733,6 +735,7 @@ PageSearchImage.prototype = {
           done(function(resp){
               //TODO: Hide spinner in search field
               $('#containers-search-image-results tbody tr').remove();
+              $('#containers-search-image-results').show();
               resp.forEach(function(entry) {
                   var row = $('<tr>').append(
                                 $('<td>').text(entry.name),
@@ -743,7 +746,7 @@ PageSearchImage.prototype = {
                   });
                   row.data('entry', entry);
 
-                  insert_table_sorted_generic($('#container-search-image-results'), row, function(row1, row2) {
+                  insert_table_sorted_generic($('#containers-search-image-results'), row, function(row1, row2) {
                       //Bigger than 0 means row1 after row2
                       //Smaller than 0 means row1 before row2
                       if (row1.data('entry').is_official && !row2.data('entry').is_official)
@@ -767,7 +770,7 @@ PageSearchImage.prototype = {
 
     cancel_search: function() {
         window.clearTimeout(this.search_timeout);
-        $('#container-search-image-results tbody').empty();
+        $('#containers-search-image-results tbody').empty();
         if (this.search_request !== null) {
             this.search_request.cancel();
             this.search_request = null;

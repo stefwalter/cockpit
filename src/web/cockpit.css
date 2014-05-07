@@ -717,7 +717,7 @@ a {
     background: #f0f0f0;
 }
 
-#container-search-image-results {
+#containers-search-image-results {
     display: block;
     height: 300px;
     overflow-y: scroll;
@@ -725,7 +725,7 @@ a {
     margin-top: 10px;
 }
 
-#container-search-image-results tr:hover {
+#containers-search-image-results tr:hover {
     cursor: pointer;
     background-color: #f5f9fc;
 }
