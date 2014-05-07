@@ -712,6 +712,7 @@ PageSearchImage.prototype = {
         }
 
         $('#containers-search-image-results tbody tr').remove();
+        $('#containers-search-image-search')[0].value = '';
     },
 
     input: function(event) {
