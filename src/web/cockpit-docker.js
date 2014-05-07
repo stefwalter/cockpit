@@ -511,7 +511,7 @@ PageContainers.prototype = {
 
         if (added) {
             // Remove downloading row if it exists
-            $("#imagedl" + image.RepoTags[0].split(':')[0]).remove();
+            $("#imagedl_" + image.RepoTags[0].split(':')[0].replace("/", "_")).remove();
 
             insert_table_sorted($('#containers-images table'), tr);
         }
@@ -1318,7 +1318,7 @@ function DockerClient(machine) {
      */
     this.pull = function pull(name) {
         docker_debug("pulling:", name);
-        var tr = $('<tr id="imagedl' + name + '">').append(
+        var tr = $('<tr id="imagedl_' + name.replace("/", "_") + '">').append(
             $('<td class="container-col-tags">').text(name),
             $('<td class="container-col-created">').text('Downloading'),
             $('<td class="image-col-size-graph">').text('Replace with cool bar'),
