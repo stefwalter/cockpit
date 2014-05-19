@@ -717,6 +717,10 @@ a {
     background: #f0f0f0;
 }
 
+#containers_search_image_dialog .modal-body {
+    height: 340px;
+}
+
 #containers-search-image-results {
     display: block;
     height: 300px;
@@ -736,7 +740,6 @@ a {
 }
 
 #containers-search-image-waiting.waiting {
-    height: 180px;
     margin: auto;
     margin-top: 150px;
 }
