@@ -711,6 +711,7 @@ PageSearchImage.prototype = {
             this.search_request = null;
         }
 
+        // Clear the previous results and search string from previous time
         $('#containers-search-image-results tbody tr').remove();
         $('#containers-search-image-results').hide();
         $('#containers-search-image-search')[0].value = '';
@@ -729,11 +730,11 @@ PageSearchImage.prototype = {
     perform_search: function() {
         var term = $('#containers-search-image-search')[0].value;
 
-        // TODO: Show spinner in search field
+        $('#containers-search-image-waiting').addClass('waiting');
 
         this.search_request = PageSearchImage.client.search(term).
           done(function(resp){
-              //TODO: Hide spinner in search field
+              $('#containers-search-image-waiting').removeClass('waiting');
               $('#containers-search-image-results tbody tr').remove();
               $('#containers-search-image-results').show();
               resp.forEach(function(entry) {
@@ -775,7 +776,7 @@ PageSearchImage.prototype = {
             this.search_request.cancel();
             this.search_request = null;
         }
-        // TODO: Hide spinner in search field
+        $('#containers-search-image-waiting').removeClass('waiting');
     }
 };
 
