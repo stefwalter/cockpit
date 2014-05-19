@@ -731,6 +731,7 @@ PageSearchImage.prototype = {
         var term = $('#containers-search-image-search')[0].value;
 
         $('#containers-search-image-waiting').addClass('waiting');
+        $('#containers-search-image-results').hide();
 
         this.search_request = PageSearchImage.client.search(term).
           done(function(resp){

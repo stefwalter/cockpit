@@ -734,3 +734,9 @@ a {
     background: url("images/search-icon.png") no-repeat 3px;
     padding-left: 20px;
 }
+
+#containers-search-image-waiting.waiting {
+    height: 180px;
+    margin: auto;
+    margin-top: 150px;
+}
