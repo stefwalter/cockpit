@@ -107,9 +107,10 @@ N_("static");
 N_("disabled");
 N_("invalid");
 
-function render_service (name, desc, load_state, active_state, sub_state, file_state)
+function render_service (name, desc, load_state, active_state, sub_state, file_state,
+                         manager)
 {
-    var color_style;
+    var waiting, active, color_style;
 
     if (!load_state)
         load_state = "";
@@ -128,6 +129,9 @@ function render_service (name, desc, load_state, active_state, sub_state, file_s
     if (load_state == "loaded")
         load_state = "";
 
+    waiting = (active_state == "activating" || active_state == "deactivating" || active_state == "reloading");
+    active = (active_state == "active" || active_state == "reloading");
+
     load_state = _(load_state);
     active_state = _(active_state);
     sub_state = _(sub_state);
@@ -139,21 +143,51 @@ function render_service (name, desc, load_state, active_state, sub_state, file_s
     if (load_state !== "")
         active_state = load_state + " / " + active_state;
 
+    var tr =
+        $('<tr>').append(
+            $('<td style="text-align:left">').append(
+                $('<span style="font-weight:bold">').text(desc),
+                $('<br>'),
+                $('<span>').text(name)),
+            $('<td style="text-align:right">').append(
+                $('<span>', { 'style': color_style }).text(active_state),
+                $('<br>'),
+                $('<span>').text(file_state)));
+
+    if (manager) {
+        var img_waiting = $('<div class="waiting">');
+        var btn_play = $('<button class="btn btn-default btn-control btn-play">').
+            on("click", function() {
+                manager.call('ServiceAction', name, 'start', function (error) {
+                    if (error)
+                        cockpit_show_unexpected_error(error);
+                });
+                return false;
+            });
+        var btn_stop = $('<button class="btn btn-default btn-control btn-stop">').
+            on("click", function() {
+                manager.call('ServiceAction', name, 'stop', function (error) {
+                    if (error)
+                        cockpit_show_unexpected_error(error);
+                });
+                return false;
+            });
+
+        img_waiting.toggle(waiting);
+        btn_play.toggle(!waiting && !active);
+        btn_stop.toggle(!waiting && active);
+
+        tr.append(
+            $('<td class="cell-buttons" style="padding-left:20px;padding-right:5px">').append(
+                btn_play, btn_stop, img_waiting));
+    }
+
     return ($('<a>', { 'class': "list-group-item",
                        'data-unit': name
                      }).
             click(function () { cockpit_go_down({page: "service", s: name }); }).
             append(
-                $('<table style="width:100%">').append(
-                    $('<tr>').append(
-                        $('<td style="text-align:left">').append(
-                            $('<span style="font-weight:bold">').text(desc),
-                            $('<br>'),
-                            $('<span>').text(name)),
-                        $('<td style="text-align:right">').append(
-                            $('<span>', { 'style': color_style }).text(active_state),
-                            $('<br>'),
-                            $('<span>').text(file_state))))));
+                $('<table style="width:100%">').append(tr)));
 }
 
 PageServices.prototype = {
@@ -172,7 +206,7 @@ PageServices.prototype = {
             <div class="btn-group" data-toggle="buttons"> \
               <label class="btn btn-default active" translatable="yes">My Services \
                 <input type="radio" name="services-filter" id="services-filter-my-services" \
-                       value="^ctr-.*\\.service$"/ checked="checked" data-show-graphs="true"> \
+                       value="^ctr-.*\\.service$"/ checked="checked" data-show-graphs data-include-buttons> \
               </label> \
               <label class="btn btn-default" translatable="yes">Targets \
                 <input type="radio" name="services-filter" id="services-filter-targets" \
@@ -277,8 +311,11 @@ PageServices.prototype = {
 
     update_service: function (name, desc, load_state, active_state, sub_state, file_state) {
         var pattern = $('input[name="services-filter"]:checked').val();
+        var include_buttons =
+            ($('input[name="services-filter"]:checked').attr('data-include-buttons') !== undefined);
         if (pattern && name.match(pattern)) {
-            var item = $(render_service(name, desc, load_state, active_state, sub_state, file_state));
+            var item = $(render_service(name, desc, load_state, active_state, sub_state, file_state,
+                                        include_buttons? this.manager : null));
             if (this.items[name])
                 this.items[name].replaceWith(item);
             else {
@@ -297,7 +334,7 @@ PageServices.prototype = {
     update: function() {
         var me = this;
 
-        if ($('input[name="services-filter"]:checked').attr('data-show-graphs')) {
+        if ($('input[name="services-filter"]:checked').attr('data-show-graphs') !== undefined) {
             $('#services-graphs').show();
             if ($('#services-graphs').is(':visible')) {
                 this.cpu_plot.start();
@@ -317,6 +354,7 @@ PageServices.prototype = {
         me.manager.call('ListServices', function(error, services) {
             var pattern;
             var service;
+            var include_buttons;
 
             if (error) {
                 console.log ("error %s", error.message);
@@ -332,6 +370,8 @@ PageServices.prototype = {
                 me.items = { };
                 services.sort(compare_service);
                 pattern = $('input[name="services-filter"]:checked').val();
+                include_buttons =
+                    ($('input[name="services-filter"]:checked').attr('data-include-buttons') !== undefined);
                 for (i = 0; i < services.length; i++) {
                     service = services[i];
                     if (!pattern || service[0].match(pattern)) {
@@ -340,7 +380,8 @@ PageServices.prototype = {
                                                      service[2],
                                                      service[3],
                                                      service[4],
-                                                     service[5]));
+                                                     service[5],
+                                                     include_buttons? me.manager : null));
                         if (service[5] == 'enabled')
                             item.appendTo(list_enabled);
                         else if (service[5] == 'disabled')
