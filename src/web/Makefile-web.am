@@ -92,6 +92,7 @@ contentdataimages_DATA = 					\
 	src/web/images/header-left-arrow.png			\
 	src/web/images/header-gear.png				\
 	src/web/images/play.png \
+	src/web/images/eject.png \
 	src/web/images/right-arrow.png				\
 	src/web/images/server-large.png				\
 	src/web/images/spinner.gif 				\
