@@ -846,13 +846,14 @@ PageNetworkInterface.prototype = {
                                  " (active)" :
                                  " (active now, but wont be active after next boot)") :
                             ""),
-                        $('<button class="btn btn-default" style="display:inline;float:right">').
-                            text("Deactivate").
-                            click(deactivate_connection).
-                            prop('disabled', !is_active),
-                        $('<button class="btn btn-default" style="display:inline;float:right">').
-                            text("Activate").
-                            click(activate_connection)),
+                        $('<div class="btn-group on-off" data-toggle="buttons" style="float: right;">').append(    
+                          $('<label class="btn btn-default active"><input type="radio" name="options" id="option1">Off</label>').
+                              text("Off").
+                              click(deactivate_connection).
+                              prop('disabled', !is_active),
+                          $('<label class="btn btn-default"><input type="radio" name="options" id="option1">On</label>').
+                              text("On").
+                              click(activate_connection))),
                     $('<div class="panel-body">').append(
                         $('<table class="cockpit-form-table">').append(
                             $('<tr>').append(

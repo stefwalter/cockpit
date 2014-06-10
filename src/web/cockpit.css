@@ -727,3 +727,8 @@ a {
   border: none;
   text-align: center;
 }
+
+.on-off label.btn-default.active {
+  background-color: #0099D3;
+  color: #fff;
+}
