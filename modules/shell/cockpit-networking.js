@@ -1582,17 +1582,6 @@ PageNetworkIpSettings.prototype = {
             return btn;
         }
 
-        function boolbox(p, text, inverted) {
-            var btn = cockpit_select_btn(function (choice) { params[p] = (choice == "on"); },
-                                         [ { choice: inverted? 'off':'on', title: _("Yes") },
-                                           { choice: inverted? 'on':'off', title: _("No") }
-                                         ]);
-            cockpit_select_btn_select(btn, params[p]? 'on':'off');
-            return $('<div style="margin-bottom:19px">').append(
-                $('<span style="margin-right:10px">').text(text),
-                btn);
-        }
-
         function tablebox(p, columns, def) {
             var direct = false;
 
