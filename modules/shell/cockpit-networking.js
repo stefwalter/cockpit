@@ -520,7 +520,7 @@ function NetworkManagerModel(address) {
         }
 
         function set_ip(first, addrs_sig, addr_to_nm, ips_sig, ip_from_text) {
-            var meth = settings[first].method;
+            var meth = settings[first].method || "auto";
             var ign_dns = undefined;
 
             if (meth == "auto-addr") {
@@ -537,9 +537,12 @@ function NetworkManagerModel(address) {
             if (ign_dns !== undefined)
                 set(first, "ignore-auto-dns", 'b', ign_dns);
 
-            set(first, "addresses", addrs_sig, settings[first].addresses.map(addr_to_nm));
-            set(first, "dns", ips_sig, settings[first].dns.map(ip_from_text));
-            set(first, "dns-search", 'as', settings[first]["dns-search"]);
+            if (settings[first].addresses)
+                set(first, "addresses", addrs_sig, settings[first].addresses.map(addr_to_nm));
+            if (settings[first].dns)
+                set(first, "dns", ips_sig, settings[first].dns.map(ip_from_text));
+            if (settings[first]["dns-search"])
+                set(first, "dns-search", 'as', settings[first]["dns-search"]);
         }
 
         set("connection", "id", 's', settings.connection.id);
@@ -833,6 +836,12 @@ function NetworkManagerModel(address) {
         },
 
         prototype: {
+            activate: function(connection, specific_object) {
+                return call_object_method(get_object("/org/freedesktop/NetworkManager", type_Manager),
+                                          "org.freedesktop.NetworkManager", "ActivateConnection",
+                                          objpath(connection), objpath(this), objpath(specific_object));
+            },
+
             disconnect: function () {
                 return call_object_method(this, 'org.freedesktop.NetworkManager.Device', 'Disconnect');
             }
@@ -1262,6 +1271,43 @@ function choice_title(choices, choice, def) {
     return def;
 }
 
+function onoffbox(val, on, off) {
+    function toggle(event) {
+        $(this).find('.btn').toggleClass('active');
+        $(this).find('.btn').toggleClass('btn-primary');
+        $(this).find('.btn').toggleClass('btn-default');
+        if ($(this).find("button:first-child").hasClass('active')) {
+            if (off)
+                on();
+            else
+                on(true);
+        } else {
+            if (off)
+                off();
+            else
+                on(false);
+        }
+    }
+
+    var on_btn, off_btn;
+    var box =
+        $('<div class="btn-group btn-toggle">').append(
+            on_btn = $('<button class="btn">').
+                text("On").
+                addClass(!val? "btn-default" : "btn-primary active"),
+            off_btn = $('<button class="btn">').
+                text("Off").
+                addClass(val? "btn-default" : "btn-primary active")).
+        click(toggle);
+
+    box.set = function set(val) {
+        (val? on_btn : off_btn).addClass("btn-primary active").removeClass("btn-default");
+        (val? off_btn : on_btn).removeClass("btn-primary active").addClass("btn-default");
+    };
+
+    return box;
+}
+
 PageNetworkInterface.prototype = {
     _init: function () {
         this.id = "network-interface";
@@ -1274,7 +1320,10 @@ PageNetworkInterface.prototype = {
 
     setup: function () {
         $('#network-interface-delete').click($.proxy(this, "delete_connections"));
-        $('#network-interface-disconnect').click($.proxy(this, "disconnect"));
+        $('#network-interface-delete').parent('div').append(
+            this.device_onoff = onoffbox(false,
+                                         $.proxy(this, "connect"),
+                                         $.proxy(this, "disconnect")));
     },
 
     enter: function () {
@@ -1368,9 +1417,58 @@ PageNetworkInterface.prototype = {
         }
     },
 
+    connect: function() {
+        var self = this;
+
+        function ensure_connection(dev) {
+            var uuid = cockpit.util.uuid();
+            var settings_manager = self.model.get_settings();
+
+            if (dev.AvailableConnections.length > 0)
+                return $.Deferred().resolve().promise();
+
+            return settings_manager.add_connection({
+                connection: {
+                    id: uuid,
+                    uuid: uuid,
+                    autoconnect: false,
+                    type: "802-3-ethernet",
+                    "interface-name": dev.Interface
+                },
+                "802-3-ethernet": {
+                },
+                ipv4: {
+                    method: "disabled"
+                },
+                ipv6: {
+                    method: "ignore"
+                }
+            });
+        }
+
+        function fail(error) {
+            cockpit_show_unexpected_error(error);
+            self.update();
+        }
+
+        if (self.dev) {
+            ensure_connection(self.dev).
+                done(function () {
+                    self.dev.activate(null, null).
+                        fail(fail);
+                }).
+                fail(fail);
+        }
+    },
+
     disconnect: function() {
-        if (this.dev)
-            this.dev.disconnect().fail(cockpit_show_unexpected_error);
+        var self = this;
+        if (self.dev) {
+            self.dev.disconnect().fail(function (error) {
+                cockpit_show_unexpected_error(error);
+                self.update();
+            });
+        }
     },
 
     update: function() {
@@ -1410,12 +1508,14 @@ PageNetworkInterface.prototype = {
                         $('<span>').html(render_active_connection(dev, true)),
                         $('<span style="float:right">').text(dev.StateText))));
 
-            $('#network-interface-disconnect').prop('disabled', !dev.ActiveConnection);
+            this.device_onoff.set(!!dev.ActiveConnection);
+            this.device_onoff.prop('disabled', false);
         } else {
             $hw.html(
                 $('<div class="panel-body">').append(
                     $('<div>').text("--")));
-            $('#network-interface-disconnect').prop('disabled', true);
+            this.device_onoff.set(false);
+            this.device_onoff.prop('disabled', true);
         }
 
         var is_deletable = !dev || dev.DeviceType == 10;
@@ -1493,36 +1593,6 @@ PageNetworkInterface.prototype = {
                 PageNetworkBondSettings.settings = con.Settings;
                 PageNetworkBondSettings.done = is_active? activate_connection : null;
                 $('#network-bond-settings-dialog').modal('show');
-            }
-
-            function onoffbox(val, on, off) {
-                function toggle(event) {
-                    $(this).find('.btn').toggleClass('active');
-                    $(this).find('.btn').toggleClass('btn-primary');
-                    $(this).find('.btn').toggleClass('btn-default');
-                    if ($(this).find("button:first-child").hasClass('active')) {
-                        if (off)
-                            on();
-                        else
-                            on(true);
-                    } else {
-                        if (off)
-                            off();
-                        else
-                            on(false);
-                    }
-                }
-
-                var box =
-                    $('<div class="btn-group btn-toggle">').append(
-                        $('<button class="btn">').
-                            text("On").
-                            addClass(!val? "btn-default" : "btn-primary active"),
-                        $('<button class="btn">').
-                            text("Off").
-                            addClass(val? "btn-default" : "btn-primary active")).
-                    click(toggle);
-                return box;
             }
 
             function render_ip_settings_row(topic, title) {
