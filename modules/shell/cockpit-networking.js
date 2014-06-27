@@ -1274,6 +1274,7 @@ PageNetworkInterface.prototype = {
 
     setup: function () {
         $('#network-interface-delete').click($.proxy(this, "delete_connections"));
+        $('#network-interface-add-connection').click($.proxy(this, "add_connection"));
         $('#network-interface-disconnect').click($.proxy(this, "disconnect"));
     },
 
@@ -1368,6 +1369,26 @@ PageNetworkInterface.prototype = {
         }
     },
 
+    add_connection: function() {
+        var uuid = cockpit.util.uuid();
+        var settings_manager = this.model.get_settings();
+
+        if (this.iface) {
+            settings_manager.add_connection({ connection:
+                                              { id: uuid,
+                                                uuid: uuid,
+                                                autoconnect: false,
+                                                type: "802-3-ethernet",
+                                                "interface-name": this.iface.Name
+                                              },
+                                              "802-3-ethernet":
+                                              {
+                                              }
+                                            }).
+                fail(cockpit_show_unexpected_error);
+        }
+    },
+
     disconnect: function() {
         if (this.dev)
             this.dev.disconnect().fail(cockpit_show_unexpected_error);
@@ -1442,6 +1463,10 @@ PageNetworkInterface.prototype = {
                     dev.ActiveConnection.deactivate().
                         fail(cockpit_show_unexpected_error);
                 }
+            }
+
+            function delete_connection() {
+                con.delete_().fail(cockpit_show_unexpected_error);
             }
 
             function render_ip_settings(topic) {
@@ -1586,8 +1611,11 @@ PageNetworkInterface.prototype = {
                         $('<input>').
                             val(con.Settings.connection.id).
                             change(change_id),
-                        onoffbox(is_active, activate_connection, deactivate_connection).
-                            css("float", "right")),
+                        $('<div style="float:right">').append(
+                            $('<button class="btn btn-danger" style="margin-right:20px">').
+                                text(_("Delete")).
+                                click(delete_connection),
+                            onoffbox(is_active, activate_connection, deactivate_connection))),
                     $('<div class="panel-body">').append(
                         $('<table class="cockpit-form-table">').append(
                             render_master(),
