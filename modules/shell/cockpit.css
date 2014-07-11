@@ -529,6 +529,61 @@ a {
     width: 28px;
 }
 
+/*
+ * Safety buttons
+ */
+
+button.safety {
+
+}
+
+button.safety .fa {
+    margin-left: 3px;
+    font-size: 19px;
+    line-height: 19px;
+    vertical-align: -3px;
+    color: #adb2b8;
+    position: relative;
+}
+
+button.safety:hover .fa {
+    color: #8d9298;
+}
+
+button.safety:hover .fa:hover {
+    color: #bf2033;
+}
+
+button.safety-open:hover .fa {
+    color: #bf2033;
+    animation: open 0.2s 1 linear;
+    animation-fill-mode: forwards;
+    -webkit-animation: open 0.2s 1 linear;
+    -webkit-animation-fill-mode: forwards;
+   vertical-align: -2px;
+}
+
+button.safety-close:hover .fa {
+    animation: close 0.2s 1 linear;
+    animation-fill-mode: forwards;
+    -webkit-animation: close 0.2s 1 linear;
+    -webkit-animation-fill-mode: forwards;
+}
+
+button.safety-no-no:hover .fa {
+    animation: nono 0.1s infinite linear;
+    -webkit-animation: nono 0.1s infinite linear;
+}
+
+@keyframes open { 0% { -webkit-transform: rotate(0deg); } 100% { -webkit-transform: rotate(90deg); } }
+@keyframes close { 0% { -webkit-transform: rotate(90deg); } 100% { -webkit-transform: rotate(0deg); } }
+@keyframes nono { 0% { left: 0px; } 25% { left: 2px; } 50% { left: -2px; } 100% { left: 0px; } }
+@-webkit-keyframes open { 0% { -webkit-transform: rotate(0deg); } 100% { -webkit-transform: rotate(90deg); } }
+@-webkit-keyframes close { 0% { -webkit-transform: rotate(90deg); } 100% { -webkit-transform: rotate(0deg); } }
+@-webkit-keyframes nono { 0% { left: 0px; } 25% { left: 2px; } 50% { left: -2px; } 100% { left: 0px; } }
+
+/* ----------------------------------------- */
+
 .highlight {
     background-color: #d4edfa;
 }

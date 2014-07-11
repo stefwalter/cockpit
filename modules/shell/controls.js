@@ -344,3 +344,106 @@ cockpit.Slider = function Slider() {
 $(document).ready(setup_sliders);
 
 })(jQuery, cockpit);
+
+/* ----------------------------------------------------------------------------
+ * Safety Button
+ *
+ * <button class="safety">
+ *    Action
+ * </div>
+ *
+ * A safety button. The user must "open" it by clicking the no-entry sign
+ * or holding down <control> before using it.
+ */
+
+(function($, cockpit) {
+
+function setup_safety(button) {
+    var open = false;
+
+    function mark_open(value) {
+        var timeout = null;
+        if (open === value)
+            return;
+        open = value;
+        if (open) {
+            $(button).addClass("safety-open").removeClass("safety-close");
+            clearTimeout(timeout);
+            timeout = null;
+        } else {
+            $(button).addClass("safety-close").removeClass("safety-open");
+            timeout = setTimeout(function() {
+                $(button).removeClass("safety-close");
+                timeout = null;
+            }, 300);
+        }
+    }
+
+    var fa = $("<span class='fa fa-minus-circle'>").
+        on("click", function() {
+            mark_open(!open);
+            return false;
+        });
+
+    var $button = $(button);
+    var clicker = $button.prop("onclick");
+    $button.removeProp("onclick");
+    $button.removeAttr("onclick");
+
+    var key_code = null;
+
+    $(document).
+        on("keydown", function(ev) {
+            if (!open && key_code === null) {
+                /* holding down ctrl */
+                if (ev.keyCode == 17) {
+                    key_code = ev.keyCode;
+                    mark_open(true);
+                }
+            }
+        }).
+        on("keyup", function(ev) {
+            if (key_code === ev.keyCode) {
+                key_code = null;
+                mark_open(false);
+            }
+        });
+
+    /* click event handlers should be attached after this point */
+    $button.
+        off("click").
+        on("click", function(ev) {
+            if (open) {
+                $(button).tooltip('destroy');
+                mark_open(false);
+            } else {
+                ev.preventDefault();
+                ev.stopPropagation();
+                ev.stopImmediatePropagation();
+                $(button).
+                    addClass("safety-no-no").
+                    tooltip({ title: "Click on sign or hold <Ctrl>" });
+                setTimeout(function() { $(button).removeClass("safety-no-no"); }, 300);
+            }
+            return open;
+        }).
+        on("click", clicker).
+        append(fa);
+}
+
+function setup_safetys() {
+    $("button.safety").each(function() {
+        setup_safety(this);
+    });
+}
+
+/* Public API */
+cockpit.SafetyButton = function SafetyButton(text) {
+    var button = $("<button class='safety'>").text(text);
+    setup_safety(button[0]);
+    return button;
+};
+
+$(document).ready(setup_safetys);
+
+})(jQuery, cockpit);

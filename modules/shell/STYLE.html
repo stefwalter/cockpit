@@ -152,6 +152,16 @@
       </div>
     </div>
 
+    <h2 id="safety-button">Safety Button</h2>
+
+    <p>This is similar to a button with a cover in the real world.<br>
+    Click the "no entry" sign or hold down <ctrl> to open "safety cover".  </p>
+
+    <button class="btn btn-default safety" onclick="$('#protected-action').append('boom ');">
+        Destructive
+    </button>
+    <span id="protected-action"></span>
+
     <h2>Progress Bar</h2>
 
     Patternfly doesn't have progress bars, so we fix them up.
