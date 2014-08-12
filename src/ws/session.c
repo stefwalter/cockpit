@@ -149,7 +149,8 @@ write_json_hex (FILE *file,
 static void
 write_auth_result (int result_code,
                    const char *user,
-                   gss_buffer_desc *gsout)
+                   gss_buffer_desc *gsout,
+                   gss_buffer_desc *gscreds)
 {
   FILE *file;
 
@@ -177,6 +178,11 @@ write_auth_result (int result_code,
     {
       fprintf (file, ", \"gssapi-output\": ");
       write_json_hex (file, gsout->value, gsout->length);
+    }
+  if (gscreds && gscreds->length)
+    {
+      fprintf (file, ", \"gssapi-credentials\": ");
+      write_json_hex (file, gscreds->value, gscreds->length);
     }
   fprintf (file, " }\n");
 
@@ -413,7 +419,7 @@ perform_basic (void)
   if (password == NULL || strchr (password + 1, '\n'))
     {
       debug ("bad basic auth input");
-      write_auth_result (PAM_AUTH_ERR, NULL, NULL);
+      write_auth_result (PAM_AUTH_ERR, NULL, NULL, NULL);
       exit (5);
     }
 
@@ -437,7 +443,7 @@ perform_basic (void)
   if (res == PAM_SUCCESS)
     res = open_session (pamh, user);
 
-  write_auth_result (res, user, NULL);
+  write_auth_result (res, user, NULL, NULL);
   if (res != PAM_SUCCESS)
     exit (5);
 
@@ -552,8 +558,15 @@ perform_kerberos (void)
 
   res = open_session (pamh, user);
 
+  if (res == PAM_SUCCESS && client != GSS_C_NO_CREDENTIAL)
+    {
+      major = gss_export_cred (&minor, client, &token);
+      if (GSS_ERROR (major))
+        warnx ("couldn't export credentials: %s", gssapi_strerror (major, minor));
+    }
+
 out:
-  write_auth_result (res, user, &output);
+  write_auth_result (res, user, &output, &token);
 
   if (krb)
     krb5_free_context (krb);
