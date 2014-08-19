@@ -1468,6 +1468,7 @@ function onoffbox(val, on, off) {
             else
                 on(false);
         }
+        return false;
     }
 
     var on_btn, off_btn;
