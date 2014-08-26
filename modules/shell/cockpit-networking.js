@@ -2512,25 +2512,25 @@ PageNetworkBridgeSettings.prototype = {
                 $('<tr>').append(
                     $('<td>').text(_("STP Priority")),
                     $('<td>').append(
-                        priority_input = $('<input class="form-control" type="text">').
+                        priority_input = $('<input class="form-control network-number-field" type="text">').
                             val(options.priority).
                             change(change_stp))),
                 $('<tr>').append(
                     $('<td>').text(_("STP Forward delay")),
                     $('<td>').append(
-                        forward_delay_input = $('<input class="form-control" type="text">').
+                        forward_delay_input = $('<input class="form-control network-number-field" type="text">').
                             val(options.forward_delay).
                             change(change_stp))),
                 $('<tr>').append(
                     $('<td>').text(_("STP Hello time")),
                     $('<td>').append(
-                        hello_time_input = $('<input class="form-control" type="text">').
+                        hello_time_input = $('<input class="form-control network-number-field" type="text">').
                             val(options.hello_time).
                             change(change_stp))),
                 $('<tr>').append(
                     $('<td>').text(_("STP Maximum message age")),
                     $('<td>').append(
-                        max_age_input = $('<input class="form-control" type="text">').
+                        max_age_input = $('<input class="form-control network-number-field" type="text">').
                             val(options.max_age).
                             change(change_stp))));
 
