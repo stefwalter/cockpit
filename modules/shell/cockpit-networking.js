@@ -2066,7 +2066,7 @@ PageNetworkInterface.prototype = {
                                                     }
                                                 })),
                                    $('<td style="width:5em">').append(
-                                       $('<button class="btn btn-default">').
+                                       $('<button class="btn btn-default btn-control">').
                                            text("-").
                                            click(function () {
                                                slave_con.delete_().
@@ -2086,7 +2086,7 @@ PageNetworkInterface.prototype = {
 
             var add_btn =
                 $('<div>', { 'class': 'dropdown' }).append(
-                    $('<button>', { 'class': 'btn btn-default dropdown-toggle',
+                    $('<button>', { 'class': 'btn btn-default btn-control dropdown-toggle',
                                     'data-toggle': 'dropdown'
                                   }).
                         text("+"),
