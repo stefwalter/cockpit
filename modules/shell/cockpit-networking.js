@@ -2175,16 +2175,15 @@ PageNetworkIpSettings.prototype = {
                              [ "", "", "" ],
                              method_btn = choicebox("method", (topic == "ipv4")?
                                                     ipv4_method_choices : ipv6_method_choices)),
-                    $('<br>'),
+
                     dns_table =
                         tablebox(_("DNS"), "dns", "Server", "",
                                  auto_dns_btn = inverted_switchbox(_("Automatic"), "ignore_auto_dns")),
-                    $('<br>'),
+                                 
                     dns_search_table =
                         tablebox(_("DNS Search Domains"), "dns_search", "Search Domain", "",
                                  auto_dns_search_btn = inverted_switchbox(_("Automatic"),
                                                                                          "ignore_auto_dns")),
-                    $('<br>'),
                     routes_table =
                         tablebox(_("Routes"), "routes",
                                  [ "Address", "Netmask", "Gateway", "Metric" ], [ "", "", "", "" ],
