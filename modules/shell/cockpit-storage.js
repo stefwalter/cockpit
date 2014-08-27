@@ -2193,6 +2193,8 @@ PageCreateRaid.prototype = {
                 disk_size = b.Size;
         }
 
+        $('#create-raid-chunk').parents('tr').toggle($('#create-raid-level').val() !== "raid1");
+
         switch ($('#create-raid-level').val()) {
         case "raid0":
             n_disks_needed = 2;
@@ -2200,7 +2202,6 @@ PageCreateRaid.prototype = {
             break;
         case "raid1":
             n_disks_needed = 2;
-            // XXX - disable chunk size
             raid_size = disk_size;
             break;
         case "raid4":
@@ -2250,7 +2251,7 @@ PageCreateRaid.prototype = {
     create: function() {
         var me = this;
         var level = $('#create-raid-level').val();
-        var chunk = $('#create-raid-chunk').val();
+        var chunk = level === "raid1" ? 0 : $('#create-raid-chunk').val();
         var name = $('#create-raid-name').val();
         var blocks = get_selected_devices_objpath($('#create-raid-drives'), me.blocks);
 
