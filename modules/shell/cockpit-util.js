@@ -300,7 +300,7 @@ cockpit.select_btn = function select_btn(func, spec) {
         $('<button>', { 'class': 'btn btn-default dropdown-toggle',
                         'data-toggle': 'dropdown'
                       }).append(
-            $('<span>'),
+            $('<span class="filter-option pull-left">'),
             $('<span>', { 'style': 'margin-left:8px', 'class': 'caret' }));
 
 
@@ -321,12 +321,11 @@ cockpit.select_btn = function select_btn(func, spec) {
     });
 
     btn =
-        $('<div>', { 'class': 'dropdown',
+        $('<div>', { 'class': 'btn-group bootstrap-select form-control',
                      'style': "display:inline-block"
                    }).append(
             direct_btn,
             $('<ul>', { 'class': 'dropdown-menu',
-                        'style': 'right:0px;left:auto;min-width:0;text-align:left',
                         'role': 'menu'
                       }).
                 append(indirect_btns));
