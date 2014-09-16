@@ -1,0 +1,63 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# This file is part of Cockpit.
+#
+# Copyright (C) 2014 Red Hat, Inc.
+#
+# Cockpit is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# Cockpit is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
+
+import sys
+import time
+
+from testlib import *
+
+class TestBrokenIpa(MachineCase):
+
+    # This is just a temporary test to reproduce an IPA bug, we shouldn't merge
+    # this into git master
+
+    def testStartup(self):
+        print >> sys.stderr, "Booting machines..."
+        ipa = self.new_machine(flavor="ipa")
+        ipa.start()
+
+        # This particular combination of load, startup events, seems to do reproduce
+        # this bug pretty well on my system
+        MachineCase.setUp(self)
+        ipa.wait_boot()
+        self.start_cockpit()
+
+        print >> sys.stderr, "Testing IPA DNS..."
+
+        script = """
+echo -e 'domain cockpit.lan\nsearch cockpit.lan\nnameserver %(addr)s\n' > /etc/resolv.conf
+chattr +i /etc/resolv.conf
+for x in 1 2 3 4 5 6 7 8 9 10; do
+    if nslookup -type=SRV _ldap._tcp.cockpit.lan; then
+        echo "IPA started up fine" >&2
+        exit 0
+    else
+        echo "Waiting for IPA DNS..." >&2
+        sleep 1
+    fi
+done
+echo "IPA didn't start up right: https://bugzilla.redhat.com/show_bug.cgi?id=1071356#c11" >&2
+"""
+
+        self.machine.execute(script=script % { "addr": ipa.address })
+        print >> sys.stderr, "IPA machine password 'foobar': ssh root@%s" % ipa.address
+        time.sleep(600000)
+
+test_main()
