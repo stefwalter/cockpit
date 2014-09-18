@@ -87,6 +87,12 @@ a {
     border-radius: 5px 5px 5px 5px;
 }
 
+.navbar-primary .btn-group .btn {
+    max-width: 20em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Style a search box in navigation bar */
 
 .navbar-primary .navbar-form {
