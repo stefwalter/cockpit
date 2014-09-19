@@ -56,9 +56,6 @@ Daemon *                 storage_manager_get_daemon        (StorageManager *stor
 
    - Systemd is reloaded so that it re-syncs itself with the modified
      fstab and crypttab.
-
-   The functions also check whether any of the block devices etc that
-   are to be cleaned are in active use before making any changes.
 */
 
 gboolean   storage_remove_fstab_config      (UDisksBlock *block,

@@ -733,75 +733,6 @@ cleanup_volume_group (StorageProvider *provider,
 }
 
 static gboolean
-block_is_unused_walker (UDisksClient *client,
-                        UDisksBlock *block,
-                        gboolean is_leaf,
-                        gpointer user_data,
-                        GError **error)
-{
-  const gchar *device_file;
-  int fd;
-
-  if (is_leaf)
-    {
-      device_file = udisks_block_get_device (block);
-      fd = open (device_file, O_RDONLY | O_EXCL);
-      if (fd < 0)
-        {
-          g_set_error (error, UDISKS_ERROR, UDISKS_ERROR_FAILED,
-                       "Error opening device %s: %m",
-                       device_file);
-          return FALSE;
-        }
-      close (fd);
-    }
-
-  return TRUE;
-}
-
-static gboolean
-block_is_unused (UDisksClient *client,
-                 UDisksBlock *block,
-                 GError **error)
-{
-  return walk_block (client, block, block_is_unused_walker, NULL, error);
-}
-
-static gboolean
-logical_volume_is_unused_walker (GDBusObjectManager *objman,
-                                 LvmLogicalVolume *logical_volume,
-                                 gpointer user_data,
-                                 GError **error)
-{
-  StorageProvider *provider = user_data;
-  UDisksBlock *block = lvm_util_peek_block_for_logical_volume (storage_provider_get_lvm_object_manager (provider),
-                                                               storage_provider_get_udisks_client (provider),
-                                                               logical_volume);
-  if (block)
-    return block_is_unused (storage_provider_get_udisks_client (provider), block, error);
-  else
-    return TRUE;
-}
-
-static gboolean
-logical_volume_is_unused (StorageProvider *provider,
-                          LvmLogicalVolume *vol,
-                          GError **error)
-{
-  return walk_logical_volume (storage_provider_get_lvm_object_manager (provider), vol,
-                              logical_volume_is_unused_walker, provider, error);
-}
-
-static gboolean
-volume_group_is_unused (StorageProvider *provider,
-                        LvmVolumeGroup *group,
-                        GError **error)
-{
-  return walk_volume_group (storage_provider_get_lvm_object_manager (provider), group,
-                            logical_volume_is_unused_walker, provider, error);
-}
-
-static gboolean
 reload_systemd (GError **error)
 {
   // XXX - do it.
@@ -813,8 +744,7 @@ storage_cleanup_block (StorageProvider *provider,
                        UDisksBlock *block,
                        GError **error)
 {
-  return (block_is_unused (storage_provider_get_udisks_client (provider), block, error)
-          && cleanup_block (provider, block, error)
+  return (cleanup_block (provider, block, error)
           && reload_systemd (error));
 }
 
@@ -823,8 +753,7 @@ storage_cleanup_logical_volume (StorageProvider *provider,
                                 LvmLogicalVolume *volume,
                                 GError **error)
 {
-  return (logical_volume_is_unused (provider, volume, error)
-          && cleanup_logical_volume (provider, volume, error)
+  return (cleanup_logical_volume (provider, volume, error)
           && reload_systemd (error));
 }
 
@@ -833,8 +762,7 @@ storage_cleanup_volume_group (StorageProvider *provider,
                               LvmVolumeGroup *group,
                               GError **error)
 {
-  return (volume_group_is_unused (provider, group, error)
-          && cleanup_volume_group (provider, group, error)
+  return (cleanup_volume_group (provider, group, error)
           && reload_systemd (error));
 }
 
