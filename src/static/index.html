@@ -4,8 +4,6 @@
     <title>Cockpit starting...</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="/static/patternfly.x1.css" rel="stylesheet">
-    <script src="/static/jquery-min.v2.1.0.js"></script>
-    <script src="/static/bootstrap-with-select.v3.0.3.js"></script>
     <style>
         /* Login page specific overrides */
         .login-pf {
@@ -42,22 +40,30 @@
         var cockpit = { };
         var phantom_checkpoint = phantom_checkpoint || function () { };
 
-        (function($, cockpit) {
+        (function(cockpit) {
 
             /* Filled in by cockpit-ws handler */
             var initial_environment = cockpit_environment_info;
 
+            function id(name) {
+                return document.getElementById(name);
+            }
+
             function fatal(msg) {
-                console.warn("fatal:", msg);
-                $("#login").hide();
-                $(".login-details").hide();
-                $(".login-fatal").show();
-                $("#login-fatal-message").text(msg);
+                if (window.console)
+                    console.warn("fatal:", msg);
+
+                id("login").style.display = 'none';
+                id("login-details").style.display = 'none';
+                id("login-fatal").style.display = 'block';
+                id("login-fatal-message").appendChild(document.createTextNode(msg));
             }
 
             function requisites() {
                 return ("WebSocket" in window || "MozWebSocket" in window) &&
-                       ("XMLHttpRequest" in window) && ("localStorage" in window);
+                       ("XMLHttpRequest" in window) &&
+                       ("localStorage" in window) &&
+                       ("JSON" in window);
             }
 
             function trim(s) {
@@ -77,31 +83,36 @@
                 }
 
                 /* Show the login screen */
-                $("title").text(initial_environment.hostname);
-                $("#server-name").append($("<b>").text(initial_environment.hostname));
-                $("#login").css("visibility", "visible");
-                $("#login-user-input").focus();
-                $("#login-user-input").on("keydown", function (e) {
+                document.title = initial_environment.hostname;
+                var b = document.createElement("b");
+                b.appendChild(document.createText(initial_environment.hostname));
+                id("server-name").appendChild(b);
+                id("login").style.visibility = 'visible';
+                id("login-user-input").focus();
+                id("login-user-input").addEventListener("keydown", function(e) {
                     $("#login-error-message").hide();
                     if (e.which == 13)
                         $("#login-password-input").focus();
-                });
+                }, false);
 
                 function call_login() {
-                    var user = trim($("#login-user-input").val());
-                    if (user === "")
-                        $("#login-error-message").show().text("User name cannot be empty");
-                    else
-                        login(user, $("#login-password-input").val());
+                    var user = trim(id("#login-user-input").value);
+                    if (user === "") {
+                        var el = id("login-error-message");
+                        el.visibility = 'block';
+                        el.innerHTML = "User name cannot be empty";
+                    } else {
+                        login(user, id("login-password-input").value);
+                    }
                 }
                     
-                $("#login-password-input").on("keydown", function (e) {
-                    $("#login-error-message").hide();
+                id("login-password-input").addEventListener("keydown", function(e) {
+                    id("login-error-message").style.display = 'none';
                     if (e.which == 13)
                         call_login();
                 });
-                $("#login-button").on("click", function() {
-                    $("#login-error-message").hide();
+                id("login-buton").addEventListener("click", function(e) {
+                    id("login-error-message").style.display = "none";
                     call_login();
                 });
                 phantom_checkpoint();
@@ -112,31 +123,27 @@
             }
 
             function login(user, password) {
-                $("#login-button").prop('disabled', true);
-                $("#login-spinner").show();
-                var options = {
-                    url: "/login",
-                    dataType: "json",
-                    headers: { "Authorization": "Basic " + btoa(utf8(user + ":" + password)) },
-                    type: "GET",
-                    data: ""
-                };
-                $.ajax(options).
-                    done(function(environment) {
-                        shell(environment);
-                        phantom_checkpoint();
-                    }).
-                    fail(function(xhr, reason) {
-                        if (xhr.status == 401) {
+                id("login-button").setAttribute('disabled', "true");
+                id("login-spinner").style.display = 'block';
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", "/login", true);
+                xhr.setRequestHeader("Authorization", "Basic " + btoa(utf8(user + ":" + password)));
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState != 4) {
+                        return;
+                    } else if (xhr.status == 200) {
+                        shell(JSON.parse(xhr.responseText));
+                    } else if (xhr.status == 401) {
+                        if (window.console)
                             console.log(xhr.statusText);
-                            $("#login-error-message").show().text("Wrong username or password");
-                        }else {
-                            fatal(xhr.statusText);
-                        }
-                        phantom_checkpoint();
-                        $("#login-button").prop('disabled', false);
-                        $("#login-spinner").hide();
-                    });
+                        $("#login-error-message").show().text("Wrong username or password");
+                    } else if (xhr.statusText) {
+                        fatal(xhr.statusText);
+                    } else {
+                        fatal(xhr.status + " error");
+                    }
+                };       
+                xhr.send();
             }
 
             function shell(environment) {
@@ -167,31 +174,47 @@
 
                 /* Simplistic module loader good enough for shell */
                 if (module.manifest.css) {
-                    $('head').append($('<link rel="stylesheet" type="text/css" />')
-                                        .attr("href", qualify(module.manifest.css)));
+                    var css = document.createElement("link");
+                    css.setAttribute("rel", "stylesheet");
+                    css.setAttribute("type", "text/css");
+                    css.setAttribute("href", qualify(module.manifest.css));
+
+                    var head = document.getElementsByTagName("head")[0];
+                    head.appendChild(css);
                 }
 
-                /* Load all the html */
-                $.ajax({
-                    url: qualify(module.manifest.html),
-                    dataType: "html",
-                }).done(function(content) {
-                    content = content.replace(/@@module@@/g, module.prefix);
-                    $("body")
-                        .removeClass()
-                        .html(content);
-                    $.each(module.manifest.scripts, function(i, file) {
-                        var script = document.createElement("script");
-                        script.async = false;
-                        script.src = qualify(file);
-                        document.head.appendChild(script);
-                    });
-                    phantom_checkpoint();
-                });
-         }
+                var xhr = new XMLHTTPRequest();
+                xhr.open("GET", qualify(module.manifest.html), true);
+                xhr.responseType = "document";
+                xhr.onreadystatechange = function(e) {
+                    if (xhr.readyState != 4) {
+                        return;
+                    } else if (xhr.status == 200) {
+                        document.body.removeAttribute("class");
+                        document.body.innerHTML = xhr.responseText;
 
-         $(boot);
-        })(jQuery, cockpit);
+                        var i;
+                        var scripts = module.manifest.scripts;
+                        var length = scripts ? scripts.length : 0;
+                        for (i = 0; i < length; i++) {
+                            var script = document.createElement("script");
+                            script.async = false;
+                            script.src = qualify(scripts[i]);
+                            document.head.appendChild(script);
+                        }
+                    } else {
+                        if (window.console)
+                            console.log(xhr.statusText);
+                        fatal("Cockpit not available: cannot load shell");
+                    }
+                    phantom_checkpoint();
+                };
+                xhr.send();
+            }
+
+        
+            window.onload = boot;
+        })(cockpit);
     </script>
   </head>
   <body class="login-pf">
@@ -237,7 +260,7 @@
           </div>
         </div><!--/.col-*-->
 
-        <div class="col-sm-5 col-md-6 col-lg-7 details login-details">
+        <div class="col-sm-5 col-md-6 col-lg-7 details" id="login-details">
           <p>
             <label id="server-name" class="control-label">Server: </label>
             <div class="message-icon">
@@ -250,7 +273,7 @@
           </p>
         </div><!--/.col-*-->
 
-        <div class="login-fatal" style="display: none;">
+        <div id="login-fatal" style="display: none;">
           <div class="message-icon">
             <span class="pficon-layered">
               <span class="pficon pficon-error-octagon"></span>
