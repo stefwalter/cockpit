@@ -99,10 +99,10 @@
       the path, use the <code>@@</code> syntax.</para>
 
     <para>For example here's how to include the base <code>cockpit.js</code> script in your HTML
-      from the <code>unstable</code> module:</para>
+      from the <code>latest</code> module:</para>
 
 <programlisting>
-  &lt;script src="../@@unstable@@"&gt;&lt;/script&gt;
+  &lt;script src="../@@latest@@"&gt;&lt;/script&gt;
 </programlisting>
 
     <para>Do not assume you can link to any file in any other module. Refer to the

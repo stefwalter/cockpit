@@ -195,13 +195,15 @@
             }
 
             function shell(environment) {
-                var module = null;
+                var i, module = null;
+                console.log(environment);
                 if (environment.localhost && environment.localhost.modules)
                     module = environment.localhost.modules["shell"];
                 if (!module || !module.manifest) {
                     fatal("Cockpit not available: shell not installed correctly");
                     return;
                 }
+
                 var prefix;
                 if (module.checksum)
                     prefix = "/res/" + module.checksum;
@@ -226,12 +228,12 @@
                     var css = document.createElement("link");
                     css.setAttribute("rel", "stylesheet");
                     css.setAttribute("type", "text/css");
-                    css.setAttribute("href", qualify(module.manifest.css));
+                    css.setAttribute("href", qualify("cockpit.css"));
                     document.head.appendChild(css);
                 }
 
                 var xhr = new XMLHttpRequest();
-                xhr.open("GET", qualify(module.manifest.html), true);
+                xhr.open("GET", qualify("shell.html"), true);
                 xhr.onreadystatechange = function(e) {
                     if (xhr.readyState != 4) {
                         return;
@@ -240,11 +242,12 @@
                         document.body.removeAttribute("class");
                         document.body.innerHTML = content;
 
-                        var i;
-                        var scripts = module.manifest.scripts;
-                        var length = scripts ? scripts.length : 0;
-
+                        var i, src, script;
+                        var tags = document.getElementsByTagName("script");
+                        var scripts = [];
+                        var length = tags.length;
                         var outstanding = length;
+
                         function script_loaded() {
                             outstanding--;
                             if (outstanding === 0) {
@@ -256,9 +259,11 @@
                         }
 
                         for (i = 0; i < length; i++) {
+                            src = tags[i].getAttribute("src");
+                            tags[i].parentNode.removeChild(tags[i]);
                             var script = document.createElement("script");
                             script.async = false;
-                            script.src = qualify(scripts[i]);
+                            script.src = src;
                             script.onload = script_loaded;
                             document.head.appendChild(script);
                         }

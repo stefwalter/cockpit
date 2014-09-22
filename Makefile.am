@@ -172,6 +172,7 @@ upload-doc:
 
 endif
 
+include modules/latest/Makefile-latest.am
 include modules/shell/Makefile-shell.am
 include src/common/Makefile-common.am
 include src/websocket/Makefile-websocket.am

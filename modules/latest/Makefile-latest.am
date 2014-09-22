@@ -1,0 +1,14 @@
+
+latestdir = $(pkgdatadir)/latest
+latest_DATA = \
+	modules/latest/jquery.js \
+	modules/latest/jquery.min.js \
+	modules/latest/bootstrap.js \
+	modules/latest/bootstrap.min.js \
+	modules/latest/term.js \
+	modules/latest/manifest.json \
+	$(NULL)
+
+EXTRA_DIST += \
+	$(latest_DATA) \
+	$(NULL)
