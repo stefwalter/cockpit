@@ -27,6 +27,9 @@ This file contains information about what the module provides.
 The name of a module is the name of the subdirectory. Modules are also
 refered to by their checksums, see below.
 
+The module names, file names, and directory names may only consist of
+the following characters: A-Z a-z 0-9 -_.,
+
 If multiple locations have modules with the same name, then the one
 in the location toward the top of the above list comes first. That is,
 $XDG_DATA_HOME modules get loaded first, and the order of directories
