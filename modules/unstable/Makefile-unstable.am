@@ -1,9 +1,29 @@
 
+base_js_PARTS = \
+	modules/unstable/channel.js \
+	modules/unstable/spawn.js \
+	$(NULL)
+
+base_js_FILES = base.js
+base.js: $(base_js_PARTS)
+	$(AM_V_GEN) JSL=$(JSL) $(JSLINT) $^
+	$(AM_V_GEN) $(MINIFY) $^ >$@.tmp && mv $@.tmp $@
+
 unstabledir = $(pkgdatadir)/unstable
+nodist_unstable_DATA = $(base_js_FILES)
 unstable_DATA = \
 	modules/unstable/jquery.js \
 	modules/unstable/bootstrap.js \
 	modules/unstable/manifest.json \
+	$(NULL)
+
+TESTS += \
+	modules/unstable/test-chan.html \
+	modules/unstable/test-spawn.html \
+	$(NULL)
+
+CLEANFILES = \
+	$(base_js_FILES) \
 	$(NULL)
 
 EXTRA_DIST += \
