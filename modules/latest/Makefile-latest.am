@@ -1,5 +1,16 @@
+cockpit_js_PARTS = \
+	modules/latest/channel.js \
+	modules/latest/spawn.js \
+	$(NULL)
+
+cockpit.js: $(cockpit_js_PARTS)
+	$(AM_V_GEN) $(JSLINT) -o $@ $^
 
 latestdir = $(pkgdatadir)/latest
+nodist_latest_DATA = \
+	cockpit.js \
+	cockpit.min.js \
+	$(NULL)
 latest_DATA = \
 	modules/latest/jquery.js \
 	modules/latest/jquery.min.js \
@@ -9,6 +20,17 @@ latest_DATA = \
 	modules/latest/manifest.json \
 	$(NULL)
 
+TESTS += \
+	modules/latest/test-chan.html \
+	modules/latest/test-spawn.html \
+	$(NULL)
+
+CLEANFILES += \
+	cockpit.js \
+	cockpit.min.js \
+	$(NULL)
+
 EXTRA_DIST += \
+	$(cockpit_js_PARTS) \
 	$(latest_DATA) \
 	$(NULL)
