@@ -133,6 +133,7 @@ clean-local:
 include doc/Makefile-doc.am
 include doc/man/Makefile-man.am
 include modules/shell/Makefile-shell.am
+include modules/unstable/Makefile-unstable.am
 include src/common/Makefile-common.am
 include src/websocket/Makefile-websocket.am
 include tools/Makefile-tools.am
