@@ -12,6 +12,11 @@ base_DATA = \
 	pkg/base/manifest.json \
 	$(NULL)
 
+TESTS += \
+	 pkg/base/test-chan.html \
+	 pkg/base/test-spawn.html \
+	 $(NULL)
+
 EXTRA_DIST += \
 	$(base_DATA) \
 	$(NULL)
