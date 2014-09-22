@@ -42,6 +42,16 @@ static gboolean   module_checksum_directory    (GChecksum *checksum,
                                                 const gchar *root,
                                                 const gchar *directory);
 
+#if 0
+static gboolean
+validate_name (const gchar *name)
+{
+  static const gchar *allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.,";
+  gsize len = strspn (name, allowed);
+  return name[len] != '\0';
+}
+#endif
+
 static gboolean
 module_checksum_file (GChecksum *checksum,
                       const gchar *root,
