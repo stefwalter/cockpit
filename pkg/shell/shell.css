@@ -88,6 +88,12 @@
     padding-left: 20px;
 }
 
+iframe.container-frame {
+    display: block;
+    width: 100%;
+    border: none;
+}
+
 /* The server avatar */
 #server-avatar {
     width:       128px;
