@@ -94,6 +94,66 @@ function Channel(options) {
         return;
     }
 
+    /* A websocket that communicates outward */
+    function NestWebSocket(ident, win) {
+        var self = this;
+
+        self.onopen = function(ev) { };
+        self.onclose = function(ev) { };
+        self.onmessage = function(ev) { };
+        self.readyState = 0; /* connecting */
+        self.ident = "cockpit." + ident;
+        self.window = win;
+
+        var loc = window.location.toString();
+        if (loc.indexOf('http:') === 0)
+            self.origin = "http://" + window.location.host;
+        else if (loc.indoxOf('https:') === 0) 
+            self.origin = "https://" + window.location.host;
+        else {
+            console.error("Cockpit must be used over http or https");
+            return null;
+        }
+        
+        self.send = function send(msg) {
+            if (!self.window)
+                console.error("sending message on closed WebSocket");
+            else
+                self.window.postMessage([self.ident, msg], self.origin);
+        };
+
+        var listener = function window_message(ev) {
+            if (ev.origin != self.origin &&
+                ev.data && typeof ev.data == "object" &&
+                ev.data[0] === self.ident) {
+                if (ev.data[1] === undefined)
+                    self.close();
+                else
+                    self.onmessage(ev.data[1]);
+            } 
+        };
+
+        self.window.addEventListener("message", listener, false);
+
+        self.close = function close() {
+            if (!self.window)
+                return;
+            self.readyState = 3; /* closed */
+            self.window.removeEventListener("message", listener, false);
+            self.window = null;
+            self.onclose({ });
+        };
+
+        window.setTimeout(function() {
+            if (self.readyState === 0) {
+                self.readyState = 1; /* open */
+                self.onopen({ });
+            }
+        }, 1);
+
+        return self;
+    }
+
     /* Private Transport class */
     function Transport() {
         var transport = this;
@@ -103,20 +163,27 @@ function Channel(options) {
                 console.debug.apply(console, arguments);
         }
 
-        var ws_loc = cockpit.channel.calculate_url();
-        if (!ws_loc)
-            return;
+        if (cockpit.embedded_ident) {
+            transport_debug("Embedded");
+            transport._ws = NestWebSocket(cockpit.embed_ident, window.parent);
 
-        transport_debug("Connecting to " + ws_loc);
-
-        if ("WebSocket" in window) {
-            transport._ws = new WebSocket(ws_loc, "cockpit1");
-        } else if ("MozWebSocket" in window) { // Firefox 6
-            transport._ws = new MozWebSocket(ws_loc);
         } else {
-            console.error("WebSocket not supported, application will not work!");
-            return;
+            var ws_loc = cockpit.channel.calculate_url();
+            if (!ws_loc)
+                return null;
+
+            transport_debug("Connecting to " + ws_loc);
+
+            if ("WebSocket" in window)
+                transport._ws = new WebSocket(ws_loc, "cockpit1");
+            else if ("MozWebSocket" in window) // Firefox 6
+                transport._ws = new MozWebSocket(ws_loc);
+            else
+                console.error("WebSocket not supported, application will not work!");
         }
+
+        if (!transport._ws)
+            return null;
 
         transport._queue = [];
         transport._control_cbs = { };
@@ -233,6 +300,8 @@ function Channel(options) {
             delete this._control_cbs[channel];
             delete this._message_cbs[channel];
         };
+
+        return this;
     }
 
     /* Instantiate the transport singleton */
