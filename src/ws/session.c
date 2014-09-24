@@ -468,6 +468,7 @@ perform_kerberos (void)
   pam_handle_t *pamh = NULL;
   krb5_error_code code;
   OM_uint32 flags = 0;
+  gss_OID mech_type = GSS_C_NO_OID;
   char *local;
   int res;
 
@@ -477,13 +478,22 @@ perform_kerberos (void)
   debug ("reading kerberos auth from cockpit-ws");
   input.value = read_auth_until_eof (&input.length);
 
+setenv ("KRB5_TRACE", "/dev/stderr", 1);
+fprintf (stderr, "before: %p %p %p\n", context, server, client);
   major = gss_accept_sec_context (&minor, &context, server, &input,
-                                  GSS_C_NO_CHANNEL_BINDINGS, &name, NULL,
+                                  GSS_C_NO_CHANNEL_BINDINGS, &name, &mech_type,
                                   &output, &flags, NULL, &client);
 
   if (GSS_ERROR (major))
     {
-      warnx ("gssapi auth failed: %s", gssapi_strerror (major, minor));
+      warnx ("gssapi auth failed: %d %s", minor, gssapi_strerror (major, minor));
+      if (major == GSS_S_DEFECTIVE_TOKEN)
+        {
+          warnx ("likely using invalid hostname to access this machine");
+        }
+      gss_buffer_desc s = { 0, NULL };
+      major = gss_oid_to_str (&minor, mech_type, &s);
+fprintf (stderr, "after: %p %p %p %u %p '%*.s'\n", context, server, client, major, mech_type, (int)s.length, (char *)s.value);
       goto out;
     }
 
