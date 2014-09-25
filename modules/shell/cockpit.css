@@ -330,12 +330,12 @@ ul.available-interfaces-group {
 @media (min-width: 500px) and (max-width: 1280px) {
 
     #server-nav-column {
-        width: 200px;
+        width: 300px;
         float: left;
     }
 
     #server-graph-columns {
-        padding-left: 210px;
+        padding-left: 310px;
     }
 
 }
@@ -343,12 +343,12 @@ ul.available-interfaces-group {
 @media (min-width: 1280px) {
 
     #server-nav-column {
-        width: 200px;
+        width: 300px;
         float: left;
     }
 
     #server-graph-columns {
-        padding-left: 210px;
+        padding-left: 310px;
     }
 
     #server-graph-column-1 {

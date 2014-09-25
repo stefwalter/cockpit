@@ -49,12 +49,46 @@
               </ul>
             </li>
           </ul>
-          <div class="nav navbar-nav navbar-primary">
-            <div class="col-md-10">
-              <div class="btn-group" id="content-loc-trail">
-              </div>
-            </div>
-          </div>
+          <ul class="nav navbar-nav navbar-primary">
+            <li>
+              <a onclick="cockpit.go_down('dashboard')"><img src="@@module@@/images/switcher.png"></a>
+            </li>
+            <li>
+              <a onclick="cockpit.go_down('server')">Dashboard</a>
+            </li>
+            <li>
+              <a onclick="cockpit.go_down('services')">Services</a>
+            </li>
+            <li>
+              <a onclick="cockpit.go_down('journal')">Journal</a>
+            </li>
+            <li>
+              <a onclick="cockpit.go_down('networking')">Networking</a>
+            </li>            
+            <li>
+              <a onclick="cockpit.go_down('storage')">Storage</a>
+            </li>
+            <li>
+              <a onclick="cockpit.go_down('containers')">Containers</a>
+            </li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+              System
+              <b class="caret"></b>
+              </a>
+              <ul class="dropdown-menu">
+                <li>
+                  <a onclick="cockpit.go_down('accounts')">Administrator accounts</a>
+                </li>
+                <li>
+                  <a onclick="cockpit.go_down('terminal')">Rescue Terminal</a>
+                </li>
+                <li>
+                  <a data-toggle="modal" data-target="#shutdown-dialog">Shutdown and Reboot</a>
+                </li>
+              </ul>
+            </li>
+          </ul>
           <div class="nav navbar-nav" style="width: 100%;">
             <div class="col-md-12" id="content-header-extra">
             </div>
@@ -75,38 +109,16 @@
                      id="server-avatar-uploader" style="display:none"/>
               <img id="server-avatar">
            </div>
-            <a class="list-group-item" onclick="cockpit.go_down('system_information')">
-              <img class="cockpit-category-icon" src="@@module@@/images/category-system.png">
-              System Information
-            </a>
-            <a class="list-group-item" onclick="cockpit.go_down('services')">
-              <img class="cockpit-category-icon" src="@@module@@/images/category-services.png">
-              Services
-            </a>
-            <a class="list-group-item" onclick="cockpit.go_down('journal')">
-              <img class="cockpit-category-icon" src="@@module@@/images/category-journal.png">
-              Journal
-            </a>
-            <a class="list-group-item"  onclick="cockpit.go_down('networking')">
-              <img class="cockpit-category-icon" src="@@module@@/images/category-networking.png">
-              Networking
-            </a>
-            <a class="list-group-item" onclick="cockpit.go_down('storage')">
-              <img class="cockpit-category-icon" src="@@module@@/images/category-storage.png">
-              Storage
-            </a>
-            <a class="list-group-item" onclick="cockpit.go_down('accounts')">
-              <img class="cockpit-category-icon" src="@@module@@/images/category-users.png">
-              User Accounts
-            </a>
-            <a class="list-group-item" onclick="cockpit.go_down('containers')">
-              <img class="cockpit-category-icon" src="@@module@@/images/category-containers.png">
-              Containers
-            </a>
-            <a class="list-group-item" data-toggle="modal" data-target="#shutdown-dialog">
-              <img class="cockpit-category-icon" src="@@module@@/images/category-shutdown.png">
-              Shutdown & Reboot
-            </a>
+
+<table>
+<tr><td>Hardware</td><td></td></tr>
+<tr><td>Asset Tag</td><td></td></tr>
+<tr><td>BIOS</td><td></td></tr>
+<tr><td>Operating System</td><td></td></tr>
+<tr><td>Host Name</td><td id="system_information_hostname_text"></td></tr>
+<tr><td>Domain</td><td></td></tr>
+</table>
+
           </div>
         </div>
 
@@ -186,7 +198,6 @@
       </div>
 
       <div id="storage" class="container-fluid">
-
         <p>
           <button id="storage_create_raid" class="btn btn-default" translatable="yes">Create RAID Device</button>
           <button id="storage_create_volume_group" class="btn btn-default" translatable="yes">Create Volume Group</button>
@@ -385,6 +396,7 @@
         </div>
 
         <div id="vg_detail_list">
+          <ol class="breadcrumb"><li><a onclick="cockpit.go_down('storage')">Storage</a> </li> <li class="active">Volume Group</li></ol>
           <div class="panel panel-default">
             <div class="panel-heading">
               <span translatable="yes">Volume Group</span>
