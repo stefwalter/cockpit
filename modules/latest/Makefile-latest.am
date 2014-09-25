@@ -2,6 +2,8 @@ cockpit_js_PARTS = \
 	modules/latest/channel.js \
 	modules/latest/spawn.js \
 	modules/latest/dbus.js \
+	modules/latest/attrchange.js \
+	modules/latest/controls.js \
 	$(NULL)
 
 cockpit.js: $(cockpit_js_PARTS)
@@ -19,6 +21,15 @@ latest_DATA = \
 	modules/latest/bootstrap.min.js \
 	modules/latest/term.js \
 	modules/latest/manifest.json \
+	modules/latest/cockpit.css \
+	$(NULL)
+
+latestimagesdir = $(pkgdatadir)/latest/images
+latestimages_DATA = \
+	modules/latest/images/play.png \
+	modules/latest/images/eject.png \
+	modules/latest/images/stop.png \
+	modules/latest/images/dialog-error.png \
 	$(NULL)
 
 TESTS += \

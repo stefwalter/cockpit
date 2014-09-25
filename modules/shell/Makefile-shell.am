@@ -6,7 +6,6 @@ shell_js_PARTS = \
 	modules/shell/polyfills.js \
 	modules/shell/rest.js \
 	modules/shell/debug.js \
-	modules/shell/controls.js \
 	modules/shell/cockpit-util.js \
 	modules/shell/cockpit-i18n.js \
 	modules/shell/cockpit-main.js \
@@ -42,9 +41,8 @@ nodist_shell_DATA = \
 	shell.min.js \
 	$(NULL)
 shell_DATA = \
-	modules/shell/attrchange.js \
 	modules/shell/jquery-flot.js \
-	modules/shell/cockpit.css \
+	modules/shell/shell.css \
 	modules/shell/shell.html \
 	modules/shell/manifest.json \
 	$(NULL)
@@ -67,11 +65,7 @@ shellimages_DATA = \
 	modules/shell/images/category-users.png \
 	modules/shell/images/avatar-default-48.png \
 	modules/shell/images/avatar-default-128.png \
-	modules/shell/images/play.png \
-	modules/shell/images/eject.png \
 	modules/shell/images/server-large.png \
-	modules/shell/images/stop.png \
-	modules/shell/images/dialog-error.png \
 	modules/shell/images/face-smile.png \
 	modules/shell/images/hammer.gif \
 	$(NULL)

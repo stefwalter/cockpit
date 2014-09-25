@@ -224,13 +224,11 @@
                 cockpit.connection_config = environment;
 
                 /* Simplistic module loader good enough for shell */
-                if (module.manifest.css) {
-                    var css = document.createElement("link");
-                    css.setAttribute("rel", "stylesheet");
-                    css.setAttribute("type", "text/css");
-                    css.setAttribute("href", qualify("cockpit.css"));
-                    document.head.appendChild(css);
-                }
+                var css = document.createElement("link");
+                css.setAttribute("rel", "stylesheet");
+                css.setAttribute("type", "text/css");
+                css.setAttribute("href", qualify("shell.css"));
+                document.head.appendChild(css);
 
                 var xhr = new XMLHttpRequest();
                 xhr.open("GET", qualify("shell.html"), true);
