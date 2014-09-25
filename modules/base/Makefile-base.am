@@ -28,6 +28,7 @@ unstableimages_DATA = \
 	modules/base/images/play.png \
 	modules/base/images/eject.png \
 	modules/base/images/stop.png \
+	modules/base/images/dialog-error.png \
 	$(NULL)
 
 TESTS += \

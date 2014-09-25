@@ -390,7 +390,7 @@ PageSetupServer.prototype = {
                                       'style': "display:none"
                                     }),
                         $('<img/>', { 'class': "cockpit-setup-task-error",
-                                      'src': prefix + "/images/dialog-error.png",
+                                      'src': prefix + "../images/dialog-error.png",
                                       'style': "display:none"
                                     }),
                         $('<img/>', { 'class': "cockpit-setup-task-done",

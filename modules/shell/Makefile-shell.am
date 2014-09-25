@@ -67,7 +67,6 @@ shellimages_DATA = \
 	modules/shell/images/header-gear.png \
 	modules/shell/images/right-arrow.png \
 	modules/shell/images/server-large.png \
-	modules/shell/images/dialog-error.png \
 	modules/shell/images/face-smile.png \
 	modules/shell/images/refresh.png \
 	modules/shell/images/hammer.gif \
