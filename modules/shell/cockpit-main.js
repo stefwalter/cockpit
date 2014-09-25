@@ -658,7 +658,7 @@ function PageExternal(id, module, path, title) {
 
     this.getTitle = function() { return this.title; };
 
-    this.show = function() {
+    this.setup = function() {
         var url = "";
         /* TODO: This *still* only loads modules from localhost */
         var mod = cockpit.environment.localhost.modules[module];
@@ -670,6 +670,7 @@ function PageExternal(id, module, path, title) {
         $(this.iframe).attr("src", url);
     };
 
+    this.show = function() { console.log(this.iframe); };
     this.enter = function() { };
     this.leave = function() { };
 }
@@ -683,11 +684,15 @@ $(window).on('load resize', function() {
 });
 
 /* TODO: for now bring in component module pages */
+
 var terminal = new PageExternal("terminal", "terminal", "/terminal.html",
         C_("page-title", "Rescue Terminal"));
 terminal.history = [ "" ];
 terminal.history_pos = 0;
 cockpit.pages.push(terminal);
 
+var system_info = new PageExternal("system_information", "server", "/systeminfo.html",
+        C_("page-title", "System Information"));
+cockpit.pages.push(system_info);
 
 })(jQuery, cockpit);

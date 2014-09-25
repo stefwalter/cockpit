@@ -173,6 +173,7 @@ upload-doc:
 endif
 
 include modules/base/Makefile-base.am
+include modules/server/Makefile-server.am
 include modules/shell/Makefile-shell.am
 include modules/terminal/Makefile-terminal.am
 include src/common/Makefile-common.am

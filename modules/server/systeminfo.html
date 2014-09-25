@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Cockpit terminal</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="/static/patternfly.x1.css" type="text/css" rel="stylesheet">
+        <link href="../cockpit.css" type="text/css" rel="stylesheet">
+        <script src="../jquery.js"></script>
+        <script src="../channel.js"></script>
+        <script src="../dbus.js"></script>
+        <script src="systeminfo.js"></script>
+    </head>
+    <body>
+
+        <div id="system_information">
+            <div class="panel panel-default" style="margin:20px">
+                <div class="panel-body">
+                    <table class="cockpit-info-table">
+                        <tr>
+                            <td>Hardware</td>
+                            <td id="system_information_hardware_text"></td>
+                        </tr>
+                        <tr>
+                            <td>Asset Tag</td>
+                            <td id="system_information_asset_tag_text"></td>
+                        </tr>
+                        <tr>
+                            <td>BIOS</td>
+                            <td id="system_information_bios_text"></td>
+                        </tr>
+                        <tr>
+                            <td>Operating System</td>
+                            <td id="system_information_os_text"></td>
+                        </tr>
+                        <tr>
+                            <td>Host Name</td>
+                            <td id="system_information_hostname_text"></td>
+                            <td>
+                                <button class="btn btn-default" id="system_information_change_hostname_button">
+                                    Change Host name
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Domain</td>
+                            <td id="system_information_realms"></td>
+                            <td>
+                                <button class="btn btn-default" id="realms-join">Join Domain</button>
+                                <button class="btn btn-default realms-leave-button" translatable="yes"
+                                    id="realms-leave" style="float:left">Leave Domain</button>
+                                <div class="realms-leave-spinner waiting" id="realms-leave-spinner"
+                                    translatable="yes" style="float:left"></div>
+                            </td>
+                        </tr>
+                    </table>
+                    <br />
+                    <div class="has-error">
+                        <span id="realms-leave-error" class="help-block"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <div class="modal" id="system_information_change_hostname"
+            tabindex="-1" role="dialog" data-backdrop="static">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Change Host Name</h4>
+                    </div>
+                    <div class="modal-body">
+                        <table class="cockpit-form-table">
+                            <tr>
+                                <td>Pretty Host Name</td>
+                                <td><input id="sich-pretty-hostname" class="form-control"></td>
+                            </tr>
+                            <tr>
+                                <td>Real Host Name</td>
+                                <td>
+                                    <div id=sich-hostname-error>
+                                        <input id="sich-hostname" class="form-control">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td><div  class="has-error">
+                                        <span id="sich-note-1" class="help-block" style="margin: 0"></span>
+                                </div></td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td>
+                                    <div class="has-error">
+                                        <span id="sich-note-2" class="help-block" style="margin: 0"></span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-default" data-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button class="btn btn-primary" id="sich-apply-button">
+                            Change
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="realms-op" tabindex="-1" role="dialog"
+            data-backdrop="static">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title" id="realms-op-title"></h4>
+                    </div>
+                    <div class="modal-body">
+                        <div id="realms-op-fields">
+                            <table class="cockpit-form-table" id="realms-op-form">
+                                <tr class="realms-op-join-only-row">
+                                    <td translatable="yes">Domain Address</td>
+                                    <td>
+                                        <input class="realms-op-field form-control" type="text"
+                                            id="realms-op-address" value="" />
+                                    </td>
+                                    <td style="width:0px">
+                                        <div id="realms-op-address-spinner" class="waiting"
+                                            style="margin-left:-40px;margin-top:4px"></div>
+                                        <img id="realms-op-address-error"
+                                            src="../images/dialog-error.png"
+                                            style="margin-left:-40px;margin-top:4px" />
+                                    </td>
+                                </tr>
+                                <tr class="realms-op-join-only-row">
+                                    <td class="header"></td>
+                                </tr>
+                                <tr class="realms-op-join-only-row">
+                                    <td translatable="yes">Computer OU</td>
+                                    <td>
+                                        <input class="realms-op-field form-control" type="text"
+                                            id="realms-op-computer-ou" value="" />
+                                    </td>
+                                </tr>
+                                <tr class="realms-op-join-only-row" id="realms-op-software-row">
+                                    <td translatable="yes">Software</td>
+                                    <td>
+                                        <select class="form-control" id="realms-op-software">
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr id="realms-authentification-row">
+                                    <td translatable="yes">Authentication</td>
+                                    <td>
+                                        <select class="form-control" id="realms-op-auth">
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr id="realms-op-user-row">
+                                    <td translatable="yes">User Name</td>
+                                    <td>
+                                        <input class="realms-op-field form-control" type="text"
+                                            id="realms-op-user" value="" />
+                                    </td>
+                                </tr>
+                                <tr id="realms-op-user-password-row">
+                                    <td translatable="yes">User Password</td>
+                                    <td>
+                                        <input class="realms-op-field form-control" type="password"
+                                            id="realms-op-user-password" value=""/>
+                                    </td>
+                                </tr>
+                                <tr id="realms-op-admin-row">
+                                    <td translatable="yes">Domain Administrator Name</td>
+                                    <td>
+                                        <input class="realms-op-field form-control" type="text"
+                                            id="realms-op-admin" value="" />
+                                    </td>
+                                </tr>
+                                <tr id="realms-op-admin-password-row">
+                                    <td translatable="yes">Domain Administrator Password</td>
+                                    <td>
+                                        <input class="realms-op-field form-control" type="password"
+                                            id="realms-op-admin-password" value="" />
+                                    </td>
+                                </tr>
+                                <tr id="realms-op-otp-row">
+                                    <td translatable="yes">One Time Password</td>
+                                    <td>
+                                        <input class="realms-op-field form-control" type="password"
+                                            id="realms-op-ot-password" value=""/>
+                                    </td>
+                                </tr>
+                                <tr style="height:50px">
+                                    <td colspan="3">
+                                        <div id="realms-op-error"
+                                            style="text-align:left;font-weight:bold"></div>
+                                        <pre id="realms-op-diagnostics" style="text-align:left; display: none;">
+                                        </pre>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div id="realms-op-spinner" class="waiting" style="float: left"></div>
+                        <span id="realms-op-wait-message">This may take a while</span>
+                        <button class="btn btn-default" id="realms-op-cancel">
+                            Cancel
+                        </button>
+                        <button class="btn btn-primary" id="realms-op-apply">
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+    </body>
+</html>

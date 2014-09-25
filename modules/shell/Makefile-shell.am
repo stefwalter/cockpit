@@ -18,10 +18,8 @@ shell_js_PARTS = \
 	modules/shell/cockpit-server.js \
 	modules/shell/cockpit-cpu-status.js \
 	modules/shell/cockpit-memory-status.js \
-	modules/shell/cockpit-system-information.js \
 	modules/shell/cockpit-networking.js \
 	modules/shell/cockpit-storage.js \
-	modules/shell/cockpit-realms.js \
 	modules/shell/cockpit-shutdown.js \
 	modules/shell/cockpit-services.js \
 	modules/shell/cockpit-journal.js \
