@@ -19,12 +19,32 @@
 
 (function(cockpit, $) {
 
-    var address = "localhost"; /* TODO: */
-    var client;
-    var manager;
-    var realms;
-    var realm_manager;
+/* TODO: Localization */
+function C_(x, y) { return y; }
+function _(x) { return x; }
+function N_(x) { return x; }
 
+/* TODO: some utilities */
+function F(format, args) {
+    return format.replace(/%\{([^}]+)\}/g, function(_, key) { return args[key] || ""; });
+}
+function esc(str) {
+    if (str === null || str === undefined)
+        return "";
+    var pre = document.createElement('pre');
+    var text = document.createTextNode(str);
+    pre.appendChild(text);
+    return pre.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+var address = "localhost"; /* TODO: */
+var client;
+var manager;
+var realm_manager;
+
+$(document).ready(function() {
+    var realms;
+    
     function system_info_update() {
         var joined = realm_manager.Joined;
 
@@ -46,7 +66,7 @@
             var name = joined[0][0];
             var details = joined[0][1];
             $("#realms-list").append(('<li class="list-group-item" id="domain-list">' +
-                        cockpit.esc(name) +
+                        esc(name) +
                         '<button class="btn btn-default realms-leave-button" id="realms-leave" style="float:right">' +
                         _("Leave") + '</button>' +
                         '<div class="realms-leave-spinner waiting" id="realms-leave-spinner style="float:right"/>' +
@@ -90,100 +110,101 @@
         });
     }
 
-    $(document).ready(function() {
-        /* TODO: This code needs to be migrated away from dbus-json1 */
-        client = cockpit.dbus(address, { payload: 'dbus-json1' });
+    /* TODO: This code needs to be migrated away from dbus-json1 */
+    client = cockpit.dbus_client(address, { payload: 'dbus-json1' });
 
-        realm_manager = client.get("/com/redhat/Cockpit/Realms", "com.redhat.Cockpit.Realms");
-        $(realm_manager).on("notify:Joined.realms", system_info_update);
-        $(realm_manager).on("notify:Busy.realms", system_info_update);
+    realm_manager = client.get("/com/redhat/Cockpit/Realms", "com.redhat.Cockpit.Realms");
+    $(realm_manager).on("notify:Joined.realms", system_info_update);
+    $(realm_manager).on("notify:Busy.realms", system_info_update);
 
-        $("#realms-leave-error").text("");
-        system_info_update();
-        system_info_update_busy();
-        manager = client.get("/com/redhat/Cockpit/Manager", "com.redhat.Cockpit.Manager");
+    $("#realms-leave-error").text("");
+    system_info_update();
+    system_info_update_busy();
+    manager = client.get("/com/redhat/Cockpit/Manager", "com.redhat.Cockpit.Manager");
 
-        function bindf(sel, object, prop, func) {
-            function upd() {
-                $(sel).text(func(object[prop]));
-            }
-            $(object).on('notify:' + prop + '.system-information', upd);
-            upd();
+    function bindf(sel, object, prop, func) {
+        function upd() {
+            $(sel).text(func(object[prop]));
+        }
+        $(object).on('notify:' + prop + '.system-information', upd);
+        upd();
+    }
+
+    function bind(sel, object, prop) {
+        bindf(sel, object, prop, function (s) { return s; });
+    }
+
+    bind("#system_information_hardware_text", manager, "System");
+    bind("#system_information_asset_tag_text", manager, "SystemSerial");
+    bind("#system_information_bios_text", manager, "BIOS");
+    bind("#system_information_os_text", manager, "OperatingSystem");
+
+    function hostname_text() {
+        var pretty_hostname = manager.PrettyHostname;
+        var hostname = manager.Hostname;
+        var str;
+        if (!pretty_hostname || pretty_hostname == hostname)
+            str = hostname;
+        else
+            str = pretty_hostname + " (" + hostname + ")";
+        return str;
+    }
+
+    bindf("#system_information_hostname_text", manager, "Hostname", hostname_text);
+    bindf("#system_information_hostname_text", manager, "PrettyHostname", hostname_text);
+
+    function realms_text(val) {
+        if (!val)
+            return "?";
+        var res = [ ];
+        for (var i = 0; i < val.length; i++)
+            res.push(val[i][0]);
+        return res.join (", ");
+    }
+
+    function hide_buttons(val) {
+        if (!val)
+            return;
+        if(val[0] === undefined){
+            $(".realms-leave-spinner").hide();
+            $("#realms-leave").hide();
+            $("#realms-join").show();
+        } else {
+            $("#realms-join").hide();
+            $("#realms-leave").show();
+            $(".realms-leave-button").prop('disabled', false);
+            $("#realms-op").modal('hide');
         }
 
-        function bind(sel, object, prop) {
-            bindf(sel, object, prop, function (s) { return s; });
-        }
+    }
 
-        bind("#system_information_hardware_text", manager, "System");
-        bind("#system_information_asset_tag_text", manager, "SystemSerial");
-        bind("#system_information_bios_text", manager, "BIOS");
-        bind("#system_information_os_text", manager, "OperatingSystem");
+    realms = client.get("/com/redhat/Cockpit/Realms", "com.redhat.Cockpit.Realms");
+    bindf("#system_information_realms", realms, "Joined", realms_text);
 
-        function hostname_text() {
-            var pretty_hostname = manager.PrettyHostname;
-            var hostname = manager.Hostname;
-            var str;
-            if (!pretty_hostname || pretty_hostname == hostname)
-                str = hostname;
-            else
-                str = pretty_hostname + " (" + hostname + ")";
-	    return str;
-        }
-
-        bindf("#system_information_hostname_text", manager, "Hostname", hostname_text);
-        bindf("#system_information_hostname_text", manager, "PrettyHostname", hostname_text);
-
-        function realms_text(val) {
-            if (!val)
-                return "?";
-            var res = [ ];
-            for (var i = 0; i < val.length; i++)
-                res.push(val[i][0]);
-            return res.join (", ");
-        }
-
-        function hide_buttons(val) {
-            if (!val)
-                return;
-            if(val[0] === undefined){
-                $(".realms-leave-spinner").hide();
-                $("#realms-leave").hide();
-                $("#realms-join").show();
-            } else {
-                $("#realms-join").hide();
-                $("#realms-leave").show();
-                $(".realms-leave-button").prop('disabled', false);
-                $("#realms-op").modal('hide');
-            }
-
-        }
-
-        realms = client.get("/com/redhat/Cockpit/Realms", "com.redhat.Cockpit.Realms");
-        bindf("#system_information_realms", realms, "Joined", realms_text);
-
-        $(realms).on('notify:Joined.system-information', function() {
-            hide_buttons(realms['Joined']);
-        });
-
+    $(realms).on('notify:Joined.system-information', function() {
         hide_buttons(realms['Joined']);
-
-        $("#realms-join").click(function (e) {
-            if(realms.Joined[0] === undefined) {
-                realm_op = 'join';
-                realm_name = '';
-                realm_details = { };
-                $('#realms-op').modal('show');
-            }
-        });
-
-        $('#system_information_change_hostname_button').on('click', function() {
-            $('#system_information_change_hostname').modal('show');
-        });
     });
 
-    /* Hostname dialog */
+    hide_buttons(realms['Joined']);
 
+    $("#realms-join").click(function (e) {
+        if(realms.Joined[0] === undefined) {
+            realm_op = 'join';
+            realm_name = '';
+            realm_details = { };
+            $('#realms-op').modal('show');
+        }
+    });
+
+    $('#system_information_change_hostname_button').on('click', function() {
+        $('#system_information_change_hostname').modal('show');
+    });
+
+    $("#system_information").show();
+});
+
+/* Hostname dialog */
+$(document).ready(function() {
     var always_update_from_pretty = false;
     var initial_pretty_hostname;
     var initial_hostname;
@@ -192,13 +213,13 @@
         var new_full_name = $("#sich-pretty-hostname").val();
         var new_name = $("#sich-hostname").val();
         manager.call("SetHostname",
-                     new_full_name, new_name, {},
-                     function(error, reply) {
-                         $("#system_information_change_hostname").modal('hide');
-                         if(error) {
-                             cockpit.show_unexpected_error(error);
-                         }
-                     });
+                new_full_name, new_name, {},
+                function(error, reply) {
+                    $("#system_information_change_hostname").modal('hide');
+                    if(error) {
+                        cockpit.show_unexpected_error(error);
+                    }
+                });
     });
 
     $("#sich-pretty-hostname").on("input", function host_name_on_full_name_changed() {
@@ -221,6 +242,18 @@
 
     $("#sich-hostname").on("input", function host_name_on_name_changed() {
         host_name_update();
+    });
+
+    $('#system_information_change_hostname').on('show.bs.modal', function() {
+        initial_hostname = manager.Hostname || "";
+        initial_pretty_hostname = manager.PrettyHostname || "";
+        $("#sich-pretty-hostname").val(initial_pretty_hostname);
+        $("#sich-hostname").val(initial_hostname);
+
+        always_update_from_pretty = false;
+        host_name_update();
+
+        $("#sich-pretty-hostname").focus();
     });
 
     function host_name_update() {
@@ -296,26 +329,15 @@
 
         apply_button.prop('disabled', !can_apply);
     }
+});
 
+/* Join leave dialog */
 
-    $('#system_information_change_hostname').on('show.bs.modal', function() {
-        initial_hostname = manager.Hostname || "";
-        initial_pretty_hostname = manager.PrettyHostname || "";
-        $("#sich-pretty-hostname").val(initial_pretty_hostname);
-        $("#sich-hostname").val(initial_hostname);
+var realm_op;
+var realm_name;
+var realm_details;
 
-        always_update_from_pretty = false;
-        host_name_update();
-    
-        $("#sich-pretty-hostname").focus();
-    });
-
-    /* Join leave dialog */
-
-    var realm_op;
-    var realm_name;
-    var realm;
-    var realm_details;
+$(document).ready(function() {
     var never_show_software_choice;
     var realm_checking;
     var realm_checked;
@@ -377,7 +399,7 @@
         for (var i = 0; i < realm_discovered_details.length; i++) {
             var d = realm_discovered_details[i];
             var txt = d['client-software'] + " / " + d['server-software'];
-            sel.append('<option value="' + i + '">' + cockpit.esc(txt) + '</option>');
+            sel.append('<option value="' + i + '">' + esc(txt) + '</option>');
         }
         realm_update_auth_methods();
 
@@ -417,7 +439,7 @@
 
         function add_choice (tag, text) {
             if (tag in m) {
-                sel.append('<option value="' + tag + '">' + cockpit.esc(text) + '</option>');
+                sel.append('<option value="' + tag + '">' + esc(text) + '</option>');
                 have_one = 1;
             }
         }
@@ -532,7 +554,7 @@
                                    else if (!result) {
                                        $("#realms-op-address-error").show();
                                        $("#realms-op-address-error").attr('title',
-                                               F(_("Domain %{domain} could not be contacted"), { 'domain': cockpit.esc(name) }));
+                                               F(_("Domain %{domain} could not be contacted"), { 'domain': esc(name) }));
                                    } else {
                                        realm_discovered_details = details;
                                    }
@@ -633,5 +655,6 @@
     $("#realms-op-software").on('change', function() {
         realm_update_auth_methods();
     });
+});
 
 }(cockpit, jQuery));
