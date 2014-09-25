@@ -4,7 +4,6 @@ translations_json = $(addprefix lang/,$(addsuffix .json,$(LINGUAS)))
 
 shell_js_PARTS = \
 	modules/shell/polyfills.js \
-	modules/shell/dbus.js \
 	modules/shell/rest.js \
 	modules/shell/debug.js \
 	modules/shell/controls.js \
@@ -84,7 +83,6 @@ CHECK_HTML = \
 	modules/shell/test-util.html \
 	modules/shell/test-journal-renderer.html \
 	modules/shell/test-rest.html \
-	modules/shell/test-dbus.html \
 	$(NULL)
 
 TESTS += $(CHECK_HTML)
