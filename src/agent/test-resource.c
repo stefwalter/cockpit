@@ -37,6 +37,7 @@ typedef struct {
   const gchar *datadirs[8];
   const gchar *module;
   const gchar *path;
+  const gchar *accept;
 } Fixture;
 
 static void
@@ -74,7 +75,8 @@ setup (TestCase *tc,
 
   tc->channel = cockpit_resource_open (COCKPIT_TRANSPORT (tc->transport), "444",
                                        fixture->module,
-                                       fixture->path);
+                                       fixture->path,
+                                       fixture->accept);
   g_signal_connect (tc->channel, "closed", G_CALLBACK (on_channel_close), tc);
 }
 
@@ -143,6 +145,31 @@ test_simple (TestCase *tc,
   g_bytes_unref (data);
 }
 
+static const Fixture fixture_minified = {
+  .accept = "minified",
+  .module = "test",
+  .path = "/sub/file.ext",
+};
+
+static void
+test_minified (TestCase *tc,
+               gconstpointer fixture)
+{
+  GBytes *data;
+  guint count;
+
+  g_assert (fixture == &fixture_minified);
+
+  while (tc->closed == FALSE)
+    g_main_context_iteration (NULL, TRUE);
+  g_assert_cmpstr (tc->problem, ==, NULL);
+
+  data = combine_output (tc, &count);
+  cockpit_assert_bytes_eq (data, "This is the minified file.ext Oh marmalaaade\n", -1);
+  g_assert_cmpuint (count, ==, 1);
+  g_bytes_unref (data);
+}
+
 static const Fixture fixture_large = {
   .module = "test",
   .path = "/sub/COPYING",
@@ -205,11 +232,11 @@ test_listing (TestCase *tc,
   cockpit_assert_json_eq (control,
                           "{ \"command\": \"close\", \"channel\": \"444\", \"reason\": \"\", \"resources\": {"
                           " \"test\": {"
-                          "    \"checksum\": \"4784b8b983691a87886ce8325bda5f0ed748f058\","
+                          "    \"checksum\": \"fec489a692ee808950f34f6c519803aed65e1849\","
                           "    \"manifest\" : { \"description\" : \"dummy\"}"
                           " },"
                           " \"second\": {"
-                          "    \"checksum\": \"c47ad566aec6bebbbe4b4d93213f60389de78101\","
+                          "    \"checksum\": \"c4ac9a1d1b8691db24af5471a12936c837a91333\","
                           "    \"manifest\": { \"description\" : \"second dummy description\"}"
                           " },"
                           " \"another\": {\"manifest\" : { \"description\" : \"another\"} }"
@@ -389,6 +416,8 @@ main (int argc,
 
   g_test_add ("/resource/simple", TestCase, &fixture_simple,
               setup, test_simple, teardown);
+  g_test_add ("/resource/minified", TestCase, &fixture_minified,
+              setup, test_minified, teardown);
   g_test_add ("/resource/large", TestCase, &fixture_large,
               setup, test_large, teardown);
   g_test_add ("/resource/listing", TestCase, &fixture_listing,

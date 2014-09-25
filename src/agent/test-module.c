@@ -82,11 +82,11 @@ test_listing (TestCase *tc,
   cockpit_assert_json_eq (json,
                           "{"
                           " \"test\": {"
-                          "    \"checksum\": \"4784b8b983691a87886ce8325bda5f0ed748f058\","
+                          "    \"checksum\": \"fec489a692ee808950f34f6c519803aed65e1849\","
                           "    \"manifest\" : { \"description\" : \"dummy\"}"
                           " },"
                           " \"second\": {"
-                          "    \"checksum\": \"c47ad566aec6bebbbe4b4d93213f60389de78101\","
+                          "    \"checksum\": \"c4ac9a1d1b8691db24af5471a12936c837a91333\","
                           "    \"manifest\": { \"description\": \"second dummy description\"}"
                           " },"
                           " \"another\": {\"manifest\" : { \"description\" : \"another\"} }"
@@ -113,7 +113,7 @@ test_resolve_checksum (TestCase *tc,
 {
   gchar *path;
 
-  path = cockpit_module_resolve (tc->listing, "4784b8b983691a87886ce8325bda5f0ed748f058", "/sub/file.ext");
+  path = cockpit_module_resolve (tc->listing, "fec489a692ee808950f34f6c519803aed65e1849", "/sub/file.ext");
   g_assert_cmpstr (SRCDIR "/src/agent/mock-resource/system/cockpit/test/sub/file.ext", ==, path);
   g_free (path);
 }
@@ -178,7 +178,7 @@ test_expand (TestCase *tc,
   g_bytes_unref (bytes);
 
   cockpit_assert_bytes_eq (queue.head->data, "Depend on ", -1);
-  cockpit_assert_bytes_eq (queue.head->next->data, "4784b8b983691a87886ce8325bda5f0ed748f058", -1);
+  cockpit_assert_bytes_eq (queue.head->next->data, "fec489a692ee808950f34f6c519803aed65e1849", -1);
   cockpit_assert_bytes_eq (queue.head->next->next->data, " here ", -1);
   cockpit_assert_bytes_eq (queue.head->next->next->next->data, "another", -1);
   cockpit_assert_bytes_eq (queue.head->next->next->next->next->data, " and ", -1);
@@ -202,7 +202,7 @@ test_expand_with_host (TestCase *tc,
   g_bytes_unref (bytes);
 
   cockpit_assert_bytes_eq (queue.head->data, "Depend on ", -1);
-  cockpit_assert_bytes_eq (queue.head->next->data, "4784b8b983691a87886ce8325bda5f0ed748f058", -1);
+  cockpit_assert_bytes_eq (queue.head->next->data, "fec489a692ee808950f34f6c519803aed65e1849", -1);
   cockpit_assert_bytes_eq (queue.head->next->next->data, " here ", -1);
   cockpit_assert_bytes_eq (queue.head->next->next->next->data, "another@host", -1);
   cockpit_assert_bytes_eq (queue.head->next->next->next->next->data, " and ", -1);

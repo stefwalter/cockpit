@@ -1629,6 +1629,7 @@ resource_respond (CockpitWebService *self,
   GHashTableIter iter;
   GBytes *command;
   gchar **parts = NULL;
+  const gchar *accept = NULL;
 
   module = pop_module_name (remaining_path, &path);
   if (!module || !path)
@@ -1670,10 +1671,16 @@ resource_respond (CockpitWebService *self,
   if (checksum)
     {
       g_assert (session != NULL);
+
+      /*
+       * We can look up minified resource if a module  is checksumed, which means
+       * that it isn't supposed to change out underneath us.
+       */
+      accept = "minified";
       cache = TRUE;
       name = checksum;
       host = session->host;
-    }
+   }
   else
     {
       host = parts[1]; /* may be null */
@@ -1690,6 +1697,7 @@ resource_respond (CockpitWebService *self,
                            "host", host,
                            "module", name,
                            "path", path,
+                           "accept", accept,
                            NULL);
 
   cockpit_transport_send (rr->transport, NULL, command);

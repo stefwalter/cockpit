@@ -1356,11 +1356,11 @@ test_resource_modules (TestResourceCase *tc,
   cockpit_assert_json_eq (modules,
                           "{"
                           " \"test\": {"
-                          "    \"checksum\": \"4784b8b983691a87886ce8325bda5f0ed748f058\","
+                          "    \"checksum\": \"fec489a692ee808950f34f6c519803aed65e1849\","
                           "    \"manifest\" : { \"description\" : \"dummy\"}"
                           " },"
                           " \"second\": {"
-                          "    \"checksum\": \"c47ad566aec6bebbbe4b4d93213f60389de78101\","
+                          "    \"checksum\": \"c4ac9a1d1b8691db24af5471a12936c837a91333\","
                           "    \"manifest\": { \"description\" : \"second dummy description\"}"
                           " },"
                           " \"another\": {\"manifest\" : { \"description\" : \"another\"} }"
@@ -1411,7 +1411,7 @@ test_resource_checksum (TestResourceCase *tc,
   json_object_unref (cockpit_web_service_modules_finish (tc->service, result));
   g_object_unref (result);
 
-  response = cockpit_web_response_new (tc->io, "/res/4784b8b983691a87886ce8325bda5f0ed748f058/sub/file.ext", NULL);
+  response = cockpit_web_response_new (tc->io, "/res/fec489a692ee808950f34f6c519803aed65e1849/sub/file.ext", NULL);
   cockpit_web_service_resource (tc->service, response);
 
   while (cockpit_web_response_get_state (response) != COCKPIT_WEB_RESPONSE_SENT)
@@ -1426,9 +1426,8 @@ test_resource_checksum (TestResourceCase *tc,
                            "Cache-Control: max-age=31556926, public\r\n"
                            "Transfer-Encoding: chunked\r\n"
                            "\r\n"
-                           "32\r\n"
-                           "These are the contents of file.ext\n"
-                           "Oh marmalaaade\n"
+                           "2d\r\n"
+                           "This is the minified file.ext Oh marmalaaade\n"
                            "\r\n"
                            "0\r\n\r\n", -1);
   g_bytes_unref (bytes);

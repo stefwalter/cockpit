@@ -223,10 +223,14 @@ type:
 
  * "module": the module to retrieve resource from
  * "path": path of the resource within the module.
+ * "accept": various options for choosing the resource file
 
-The module may either be fully qualified (ie: module@host), although the
+The "module" may either be fully qualified (ie: module@host), although the
 host part is not used for routing, and the usual "open" command "host"
 option should be used. The module may also be a module checksum.
+
+If "accept" includes "minified" then a minified form of the file will
+be selected, if it is available.
 
 The channel payload will be the raw (possibly binary) byte data of the
 resource being retrieved.
