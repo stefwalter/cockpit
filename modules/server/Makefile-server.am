@@ -1,0 +1,18 @@
+server_JS = \
+	modules/server/systeminfo.js
+
+# Just for checking
+server.stamp: $(server_JS)
+	$(AM_V_GEN) $(JSLINT) -o $@ $<
+noinst_DATA += server.stamp
+
+serverdir = $(pkgdatadir)/server
+server_DATA = \
+	$(server_JS) \
+	modules/server/systeminfo.html \
+	modules/server/manifest.json \
+	$(NULL)
+
+EXTRA_DIST += \
+	$(server_DATA) \
+	$(NULL)
