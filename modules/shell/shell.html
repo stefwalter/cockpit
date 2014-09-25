@@ -51,7 +51,8 @@
           </ul>
           <ul class="nav navbar-nav navbar-primary">
             <li>
-              <a onclick="cockpit.go_down('dashboard')"><img src="@@module@@/images/switcher.png"> &nbsp;&nbsp;&nbsp; Pete</a>
+              <a id="toggle-sidebar-button">
+            <img src="@@module@@/images/switcher.png"> &nbsp;&nbsp;&nbsp; Pete</a>
             </li>
             <li>
               <a onclick="cockpit.go_down('server')">Dashboard</a>
@@ -95,12 +96,25 @@
           </div>
         </div>
       </nav>
-
+      
       <div id="dashboard">
         <div class="list-group" id="dashboard-machines">
         </div>
       </div>
-
+<div id="sidebar-toggle" style="width: 200px; height: 500px; float: left; backround: red;">
+<ul class="list-group">
+  <li class="list-group-item">Server one</li>
+  <li class="list-group-item">Server two</li>
+  <li class="list-group-item">Server three</li>
+  <li class="list-group-item">Server four</li>
+  <li class="list-group-item">Server five</li>
+</ul></div>
+<script>
+var flip = 0;
+$( "a#toggle-sidebar-button" ).click(function() {
+$( "div#sidebar-toggle" ).toggle( flip++ % 2 === 0 );
+});
+</script>
       <div id="server" class="container-fluid">
         <div id="server-nav-column">
           <div class="list-group">
@@ -109,7 +123,6 @@
                      id="server-avatar-uploader" style="display:none"/>
               <img id="server-avatar">
            </div>
-
           <dl class="dl-horizontal">
             <dt>Hardware</dt>
             <dd>Dell Inc. PowerEdge T20 (01)</dd>
