@@ -1,6 +1,7 @@
 cockpit_js_PARTS = \
 	modules/base/channel.js \
 	modules/base/spawn.js \
+	modules/base/dbus.js \
 	modules/base/attrchange.js \
 	modules/base/controls.js \
 	$(NULL)
@@ -33,6 +34,7 @@ unstableimages_DATA = \
 
 TESTS += \
 	modules/base/test-chan.html \
+	modules/base/test-dbus.html \
 	modules/base/test-spawn.html \
 	$(NULL)
 

@@ -15,7 +15,7 @@
 		"../term.js",
 		"polyfills.js",
 		"../channel.js",
-		"dbus.js",
+		"../dbus.js",
 		"rest.js",
 		"../spawn.js",
 		"debug.js",
