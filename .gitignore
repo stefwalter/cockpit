@@ -43,7 +43,7 @@ depcomp
 /cockpit.8
 /cockpit.service
 /cockpit.conf.5
-/cockpit.js
+/*.min.js
 /spawn.js
 /cockpit.service
 /cockpitd
