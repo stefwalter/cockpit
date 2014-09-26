@@ -670,7 +670,7 @@ function PageExternal(id, module, path, title) {
         $(this.iframe).attr("src", url);
     };
 
-    this.show = function() { console.log(this.iframe); };
+    this.show = function() { };
     this.enter = function() { };
     this.leave = function() { };
 }
