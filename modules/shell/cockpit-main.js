@@ -695,4 +695,9 @@ var system_info = new PageExternal("system_information", "server", "/systeminfo.
         C_("page-title", "System Information"));
 cockpit.pages.push(system_info);
 
+if (cockpit.environment.localhost.modules["playground"]) {
+    var playground = new PageExternal("playground", "playground", "/playground.html", "Playground");
+    cockpit.pages.push(playground);
+}
+
 })(jQuery, cockpit);
