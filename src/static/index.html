@@ -172,6 +172,13 @@
 
             function shell(environment) {
                 var module = null;
+                // HACK - cockpit doesn't work well for non-root, non-wheel
+                //        users, mostly because of the shared state in
+                //        /var/lib/cockpit.
+                if (environment.user_is_admin === false) {
+                    error("Not an administrator");
+                    return;
+                }
                 if (environment.localhost && environment.localhost.modules)
                     module = environment.localhost.modules["shell"];
                 if (!module || !module.manifest) {

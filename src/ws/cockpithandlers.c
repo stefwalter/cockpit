@@ -35,6 +35,7 @@
 #include <glib/gi18n-lib.h>
 
 #include <string.h>
+#include <grp.h>
 
 /* Called by @server when handling HTTP requests to /socket - runs in a separate
  * thread dedicated to the request so it may do blocking I/O
@@ -123,6 +124,145 @@ get_remote_address (GIOStream *io)
   return result;
 }
 
+static struct passwd *
+getpwuid_a (uid_t uid,
+            int *errp)
+{
+  int err;
+  long bufsize = sysconf (_SC_GETPW_R_SIZE_MAX);
+  struct passwd *ret = NULL;
+  struct passwd *buf;
+
+  g_return_val_if_fail (bufsize >= 0, NULL);
+
+  buf = malloc (sizeof(struct passwd) + bufsize);
+  if (buf == NULL)
+    err = ENOMEM;
+  else
+    err = getpwuid_r (uid, buf, (char *)(buf + 1), bufsize, &ret);
+
+  if (ret == NULL)
+    {
+      free (buf);
+      if (err == 0)
+        err = ENOENT;
+    }
+
+  if (errp)
+    *errp = err;
+  return ret;
+}
+
+static struct group *
+getgrnam_a (const gchar *group,
+            int *errp)
+{
+  int err;
+  long bufsize = sysconf (_SC_GETGR_R_SIZE_MAX);
+  struct group *ret = NULL;
+  struct group *buf;
+
+  g_return_val_if_fail (bufsize >= 0, NULL);
+
+  buf = malloc (sizeof(struct group) + bufsize);
+  if (buf == NULL)
+    err = ENOMEM;
+  else
+    err = getgrnam_r (group, buf, (char *)(buf + 1), bufsize, &ret);
+
+  if (ret == NULL)
+    {
+      free (buf);
+      if (err == 0)
+        err = ENOENT;
+    }
+
+  if (errp)
+    *errp = err;
+  return ret;
+}
+
+static gid_t *
+getgrouplist_a (const char *user,
+                int gid,
+                int *n_groupsp,
+                int *errp)
+{
+  int err, n_groups;
+  gid_t *buf;
+  gid_t *mem;
+
+  n_groups = 200;
+  buf = malloc ((n_groups + 1) * sizeof (gid_t));
+  if (buf == NULL)
+    err = ENOMEM;
+  else
+    {
+      // Super paranoid: The user might have been added to more groups
+      // since the last call and thus getgrouplist can fail more than
+      // once because of insufficent space.
+
+      int tries = 0;
+      err = 0;
+      while (getgrouplist (user, gid, buf, &n_groups) == -1)
+        {
+          mem = realloc (buf, (n_groups + 1) * sizeof (gid_t));
+          if (mem == NULL)
+            {
+              err = ENOMEM;
+              free (buf);
+              buf = NULL;
+              break;
+            }
+
+          buf = mem;
+          tries += 1;
+          if (tries > 5)
+            {
+              err = EIO;
+              break;
+            }
+        }
+
+      if (err == 0)
+        buf[n_groups] = (gid_t)-1;
+      else
+        {
+          free (buf);
+          buf = NULL;
+        }
+    }
+
+  if (errp)
+    *errp = err;
+  if (n_groupsp)
+    *n_groupsp = n_groups;
+  return buf;
+}
+
+static gboolean
+uid_is_wheel (uid_t uid)
+{
+  gs_free struct passwd *pw = getpwuid_a (uid, NULL);
+  if (pw == NULL)
+    return FALSE;
+
+  gs_free struct group *gr = getgrnam_a ("wheel", NULL);
+  if (gr == NULL)
+    return FALSE;
+
+  int n_groups;
+  gs_free gid_t *gids = getgrouplist_a (pw->pw_name, pw->pw_gid, &n_groups, NULL);
+  if (gids == NULL)
+    return FALSE;
+
+  for (int i = 0; i < n_groups; i++)
+    if (gids[i] == gr->gr_gid)
+      return TRUE;
+
+  return FALSE;
+}
+
 static GBytes *
 build_environment (CockpitWebService *service,
                    JsonObject *modules)
@@ -157,6 +297,12 @@ build_environment (CockpitWebService *service,
       if (pwd)
         {
           json_object_set_string_member (env, "name", pwd->pw_gecos);
+
+          // HACK - cockpit doesn't work well for non-root, non-wheel
+          //        users, mostly because of the shared state in
+          //        /var/lib/cockpit.
+
+          json_object_set_boolean_member (env, "user_is_admin", pwd->pw_uid == 0 || uid_is_wheel (pwd->pw_uid));
           free (pwd);
         }
     }
