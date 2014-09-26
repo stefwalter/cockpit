@@ -55,6 +55,13 @@
                 $("#login-fatal-message").text(msg);
             }
 
+            function error(msg) {
+                $("#login-error-message").show().text(msg);
+                $("#login-button").prop('disabled', false);
+                $("#login-spinner").hide();
+                phantom_checkpoint();
+            }
+
             function requisites() {
                 return ("WebSocket" in window || "MozWebSocket" in window) &&
                        ("XMLHttpRequest" in window) &&
@@ -117,11 +124,11 @@
                 function call_login() {
                     var user = trim($("#login-user-input").val());
                     if (user === "")
-                        $("#login-error-message").show().text("User name cannot be empty");
+                        error("User name cannot be empty");
                     else
                         login(user, $("#login-password-input").val());
                 }
-                    
+
                 $("#login-password-input").on("keydown", function (e) {
                     $("#login-error-message").hide();
                     if (e.which == 13)
@@ -156,13 +163,10 @@
                     fail(function(xhr, reason) {
                         if (xhr.status == 401) {
                             console.log(xhr.statusText);
-                            $("#login-error-message").show().text("Wrong username or password");
+                            error("Wrong username or password");
                         }else {
                             fatal(xhr.statusText);
                         }
-                        phantom_checkpoint();
-                        $("#login-button").prop('disabled', false);
-                        $("#login-spinner").hide();
                     });
             }
 
