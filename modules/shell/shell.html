@@ -52,7 +52,7 @@
           <ul class="nav navbar-nav navbar-primary">
             <li>
               <a id="toggle-sidebar-button">
-            <img src="@@module@@/images/switcher.png"> &nbsp;&nbsp;&nbsp; Pete</a>
+            <img src="@@module@@/images/switcher.png"> &nbsp;&nbsp;&nbsp; Server One</a>
             </li>
             <li>
               <a onclick="cockpit.go_down('server')">Dashboard</a>
@@ -96,26 +96,24 @@
           </div>
         </div>
       </nav>
-      
-      <div id="dashboard">
-        <div class="list-group" id="dashboard-machines">
-        </div>
-      </div>
-<div id="sidebar-toggle" style="width: 200px; height: 500px; float: left; backround: red;">
-<ul class="list-group">
-  <li class="list-group-item">Server one</li>
-  <li class="list-group-item">Server two</li>
-  <li class="list-group-item">Server three</li>
-  <li class="list-group-item">Server four</li>
-  <li class="list-group-item">Server five</li>
-</ul></div>
+
+
+<div id="sidebar-toggle" class="col-md-2" style="min-height: 800px;">
+List of servers goes here</div>
 <script>
 var flip = 0;
 $( "a#toggle-sidebar-button" ).click(function() {
 $( "div#sidebar-toggle" ).toggle( flip++ % 2 === 0 );
+$( "div#server" ).toggleClass( container-fluid, addOrRemove ).toggleClass ( col-md-10, addOrRemove );
 });
 </script>
-      <div id="server" class="container-fluid">
+  
+      <div id="dashboard">
+        <div class="list-group" id="dashboard-machines">
+        </div>
+      </div>
+
+      <div id="server" class="col-md-10">
         <div id="server-nav-column">
           <div class="list-group">
             <div class="list-group-item" id="system-picture">

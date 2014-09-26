@@ -875,3 +875,8 @@ ul.available-interfaces-group {
     padding-top:15px;
     border: none;
 }
+
+#sidebar-toggle {
+    background: #FAFAFA;
+    border-right: 1px solid #D0D0D0;
+}
