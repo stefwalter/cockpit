@@ -93,6 +93,20 @@ var cockpit = cockpit || { };
             console.debug.apply(console, arguments);
     }
 
+    function build_sh(args) {
+        var cmd = "";
+        var i;
+
+        for (i = 0; i < args.length; i++) {
+            if (i > 0)
+                cmd += " ";
+            cmd += "'" + args[i].replace("'", "\\'") + "'";
+        }
+
+        cmd += " 2>&1"; 
+        return [ "/bin/sh", "-c", cmd ];
+    }
+
     /* public */
     cockpit.spawn = function(command, machine, options) {
         var dfd = new $.Deferred();
@@ -108,6 +122,11 @@ var cockpit = cockpit || { };
             args["host"] = machine;
         if (options !== undefined)
             $.extend(args, options);
+
+        if (args["shell"] === true)
+            args["spawn"] = build_sh(args["spawn"]);
+
+        spawn_debug("spawning:", args);
 
         var channel = cockpit.channel(args);
 
