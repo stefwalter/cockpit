@@ -650,6 +650,7 @@ ul.available-interfaces-group {
     box-shadow: none;
     font-size: 11px;
     font-weight: bold;
+    margin-bottom: 0;
 }
 
 .progress-bar {
@@ -657,6 +658,10 @@ ul.available-interfaces-group {
     font-size: 11px;
     font-weight: bold;
     box-shadow: none;
+}
+
+.progress-bar-danger {
+    background-color: #af151a;
 }
 
 /*
@@ -874,4 +879,10 @@ ul.available-interfaces-group {
     padding:0px;
     padding-top:15px;
     border: none;
+}
+
+/* Storage */
+
+.storage-mount-size {
+    text-align: right;
 }
