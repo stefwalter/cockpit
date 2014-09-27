@@ -632,7 +632,7 @@ PageStorage.prototype = {
         var html = "<tr id=\"storage-vg-" + id + "\" sort=\"" + sort_key + "\"";
         html += " onclick=\"" + cockpit.esc(cockpit.go_down_cmd("storage-detail", { type: 'vg', id: id })) + "\">";
 
-        html += "<td width=\"30%\">";
+        html += "<td width=\"20%\">";
         html += cockpit.esc(vg.Name);
         html += "</td>";
         html += "<td>";
