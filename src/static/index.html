@@ -174,15 +174,16 @@
                     fatal("Cockpit not available: shell not installed correctly");
                     return;
                 }
+                var prefix;
                 if (module.checksum)
-                    module.prefix = "/cache/" + module.checksum;
+                    prefix = "/res/" + module.checksum;
                 else
-                    module.prefix = "/res/localhost/shell";
+                    prefix = "/res/shell";
 
                 function qualify(path) {
                     if (path.indexOf('/') === 0)
                         return path;
-                    return module.prefix + '/' + path;
+                    return prefix + '/' + path;
                 }
 
                 /* TODO: Compatibility ... rework these later */
@@ -203,7 +204,6 @@
                     url: qualify(module.manifest.html),
                     dataType: "html",
                 }).done(function(content) {
-                    content = content.replace(/@@module@@/g, module.prefix);
                     $("body")
                         .removeClass()
                         .html(content);

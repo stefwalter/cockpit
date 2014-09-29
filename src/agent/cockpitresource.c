@@ -20,201 +20,13 @@
 #include "config.h"
 
 #include "cockpitresource.h"
+#include "cockpitmodule.h"
 
 #include "common/cockpitjson.h"
 
 #include <glib.h>
 
 #include <string.h>
-
-/* Overridable from tests */
-const gchar **cockpit_agent_data_dirs = NULL; /* default */
-
-/*
- * Note that the way we construct checksums is not a stable part of our ABI. It
- * can be changed, as long as it then produces a different set of checksums
- *
- * It is also *not* a security sensitive use case. The hashes are never shared
- * or compared between different users, only the same user (with same credentials)
- * on different machines.
- *
- * So we use the fastest, good ol' SHA1.
- */
-
-static gboolean   module_checksum_directory    (GChecksum *checksum,
-                                                const gchar *root,
-                                                const gchar *directory);
-
-static gboolean
-validate_module (const gchar *name)
-{
-  static const gchar *allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
-  gsize len = strspn (name, allowed);
-  return name[len] == '\0';
-}
-
-static gboolean
-validate_path (const gchar *name)
-{
-  static const gchar *allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.,/";
-  gsize len = strspn (name, allowed);
-  return name[len] == '\0';
-}
-
-static gboolean
-module_checksum_file (GChecksum *checksum,
-                      const gchar *root,
-                      const gchar *filename)
-{
-  gchar *path = NULL;
-  const gchar *string;
-  GError *error = NULL;
-  GChecksum *inner = NULL;
-  GMappedFile *mapped = NULL;
-  gboolean ret = FALSE;
-
-  if (!validate_path (filename))
-    {
-      g_warning ("module has an invalid path name: %s", filename);
-      goto out;
-    }
-
-  path = g_build_filename (root, filename, NULL);
-  if (g_file_test (path, G_FILE_TEST_IS_DIR))
-    {
-      ret = module_checksum_directory (checksum, root, filename);
-      goto out;
-    }
-
-  mapped = g_mapped_file_new (path, FALSE, &error);
-  if (error)
-    {
-      g_warning ("couldn't open file: %s: %s", path, error->message);
-      g_error_free (error);
-      goto out;
-    }
-
-  inner = g_checksum_new (G_CHECKSUM_SHA1);
-  g_checksum_update (inner,
-                     (const guchar *)g_mapped_file_get_contents (mapped),
-                     g_mapped_file_get_length (mapped));
-  string = g_checksum_get_string (inner);
-
-  /*
-   * Place file name and hex checksum into checksum,
-   * include the null terminators so these values
-   * cannot be accidentally have a boundary discrepancy.
-   */
-  g_checksum_update (checksum, (const guchar *)filename,
-                     strlen (filename) + 1);
-  g_checksum_update (checksum, (const guchar *)string,
-                     strlen (string) + 1);
-  ret = TRUE;
-
-out:
-  g_checksum_free (inner);
-  if (mapped)
-    g_mapped_file_unref (mapped);
-  g_free (path);
-  return ret;
-}
-
-static gint
-compare_filenames (gconstpointer v1,
-                   gconstpointer v2)
-{
-  const gchar *const *s1 = v1;
-  const gchar *const *s2 = v2;
-
-  /* Just a simple byte compare, nothing fancy */
-  return strcmp (*s1, *s2);
-}
-
-static gchar **
-directory_filenames (const char *directory)
-{
-  GError *error = NULL;
-  GPtrArray *names;
-  const gchar *name;
-  GDir *dir;
-
-  dir = g_dir_open (directory, 0, &error);
-  if (error != NULL)
-    {
-      g_warning ("couldn't list directory: %s: %s", directory, error->message);
-      g_error_free (error);
-      return FALSE;
-    }
-
-  names = g_ptr_array_new ();
-  for (;;)
-    {
-      name = g_dir_read_name (dir);
-      if (!name)
-        break;
-      g_ptr_array_add (names, g_strdup (name));
-    }
-
-  g_dir_close (dir);
-
-  g_ptr_array_sort (names, compare_filenames);
-  g_ptr_array_add (names, NULL);
-
-  return (gchar **)g_ptr_array_free (names, FALSE);
-}
-
-static gboolean
-module_checksum_directory (GChecksum *checksum,
-                           const gchar *root,
-                           const gchar *directory)
-{
-  gboolean ret = FALSE;
-  gchar *path = NULL;
-  gchar **names = NULL;
-  gchar *filename;
-  gint i;
-
-  path = g_build_filename (root, directory, NULL);
-  names = directory_filenames (path);
-  if (!names)
-    goto out;
-
-  ret = TRUE;
-  for (i = 0; names[i] != NULL; i++)
-    {
-      if (directory)
-        filename = g_build_filename (directory, names[i], NULL);
-      else
-        filename = g_strdup (names[i]);
-      ret = module_checksum_file (checksum, root, filename);
-      g_free (filename);
-      if (!ret)
-        goto out;
-    }
-
-out:
-  g_free (path);
-  g_strfreev (names);
-  return ret;
-}
-
-static gchar *
-module_checksum (const gchar *root,
-                 const gchar *module)
-{
-  GChecksum *checksum;
-  gchar *string = NULL;
-
-  checksum = g_checksum_new (G_CHECKSUM_SHA1);
-  if (module_checksum_directory (checksum, root, module))
-    {
-      string = g_strdup (g_checksum_get_string (checksum));
-      g_debug ("checksum for module %s is %s", module, string);
-    }
-  g_checksum_free (checksum);
-
-  return string;
-}
 
 /**
  * CockpitResource:
@@ -229,10 +41,7 @@ module_checksum (const gchar *root,
 
 typedef struct {
   CockpitChannel parent;
-  GMappedFile *mapped;
-  const guint8 *data;
-  gsize length;
-  gsize offset;
+  GQueue *queue;
   guint idler;
 } CockpitResource;
 
@@ -248,30 +57,20 @@ on_idle_send_block (gpointer data)
   CockpitChannel *channel = data;
   CockpitResource *self = data;
   GBytes *payload;
-  gsize block;
 
-  g_assert (self->offset <= self->length);
-
-  block = 4096;
-  if (self->offset + block > self->length)
-    block = self->length - self->offset;
-
-  payload = g_bytes_new_with_free_func (self->data + self->offset, block,
-                                        (GDestroyNotify)g_mapped_file_unref,
-                                        g_mapped_file_ref (self->mapped));
-  self->offset += block;
-
-  cockpit_channel_send (channel, payload);
-  g_bytes_unref (payload);
-
-  if (self->offset == self->length)
+  payload = g_queue_pop_head (self->queue);
+  if (payload == NULL)
     {
       self->idler = 0;
       cockpit_channel_close (channel, NULL);
       return FALSE;
     }
-
-  return TRUE;
+  else
+    {
+      cockpit_channel_send (channel, payload);
+      g_bytes_unref (payload);
+      return TRUE;
+    }
 }
 
 static void
@@ -303,118 +102,32 @@ cockpit_resource_init (CockpitResource *self)
 
 }
 
-static JsonObject *
-read_module_manifest (const gchar *directory,
-                      const gchar *module)
+static GHashTable *
+load_module_listing (JsonObject **json)
 {
-  JsonObject *manifest = NULL;
-  GError *error = NULL;
-  gchar *contents = NULL;
-  gchar *filename;
-  gsize length;
+  static GHashTable *module_listing;
+  GHashTable *listing;
 
-  if (!validate_module (module))
+  if (module_listing == NULL || json)
     {
-      g_warning ("module has invalid name: %s", module);
-      return NULL;
+      listing = cockpit_module_listing (json);
+      if (module_listing)
+        g_hash_table_unref (module_listing);
+      module_listing = listing;
     }
 
-  filename = g_build_filename (directory, module, "manifest.json", NULL);
-  if (!g_file_get_contents (filename, &contents, &length, &error))
-    {
-      if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
-        g_debug ("no manifest found: %s", filename);
-      else if (!g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOTDIR))
-        g_message ("%s: %s", module, error->message);
-      g_clear_error (&error);
-    }
-  else
-    {
-      manifest = cockpit_json_parse_object (contents, length, &error);
-      if (!manifest)
-        {
-          g_message ("%s: invalid manifest: %s", module, error->message);
-          g_clear_error (&error);
-        }
-    }
-
-  g_free (contents);
-  g_free (filename);
-  return manifest;
+  return g_hash_table_ref (module_listing);
 }
 
 static void
 respond_module_listing (CockpitChannel *channel)
 {
-  const gchar *const *directories;
-  gchar *directory = NULL;
-  gchar *checksum;
-  gchar **modules;
-  JsonObject *manifest;
   JsonObject *root;
-  JsonObject *object;
-  gint i, j;
+  GHashTable *listing;
 
-  root = json_object_new ();
-
-  /* User module directory: no checksums */
-  if (!cockpit_agent_data_dirs)
-    directory = g_build_filename (g_get_user_data_dir (), "cockpit", NULL);
-  if (directory && g_file_test (directory, G_FILE_TEST_IS_DIR))
-    {
-      modules = directory_filenames (directory);
-      for (j = 0; modules[j] != NULL; j++)
-        {
-          manifest = read_module_manifest (directory, modules[j]);
-          if (manifest)
-            {
-              object = json_object_new ();
-              json_object_set_object_member (object, "manifest", manifest);
-              json_object_set_object_member (root, modules[j], object);
-            }
-        }
-      g_strfreev (modules);
-    }
-  g_free (directory);
-
-  /* System module directories */
-  if (cockpit_agent_data_dirs)
-    directories = cockpit_agent_data_dirs;
-  else
-    directories = g_get_system_data_dirs ();
-
-  for (i = 0; directories[i] != NULL; i++)
-    {
-      directory = g_build_filename (directories[i], "cockpit", NULL);
-      if (g_file_test (directory, G_FILE_TEST_IS_DIR))
-        {
-          modules = directory_filenames (directory);
-          for (j = 0; modules && modules[j] != NULL; j++)
-            {
-              /* $XDG_DATA_DIRS is preference ordered, ascending */
-              if (!json_object_has_member (root, modules[j]))
-                {
-                  manifest = read_module_manifest (directory, modules[j]);
-                  if (manifest)
-                    {
-                      checksum = module_checksum (directory, modules[j]);
-                      if (checksum)
-                        {
-                          object = json_object_new ();
-                          json_object_set_string_member (object, "checksum", checksum);
-                          json_object_set_object_member (object, "manifest", manifest);
-                          json_object_set_object_member (root, modules[j], object);
-                          g_free (checksum);
-                        }
-                    }
-                }
-            }
-          g_strfreev (modules);
-        }
-      g_free (directory);
-    }
-
+  listing = load_module_listing (&root);
   cockpit_channel_close_obj_option (channel, "resources", root);
+  g_hash_table_unref (listing);
   json_object_unref (root);
 
   /* All done */
@@ -426,13 +139,16 @@ on_prepare_channel (gpointer data)
 {
   CockpitResource *self = COCKPIT_RESOURCE (data);
   CockpitChannel *channel = COCKPIT_CHANNEL (data);
-  const gchar *const *directories;
+  GHashTable *listing = NULL;
   gchar *filename = NULL;
-  gchar *base = NULL;
+  const gchar *host = NULL;
   GError *error = NULL;
   const gchar *path;
   const gchar *module;
-  gint i;
+  GMappedFile *mapped = NULL;
+  gchar *string = NULL;
+  const gchar *pos;
+  GBytes *bytes;
 
   self->idler = 0;
 
@@ -457,50 +173,25 @@ on_prepare_channel (gpointer data)
       goto out;
     }
 
-  /*
-   * This is *not* a security check. We're accessing files as the user.
-   * What this does is prevent module authors from drawing outside the
-   * lines. Keeps everyone honest.
-   */
-  if (strstr (path, "../") || strstr (path, "/..") || !validate_path (path))
+  /* Remove any host qualifier from the module */
+  pos = strchr (module, '@');
+  if (pos)
     {
-      g_message ("invalid 'path' used as a resource: %s", path);
-      cockpit_channel_close (channel, "protocol-error");
-      goto out;
+      string = g_strndup (module, pos - module);
+      module = string;
+      host = pos + 1;
     }
 
-  if (!validate_module (module))
-    {
-      g_message ("invalid 'module' name: %s", module);
-      cockpit_channel_close (channel, "protocol-error");
-      goto out;
-    }
+  listing = load_module_listing (NULL);
 
-  base = g_build_filename (g_get_user_data_dir (), "cockpit", module, NULL);
-  if (!g_file_test (base, G_FILE_TEST_IS_DIR))
+  filename = cockpit_module_resolve (listing, module, path);
+  if (!filename)
     {
-      g_free (base);
-      base = NULL;
-
-      directories = g_get_system_data_dirs ();
-      for (i = 0; directories && directories[i]; i++)
-        {
-          base = g_build_filename (directories[i], "cockpit", module, NULL);
-          if (g_file_test (base, G_FILE_TEST_IS_DIR))
-            break;
-          g_free (base);
-          base = NULL;
-        }
-    }
-  if (base == NULL)
-    {
-      g_debug ("resource module was not found: %s", module);
       cockpit_channel_close (channel, "not-found");
       goto out;
     }
 
-  filename = g_build_filename (base, path, NULL);
-  self->mapped = g_mapped_file_new (filename, FALSE, &error);
+  mapped = g_mapped_file_new (filename, FALSE, &error);
   if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT) ||
       g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_ISDIR) ||
       g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NAMETOOLONG) ||
@@ -509,32 +200,39 @@ on_prepare_channel (gpointer data)
     {
       g_debug ("resource file was not found: %s", error->message);
       cockpit_channel_close (channel, "not-found");
+      goto out;
     }
   else if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_ACCES) ||
            g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_PERM))
     {
       g_message ("%s", error->message);
       cockpit_channel_close (channel, "not-authorized");
+      goto out;
     }
   else if (error)
     {
       g_message ("%s", error->message);
       cockpit_channel_close (channel, "internal-error");
-    }
-  else
-    {
-      /* Start sending resource data */
-      self->offset = 0;
-      self->data = (const guint8 *)g_mapped_file_get_contents (self->mapped);
-      self->length = g_mapped_file_get_length (self->mapped);
-      self->idler = g_idle_add (on_idle_send_block, self);
-      cockpit_channel_ready (channel);
+      goto out;
     }
 
+  /* Expand the data */
+  self->queue = g_queue_new ();
+  bytes = g_mapped_file_get_bytes (mapped);
+  cockpit_module_expand (listing, host, bytes, self->queue);
+  g_bytes_unref (bytes);
+
+  self->idler = g_idle_add (on_idle_send_block, self);
+  cockpit_channel_ready (channel);
+
 out:
+  if (mapped)
+    g_mapped_file_unref (mapped);
+  if (listing)
+    g_hash_table_unref (listing);
+  g_free (string);
   g_clear_error (&error);
   g_free (filename);
-  g_free (base);
   return FALSE;
 }
 
@@ -554,8 +252,12 @@ cockpit_resource_finalize (GObject *object)
 {
   CockpitResource *self = COCKPIT_RESOURCE (object);
 
-  if (self->mapped)
-    g_mapped_file_unref (self->mapped);
+  if (self->queue)
+    {
+      while (!g_queue_is_empty (self->queue))
+        g_bytes_unref (g_queue_pop_head (self->queue));
+      g_queue_free (self->queue);
+    }
   g_assert (self->idler == 0);
 
   G_OBJECT_CLASS (cockpit_resource_parent_class)->finalize (object);

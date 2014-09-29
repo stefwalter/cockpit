@@ -205,8 +205,12 @@ test_listing (TestCase *tc,
   cockpit_assert_json_eq (control,
                           "{ \"command\": \"close\", \"channel\": \"444\", \"reason\": \"\", \"resources\": {"
                           " \"test\": {"
-                          "    \"checksum\": \"b0cb8eb96388a67047c60d48634172e72db50eaf\","
+                          "    \"checksum\": \"4784b8b983691a87886ce8325bda5f0ed748f058\","
                           "    \"manifest\" : { \"description\" : \"dummy\"}"
+                          " },"
+                          " \"second\": {"
+                          "    \"checksum\": \"c47ad566aec6bebbbe4b4d93213f60389de78101\","
+                          "    \"manifest\": { \"description\" : \"second dummy description\"}"
                           " },"
                           " \"another\": {\"manifest\" : { \"description\" : \"another\"} }"
                           "} }");
@@ -276,7 +280,7 @@ test_bad_path (TestCase *tc,
 
   while (tc->closed == FALSE)
     g_main_context_iteration (NULL, TRUE);
-  g_assert_cmpstr (tc->problem, ==, "protocol-error");
+  g_assert_cmpstr (tc->problem, ==, "not-found");
 }
 
 static const Fixture fixture_no_module = {
@@ -311,7 +315,7 @@ test_bad_module (TestCase *tc,
 
   while (tc->closed == FALSE)
     g_main_context_iteration (NULL, TRUE);
-  g_assert_cmpstr (tc->problem, ==, "protocol-error");
+  g_assert_cmpstr (tc->problem, ==, "not-found");
 }
 
 static void
@@ -368,7 +372,7 @@ test_list_bad_name (TestCase *tc,
   cockpit_assert_json_eq (control,
                           "{ \"command\": \"close\", \"channel\": \"444\", \"reason\": \"\", \"resources\": {"
                           " \"ok\": {"
-                          "    \"checksum\": \"4795165a5164bc1d254b04d7cc04282306c39777\","
+                          "    \"checksum\": \"1ec8205ba984ef24edf33a3861eaef2a23663d14\","
                           "    \"manifest\" : { }"
                           " }"
                           "} }");
