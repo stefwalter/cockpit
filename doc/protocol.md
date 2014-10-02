@@ -221,8 +221,12 @@ cockpit-ws and cockpit-agent. See doc/modules.md
 Additional "open" command options are available to open a channel of this
 type:
 
- * "module": the short module name to retrieve resource from
+ * "module": the module to retrieve resource from
  * "path": path of the resource within the module.
+
+The module may either be fully qualified (ie: module@host), although the
+host part is not used for routing, and the usual "open" command "host"
+option should be used. The module may also be a module checksum.
 
 The channel payload will be the raw (possibly binary) byte data of the
 resource being retrieved.

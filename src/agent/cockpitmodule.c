@@ -470,6 +470,7 @@ cockpit_module_listing (JsonObject **json)
   gpointer value;
   CockpitModule *module;
   JsonObject *object;
+  GList *names, *l;
 
   listing = g_hash_table_new_full (g_str_hash, g_str_equal,
                                    NULL, cockpit_module_unref);
@@ -494,6 +495,16 @@ cockpit_module_listing (JsonObject **json)
           json_object_set_object_member (root, module->name, object);
         }
     }
+
+  /* Add checksums to listing, for easy lookup */
+  names = g_hash_table_get_keys (listing);
+  for (l = names; l != NULL; l = g_list_next (l))
+    {
+      module = g_hash_table_lookup (listing, l->data);
+      if (module->checksum && !g_hash_table_contains (listing, module->checksum))
+        g_hash_table_replace (listing, module->checksum, cockpit_module_ref (module));
+    }
+  g_list_free (names);
 
   return listing;
 }

@@ -219,7 +219,7 @@ cockpit_session_track (CockpitSessions *sessions,
   session->host = g_strdup (host);
   session->private = private;
   session->creds = cockpit_creds_ref (creds);
-  session->checksums = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+  session->checksums = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
   if (!private)
     g_hash_table_insert (sessions->by_host, session->host, session);
@@ -549,7 +549,7 @@ process_resources (JsonObject *resources,
           if (cockpit_json_get_string (details, "checksum", NULL, &checksum) && checksum)
             {
               g_debug ("%s: module %s has checksum %s", logname, (gchar *)l->data, checksum);
-              g_hash_table_insert (checksums, g_strdup (checksum), g_strdup (l->data));
+              g_hash_table_add (checksums, g_strdup (checksum));
             }
         }
     }
@@ -1619,7 +1619,6 @@ resource_respond (CockpitWebService *self,
 {
   ResourceResponse *rr;
   CockpitSession *session;
-  CockpitSession *found = NULL;
   const gchar *checksum = NULL;
   const gchar *host = NULL;
   const gchar *name = NULL;
@@ -1648,11 +1647,8 @@ resource_respond (CockpitWebService *self,
       session = g_hash_table_lookup (self->sessions.by_host, "localhost");
       if (session && session->checksums)
         {
-          name = g_hash_table_lookup (session->checksums, parts[0]);
-          if (name)
-            {
-              checksum = parts[0];
-            }
+          if (g_hash_table_contains (session->checksums, parts[0]))
+            checksum = parts[0];
         }
       if (checksum == NULL)
         {
@@ -1661,8 +1657,7 @@ resource_respond (CockpitWebService *self,
             {
               if (session->checksums)
                 {
-                  name = g_hash_table_lookup (session->checksums, parts[0]);
-                  if (name)
+                  if (g_hash_table_contains (session->checksums, parts[0]))
                     {
                       checksum = parts[0];
                       break;
@@ -1674,9 +1669,9 @@ resource_respond (CockpitWebService *self,
 
   if (checksum)
     {
-      g_assert (name != NULL);
       g_assert (session != NULL);
       cache = TRUE;
+      name = checksum;
       host = session->host;
     }
   else

@@ -108,6 +108,18 @@ test_resolve (TestCase *tc,
 }
 
 static void
+test_resolve_checksum (TestCase *tc,
+                       gconstpointer fixture)
+{
+  gchar *path;
+
+  path = cockpit_module_resolve (tc->listing, "4784b8b983691a87886ce8325bda5f0ed748f058", "/sub/file.ext");
+  g_assert_cmpstr (SRCDIR "/src/agent/mock-resource/system/cockpit/test/sub/file.ext", ==, path);
+  g_free (path);
+}
+
+
+static void
 test_resolve_bad_dots (TestCase *tc,
                        gconstpointer fixture)
 {
@@ -259,6 +271,8 @@ main (int argc,
 
   g_test_add ("/module/resolve/simple", TestCase, NULL,
               setup, test_resolve, teardown);
+  g_test_add ("/module/resolve/checksum", TestCase, NULL,
+              setup, test_resolve_checksum, teardown);
   g_test_add ("/module/resolve/bad-dots", TestCase, NULL,
               setup, test_resolve_bad_dots, teardown);
   g_test_add ("/module/resolve/bad-path", TestCase, NULL,
