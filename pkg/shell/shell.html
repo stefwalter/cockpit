@@ -325,56 +325,72 @@
             </div>
           </div>
         </div>
-
+        
         <div id="raid_detail_list">
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <span translatable="yes">RAID Device</span>
-              <span style="float:right" id="raid_action_btn"></span>
+          <div class="col-sm-12">
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <span translatable="yes">RAID Device</span>
+                <span style="float:right" id="raid_action_btn"></span>
+              </div>
+              <table class="cockpit-info-table">
+                <tr>
+                  <td translatable="yes" context="storage">Device</td>
+                  <td id="raid_detail_device"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">Name</td>
+                  <td id="raid_detail_name"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">UUID</td>
+                  <td id="raid_detail_uuid"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">Capacity</td>
+                  <td id="raid_detail_capacity"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">RAID Level</td>
+                  <td id="raid_detail_level"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">Bitmap</td>
+                  <td id="raid_detail_bitmap"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">State</td>
+                  <td id="raid_detail_state"></td>
+                </tr>
+              </table>
             </div>
-            <table class="cockpit-info-table">
-              <tr>
-                <td translatable="yes" context="storage">Device</td>
-                <td id="raid_detail_device"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">Name</td>
-                <td id="raid_detail_name"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">UUID</td>
-                <td id="raid_detail_uuid"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">Capacity</td>
-                <td id="raid_detail_capacity"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">RAID Level</td>
-                <td id="raid_detail_level"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">Bitmap</td>
-                <td id="raid_detail_bitmap"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">State</td>
-                <td id="raid_detail_state"></td>
-              </tr>
-            </table>
           </div>
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <span translatable="yes">Disks</span>
-              <button style="float:right" class="btn btn-default" id="raid-disks-add">
-                Add
-              </button>
+          <div class="col-sm-9">
+            <div class="panel panel-default" id="storage_detail_content">
+              <div class="panel-heading" id="storage_detail_content_title"></div>
+              <ul class="list-group" id="storage_detail_partition_list">
+              </ul>
             </div>
-            <ul class="list-group" id="raid-disks">
-            </ul>
+            <div class="panel panel-default cockpit-log-panel">
+              <div class="panel-heading" translatable="yes">Storage Log</div>
+              <div class="panel-body" id="storage-detail-log"></div>
+            </div>
           </div>
+          
+          <div class="col-sm-3">
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <span translatable="yes">Disks</span>
+                <button style="float:right" class="btn btn-default" id="raid-disks-add">
+                  Add
+                </button>
+              </div>
+              <ul class="list-group" id="raid-disks">
+              </ul>
+            </div>
+          </div>  
         </div>
-
+        
         <div id="vg_detail_list">
           <div class="panel panel-default">
             <div class="panel-heading">
@@ -396,7 +412,6 @@
               </tr>
             </table>
           </div>
-
           <div class="panel panel-default">
             <div class="panel-heading">
               <span translatable="yes">Physical Volumes</span>
@@ -430,23 +445,12 @@
           </div>
         </div>
 
-        <div class="panel panel-default" id="storage_detail_content">
-          <div class="panel-heading" id="storage_detail_content_title"></div>
-          <ul class="list-group" id="storage_detail_partition_list">
-          </ul>
-        </div>
-
         <div class="panel panel-default">
           <div class="panel-heading" translatable="yes">Storage Jobs</div>
           <table class="table">
             <tbody id="storage-detail-jobs">
             </tbody>
           </table>
-        </div>
-
-        <div class="panel panel-default cockpit-log-panel">
-          <div class="panel-heading" translatable="yes">Storage Log</div>
-          <div class="panel-body" id="storage-detail-log"></div>
         </div>
 
       </div>
