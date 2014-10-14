@@ -391,27 +391,71 @@
           </div>  
         </div>
         
-        <div id="vg_detail_list">
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <span translatable="yes">Volume Group</span>
-              <span style="float:right" id="vg_action_btn"></span>
+        <div class="col-sm-12">
+          <div id="vg_detail_list">
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <span translatable="yes">Volume Group</span>
+                <span style="float:right" id="vg_action_btn"></span>
+              </div>
+              <table class="cockpit-info-table">
+                <tr>
+                  <td translatable="yes" context="storage">Name</td>
+                  <td id="vg_detail_name"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">UUID</td>
+                  <td id="vg_detail_uuid"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">Capacity</td>
+                  <td id="vg_detail_capacity"></td>
+                </tr>
+              </table>
+            </div>  
+          </div>
+        </div>
+        
+        <div class="col-sm-9">
+          <div id="block_detail_list">
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <span translatable="yes">Block Device</span>
+                <button class="btn btn-default" style="float:right" id="block_format" translatable="yes">
+                  Format
+                </button>
+              </div>
+              <table class="cockpit-info-table">
+                <tr>
+                  <td translatable="yes" context="storage">Device</td>
+                  <td id="block_detail_device"></td>
+                </tr>
+                <tr>
+                  <td translatable="yes" context="storage">Capacity</td>
+                  <td id="block_detail_capacity"></td>
+                </tr>
+              </table>
             </div>
-            <table class="cockpit-info-table">
-              <tr>
-                <td translatable="yes" context="storage">Name</td>
-                <td id="vg_detail_name"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">UUID</td>
-                <td id="vg_detail_uuid"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">Capacity</td>
-                <td id="vg_detail_capacity"></td>
-              </tr>
+          </div>
+          <div class="panel panel-default" id="storage_detail_content">
+            <div class="panel-heading" id="storage_detail_content_title"></div>
+            <ul class="list-group" id="storage_detail_partition_list">
+            </ul>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" translatable="yes">Storage Jobs</div>
+            <table class="table">
+              <tbody id="storage-detail-jobs">
+              </tbody>
             </table>
           </div>
+          <div class="panel panel-default cockpit-log-panel">
+            <div class="panel-heading" translatable="yes">Storage Log</div>
+            <div class="panel-body" id="storage-detail-log"></div>
+          </div>
+        </div>
+        
+        <div class="col-sm-3">
           <div class="panel panel-default">
             <div class="panel-heading">
               <span translatable="yes">Physical Volumes</span>
@@ -423,40 +467,7 @@
             </ul>
           </div>
         </div>
-
-        <div id="block_detail_list">
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <span translatable="yes">Block Device</span>
-              <button class="btn btn-default" style="float:right" id="block_format" translatable="yes">
-                Format
-              </button>
-            </div>
-            <table class="cockpit-info-table">
-              <tr>
-                <td translatable="yes" context="storage">Device</td>
-                <td id="block_detail_device"></td>
-              </tr>
-              <tr>
-                <td translatable="yes" context="storage">Capacity</td>
-                <td id="block_detail_capacity"></td>
-              </tr>
-            </table>
-          </div>
-        </div>
-            <div class="panel panel-default" id="storage_detail_content">
-              <div class="panel-heading" id="storage_detail_content_title"></div>
-              <ul class="list-group" id="storage_detail_partition_list">
-              </ul>
-            </div>
-        <div class="panel panel-default">
-          <div class="panel-heading" translatable="yes">Storage Jobs</div>
-          <table class="table">
-            <tbody id="storage-detail-jobs">
-            </tbody>
-          </table>
-        </div>
-
+      
       </div>
 
       <div id="networking" class="container-fluid">
