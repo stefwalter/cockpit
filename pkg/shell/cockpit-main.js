@@ -664,9 +664,10 @@ function PageExternal(id, url, title) {
 
     $(window).on('resize', resize);
 
-    self.show = self.enter = function() {
+    self.enter = function() {
         /* TODO: This is total bullshit */
-        var server = cockpit.get_page_param('server', 'machine');
+        var server = cockpit.get_page_param('machine', 'server');
+        console.log("ENTER", id, server);
         if (!server)
             server = "localhost";
         var frame = self.frames[server];
@@ -685,6 +686,9 @@ function PageExternal(id, url, title) {
             self.current = frame;
             self.current.show();
         }
+    };
+
+    self.show = function() {
         resize();
     };
 
