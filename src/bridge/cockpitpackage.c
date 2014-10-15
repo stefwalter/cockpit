@@ -51,6 +51,7 @@ typedef struct {
   int refs;
   gchar *name;
   gchar *checksum;
+  gchar *raw_checksum;
   gchar *directory;
   GHashTable *depends;
   JsonObject *manifest;
@@ -381,7 +382,7 @@ maybe_add_package (GHashTable *listing,
   package->directory = path;
   package->manifest = manifest;
   package->depends = depends;
-  package->checksum = checksum;
+  package->raw_checksum = checksum;
 
   g_hash_table_insert (listing, package->name, package);
 
@@ -438,7 +439,7 @@ build_package_listing (GHashTable *listing)
 }
 
 static void
-resolve_depends (GHashTable *listing)
+finish_checksums (GHashTable *listing)
 {
   GList *names, *l;
   GList *depends, *k;
@@ -453,6 +454,9 @@ resolve_depends (GHashTable *listing)
    * again.
    *
    * All checksums are prefixed with '$'. We add this here.
+   *
+   * If a dependency doesn't have a checksum, then the dependent package also doesn't
+   * have a checksum.
    */
 
   names = g_hash_table_get_keys (listing);
@@ -460,25 +464,38 @@ resolve_depends (GHashTable *listing)
     {
       package = g_hash_table_lookup (listing, l->data);
 
-      if (!package->checksum)
+      if (!package->raw_checksum)
         continue;
 
       checksum = g_checksum_new (G_CHECKSUM_SHA1);
-      g_checksum_update (checksum, (const guchar *)package->checksum, -1);
+      g_checksum_update (checksum, (const guchar *)package->raw_checksum, -1);
 
       depends = package->depends ? g_hash_table_get_keys (package->depends) : NULL;
       depends = g_list_sort (depends, (GCompareFunc)strcmp);
       for (k = depends; k != NULL; k = g_list_next (k))
         {
           dep = g_hash_table_lookup (listing, k->data);
-          if (dep && dep->checksum)
-            g_checksum_update (checksum, (const guchar *)dep->checksum, -1);
+          if (dep == package)
+            continue;
+
+          /* No dependency, or no dependency checksum -> bail */
+          if (!dep || !dep->raw_checksum)
+            {
+              g_checksum_free (checksum);
+              checksum = NULL;
+              break;
+            }
+
+          g_checksum_update (checksum, (const guchar *)dep->raw_checksum, -1);
         }
       g_list_free (depends);
 
-      g_free (package->checksum);
-      package->checksum = g_strdup_printf ("$%s", g_checksum_get_string (checksum));
-      g_checksum_free (checksum);
+      if (checksum)
+        {
+          package->checksum = g_strdup_printf ("$%s", g_checksum_get_string (checksum));
+          g_debug ("checksum for %s is %s", package->name, package->checksum);
+          g_checksum_free (checksum);
+        }
     }
   g_list_free (names);
 }
@@ -527,18 +544,13 @@ cockpit_package_listing (JsonArray **json)
                                    NULL, cockpit_package_unref);
 
   build_package_listing (listing);
-  resolve_depends (listing);
 
-  /* Add alias and checksums to listing, for easy lookup */
+  /* Add aliases to the listing */
   names = g_hash_table_get_keys (listing);
   names = g_list_sort (names, (GCompareFunc)strcmp);
   for (l = names; l != NULL; l = g_list_next (l))
     {
       package = g_hash_table_lookup (listing, l->data);
-
-      /* Add the checksum as another name for the module */
-      if (package->checksum && !g_hash_table_contains (listing, package->checksum))
-        g_hash_table_replace (listing, package->checksum, cockpit_package_ref (package));
 
       node = json_object_get_member (package->manifest, "alias");
       if (node)
@@ -562,6 +574,19 @@ cockpit_package_listing (JsonArray **json)
               add_alias_to_listing (listing, package, node);
             }
         }
+    }
+  g_list_free (names);
+
+  /* Now wrap up the checksums */
+  finish_checksums (listing);
+
+  /* Add checksums to the listing */
+  names = g_hash_table_get_keys (listing);
+  for (l = names; l != NULL; l = g_list_next (l))
+    {
+      package = g_hash_table_lookup (listing, l->data);
+      if (package->checksum && !g_hash_table_contains (listing, package->checksum))
+        g_hash_table_replace (listing, package->checksum, cockpit_package_ref (package));
     }
   g_list_free (names);
 
