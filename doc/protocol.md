@@ -364,6 +364,94 @@ Payload: dbus-json2
 Identical to 'dbus-json1' payloads, except that variants are encoded as
 a JSON.
 
+Payload: dbus-json
+------------------
+
+{
+	"command": "open",
+	"channel": "x",
+	"payload": "dbus-json",
+	"bus": "system",
+	"name": "org.free.ett",
+	"annotate": false,
+	"path-prefix": "/org/freedesktop/xxx",
+	"interface-prefix", "org.freedesktop.Xxx",
+
+	"watch": [
+	]
+}
+
+
+{
+"call": [ "iface", "path", "name", [ xxxx ], opt asv ],
+"id": X,
+}
+
+{
+"reply": [ [ xxxx ], opt asv ]
+"id": X,
+}
+
+{
+	"watch": {
+		"interface": iface,
+		"member": member,
+		"path": path,
+		"arg0": arg0,
+		"path-namespace", namespace,
+	}
+	"id": X,
+}
+
+{
+	unwatch: [ X, Y, Z ]
+}
+
+{
+	"signal": [ "iface", "path", "name", [ xxxx ], opt asv ],
+}
+
+byte -> number,
+boolean -> boolean,
+int16 -> number,
+uint16 -> number,
+int32 -> number,
+double -> number,
+string -> string,
+object-path -> string,
+signature -> string
+array -> Array([ ])
+struct -> Array([ ])
+variant -> { 'v': x, 't': 'asv' }   -> cockpit.dbus.variant
+dict with string keys vs ... not string keys
+byte_array -> { 'ay': "base64" }
+
+At some point we will want to transfer ArrayBuffer of data
+
+
+--------------------
+
+{
+	"command": "open",
+	"channel": "x",
+	"payload": "http-json",
+		"unix": "/path",
+		"port": NNN,
+	"request": [ "get", "/path", [ [ headers ... ] ], ]
+	"input": true
+}
+
+{
+	"response: [ NNN, message, [ [ headers ... ] ], ]
+}
+
+data ...
+
+{
+	"command": "close",
+	"channel": "x",
+}
+
 Payload: rest-json1
 -------------------
 
