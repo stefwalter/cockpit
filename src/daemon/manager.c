@@ -167,9 +167,19 @@ manager_set_property (GObject *object,
 static void
 manager_init (Manager *manager)
 {
+  const gchar *byteorder;
+
   g_dbus_interface_skeleton_set_flags (G_DBUS_INTERFACE_SKELETON (manager),
                                        G_DBUS_INTERFACE_SKELETON_FLAGS_HANDLE_METHOD_INVOCATIONS_IN_THREAD);
   manager->cancellable = g_cancellable_new ();
+
+  if (G_BYTE_ORDER == G_LITTLE_ENDIAN)
+    byteorder = "le";
+  else if (G_BYTE_ORDER == G_BIG_ENDIAN)
+    byteorder = "be";
+  else
+    byteorder = "";
+  cockpit_manager_set_byte_order (COCKPIT_MANAGER (manager), byteorder);
 }
 
 static void

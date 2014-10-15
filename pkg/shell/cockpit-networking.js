@@ -120,6 +120,7 @@ function NetworkManagerModel(address) {
      */
 
     var self = this;
+    var byteorder = "";
 
     /* TODO: This code needs to be migrated away from old dbus */
     var client = cockpit.dbus_client(address,
@@ -130,6 +131,21 @@ function NetworkManagerModel(address) {
                                 });
 
     self.client = client;
+
+    /*
+     * HACK: It's absolutely nasty that we have to know the byte order of the
+     * remote machine in order to talk to NetworkManager.
+     */
+    function() {
+        var cli = cockpit.dbusx(address);
+        cli.call("/com/redhat/Cockpit/Manager",
+                 "org.freedesktop.DBus.Properties",
+                 "Get", "com.redhat.Cockpit.Manager", "ByteOrder",
+                 function (error, result) {
+                     if (!error)
+                         byteorder = result.val;
+                 });
+    }
 
     /* Mostly generic D-Bus stuff.
 

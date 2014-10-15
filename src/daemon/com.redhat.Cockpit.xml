@@ -80,6 +80,9 @@
     <!-- BIOS: Human-readable string describing the BIOS of the system  -->
     <property name="BIOS" type="s" access="read"/>
 
+    <!-- Byte order of th esystem, either 'le' or 'be' or '' if unknown -->
+    <property name="ByteOrder" type="s" access="read"/>
+
     <!-- Hostname: The transient host name, see <ulink url="http://www.freedesktop.org/wiki/Software/systemd/hostnamed">systemd-hostnamed</ulink> for details -->
     <property name="Hostname" type="s" access="read"/>
 
