@@ -121,13 +121,13 @@ PageSystemInformation.prototype = {
         var self = this;
 
         self.address = cockpit.get_page_param('machine', 'server') || "localhost";
-        /* TODO: This code needs to be migrated away from dbus-json1 */
-        self.client = cockpit.dbus(self.address, { payload: 'dbus-json1' });
+        /* TODO: This code needs to be migrated away from the old dbus */
+        self.client = cockpit.dbusx(self.address, { payload: 'dbus-json1' });
         cockpit.set_watched_client(self.client);
 
         self.address = cockpit.get_page_param('machine', 'server') || "localhost";
-        /* TODO: This code needs to be migrated away from dbus-json1 */
-        self.client = cockpit.dbus(self.address, { payload: 'dbus-json1' });
+        /* TODO: This code needs to be migrated away from the old dbus */
+        self.client = cockpit.dbusx(self.address, { payload: 'dbus-json1' });
         cockpit.set_watched_client(self.client);
         self.realm_manager = self.client.get("/com/redhat/Cockpit/Realms",
                                              "com.redhat.Cockpit.Realms");

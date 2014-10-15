@@ -19,7 +19,6 @@
 #include "config.h"
 
 #include "cockpitchannel.h"
-#include "cockpitdbusjson.h"
 #include "cockpitpolkitagent.h"
 
 #include "common/cockpitjson.h"
