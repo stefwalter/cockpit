@@ -52,6 +52,7 @@ typedef struct {
   gchar *name;
   gchar *checksum;
   gchar *raw_checksum;
+  gboolean checksum_finished;
   gchar *directory;
   GHashTable *depends;
   JsonObject *manifest;
@@ -67,6 +68,7 @@ cockpit_package_unref (gpointer data)
     {
       g_free (package->name);
       g_free (package->checksum);
+      g_free (package->raw_checksum);
       g_free (package->directory);
       if (package->manifest)
         json_object_unref (package->manifest);
@@ -464,6 +466,12 @@ finish_checksums (GHashTable *listing)
     {
       package = g_hash_table_lookup (listing, l->data);
 
+      /* A package might be in the hastable under multiple names, but
+       * we only want to process it once.
+       */
+      if (package->checksum_finished)
+        continue;
+
       if (!package->raw_checksum)
         continue;
 
@@ -496,6 +504,8 @@ finish_checksums (GHashTable *listing)
           g_debug ("checksum for %s is %s", package->name, package->checksum);
           g_checksum_free (checksum);
         }
+
+      package->checksum_finished = TRUE;
     }
   g_list_free (names);
 }
@@ -797,4 +807,5 @@ cockpit_package_dump (void)
 
   g_list_free (names);
   g_hash_table_unref (by_name);
+  g_hash_table_unref (listing);
 }
