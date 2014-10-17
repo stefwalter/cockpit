@@ -414,6 +414,17 @@ code, kbd, pre, samp {
     text-align: center;
 }
 
+.terminal-emulator > .logs {
+    padding: 1em;
+    margin: 1em;
+    text-align: left;
+    display: inline-block;
+    font-family: inherit;
+    width: 60em;
+    max-height: 40em;
+    overflow-y: scroll;
+}
+
 .terminal-emulator > .terminal {
     background-color: black;
     padding: 1em;
@@ -428,7 +439,7 @@ code, kbd, pre, samp {
 
 @media (max-width: 1350px) {
     .container-fluid .terminal-emulator {
-	font-size: 11px;
+	font-size: 11pt;
     }
 }
 
