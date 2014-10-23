@@ -253,12 +253,19 @@ class Browser:
         """Wait for a page to become current.
 
         Arguments:
-            id: The 'id' attribute of the page.
+
+            id: The identifier the page.  This is either a the id
+                attribute for legacy pages, or a string starting with
+                "/" for modern pages.
         """
         self.wait_present('#content')
         self.wait_visible('#content')
-        self.wait_visible('#' + id)
-        self.wait_dbus_ready()
+        if id.startswith("/"):
+            self.wait_present("iframe.container-frame[name='%s'][data-loaded]" % id)
+            self.switch_to_frame(id)
+        else:
+            self.wait_visible('#' + id)
+            self.wait_dbus_ready()
 
     def wait_action_btn(self, sel, entry):
         self.wait_text(sel + ' button:first-child', entry);
