@@ -66,8 +66,11 @@ else
 HTML_LOG_DRIVER_FLAGS = --missing=phantomjs
 endif
 
-VALGRIND_ARGS = --trace-children=no --quiet --error-exitcode=33 \
-	--suppressions=valgrind-suppressions --gen-suppressions=all \
+VALGRIND_SKIP = */mock-kdc,*/bash,*/sh,*/dbus-daemon,*/mock-sshd,*/mock-echo,*/mktemp,*/sleep,*/kdb5_util
+
+VALGRIND_ARGS = --trace-children=yes --quiet --error-exitcode=33 \
+	--trace-children-skip='$(VALGRIND_SKIP)' \
+	--suppressions=$(abs_builddir)/valgrind-suppressions --gen-suppressions=all \
 	--num-callers=16 --leak-check=yes --show-leak-kinds=definite \
 	--errors-for-leak-kinds=definite
 VALGRIND_SUPPRESSIONS = \
@@ -78,16 +81,18 @@ VALGRIND_SUPPRESSIONS = \
 	tools/unknown.supp \
 	$(NULL)
 
+VALGRIND = valgrind $(VALGRIND_ARGS)
+
 valgrind-suppressions: $(VALGRIND_SUPPRESSIONS)
 	$(AM_V_GEN) cat $^ > $@
 
 check-memory: valgrind-suppressions
-	$(MAKE) LOG_FLAGS="-- valgrind $(VALGRIND_ARGS)" \
-		HTML_LOG_DRIVER_FLAGS="--missing=no-phantom-valgrind" \
+	$(MAKE) LOG_FLAGS="-- $(VALGRIND)" \
+		HTML_LOG_COMPILER="$(top_srcdir)/tools/tap-phantom '$(VALGRIND) $(builddir)/test-server'" \
 		$(AM_MAKEFLAGS) check
 recheck-memory: valgrind-suppressions
-	$(MAKE) LOG_FLAGS="-- valgrind $(VALGRIND_ARGS)" \
-		HTML_LOG_DRIVER_FLAGS="--missing=no-phantom-valgrind" \
+	$(MAKE) LOG_FLAGS="-- $(VALGRIND)" \
+		HTML_LOG_COMPILER="$(top_srcdir)/tools/tap-phantom '$(VALGRIND) $(builddir)/test-server'" \
 		$(AM_MAKEFLAGS) recheck
 
 SED_SUBST = sed \

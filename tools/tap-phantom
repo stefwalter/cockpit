@@ -117,7 +117,7 @@ if (server !== null) {
     var prefix = "";
     var running = false;
 
-    var proc = child.spawn(server, []);
+    var proc = child.spawn("/bin/sh", [ "-c", server ]);
     proc.stdout.on("data", function(data) {
         if (running)
             return;
