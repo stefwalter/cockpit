@@ -97,6 +97,7 @@ on_handle_stream_socket (CockpitWebServer *server,
   CockpitWebService *service;
   CockpitCreds *creds;
   CockpitPipe *pipe;
+  gchar **env;
 
   const gchar *argv[] = {
     "cockpit-bridge",
@@ -109,9 +110,12 @@ on_handle_stream_socket (CockpitWebServer *server,
   creds = cockpit_creds_new (g_get_user_name (),
                              NULL);
 
-  pipe = cockpit_pipe_spawn (argv, NULL, NULL, FALSE);
+  env = g_get_environ ();
+  env = g_environ_setenv (env, "G_DEBUG", "fatal-warnings,fatal-criticals", FALSE);
+  pipe = cockpit_pipe_spawn (argv, (const gchar **)env, NULL, COCKPIT_PIPE_FLAGS_NONE);
   service = cockpit_web_service_new (creds, pipe);
   g_object_unref (pipe);
+  g_strfreev (env);
 
   cockpit_web_service_socket (service, io_stream, headers, input);
 
