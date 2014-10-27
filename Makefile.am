@@ -78,6 +78,7 @@ VALGRIND_SUPPRESSIONS = \
 	tools/glib.supp \
 	tools/pthread.supp \
 	tools/travis.supp \
+	tools/polkit.supp \
 	tools/unknown.supp \
 	$(NULL)
 

@@ -1,0 +1,9 @@
+{
+   polkit_bug_85506
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:g_malloc0
+   fun:server_new
+   fun:polkit_agent_listener_register_with_options
+}
