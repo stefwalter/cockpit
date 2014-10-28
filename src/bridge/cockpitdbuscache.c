@@ -115,7 +115,7 @@ cockpit_dbus_cache_init (CockpitDBusCache *self)
 static GHashTable *
 ensure_properties (CockpitDBusCache *self,
                    const gchar *path,
-                   const gchar *interface)
+                   GDBusInterfaceInfo *iface)
 {
   GHashTable *interfaces;
   GHashTable *properties;
@@ -128,15 +128,15 @@ ensure_properties (CockpitDBusCache *self,
       g_hash_table_replace (self->cache, g_strdup (path), interfaces);
     }
 
-  properties = g_hash_table_lookup (interfaces, interface);
+  properties = g_hash_table_lookup (interfaces, iface->name);
   if (!properties)
     {
       properties = g_hash_table_new_full (g_str_hash, g_str_equal,
-                                          g_free, (GDestroyNotify)g_variant_unref);
-      g_hash_table_replace (interfaces, g_strdup (interface), properties);
+                                          NULL, (GDestroyNotify)g_variant_unref);
+      g_hash_table_replace (interfaces, iface->name, properties);
 
-      g_debug ("%s: present %s at %s", self->name, interface, path);
-      g_signal_emit (self, signal_present, 0, path, interface);
+      g_debug ("%s: present %s at %s", self->name, iface->name, path);
+      g_signal_emit (self, signal_present, 0, path, iface);
     }
 
   return properties;
@@ -146,7 +146,7 @@ static void
 process_value (CockpitDBusCache *self,
                GHashTable *properties,
                const gchar *path,
-               const gchar *interface,
+               GDBusInterfaceInfo *iface,
                const gchar *property,
                GVariant *variant)
 {
@@ -173,14 +173,14 @@ process_value (CockpitDBusCache *self,
       g_hash_table_replace (properties, g_strdup (property), value);
     }
 
-  g_debug ("%s: changed %s %s at %s", self->name, interface, property, path);
-  g_signal_emit (self, signal_changed, 0, path, interface, property, value);
+  g_debug ("%s: changed %s %s at %s", self->name, iface->name, property, path);
+  g_signal_emit (self, signal_changed, 0, path, iface, property, value);
 }
 
 static void
 process_get (CockpitDBusCache *self,
              const gchar *path,
-             const gchar *interface,
+             GDBusInterfaceInfo *iface,
              const gchar *property,
              GVariant *body)
 {
@@ -188,14 +188,15 @@ process_get (CockpitDBusCache *self,
   GVariant *variant;
 
   g_variant_get (body, "(@v)", &variant);
-  properties = ensure_properties (self, path, interface);
-  process_value (self, properties, path, interface, property, variant);
+  properties = ensure_properties (self, path, iface);
+  process_value (self, properties, path, iface, property, variant);
   g_variant_unref (variant);
 }
 
 typedef struct {
   CockpitDBusCache *cache;
   gchar *path;
+  GDBusInterfaceInfo *iface;
   GVariant *params;
 } GetData;
 
@@ -226,7 +227,7 @@ on_get_reply (GObject *source,
 
   if (retval)
     {
-      process_get (self, gd->path, interface, property, retval);
+      process_get (self, gd->path, gd->iface, property, retval);
       g_variant_unref (retval);
     }
 
@@ -254,42 +255,58 @@ process_properties (CockpitDBusCache *self,
     process_value (self, properties, path, interface, property, variant);
 }
 
+typedef struct {
+  CockpitDBusCache *cache;
+  gchar *path;
+  GVariant *body;
+} PropertiesChangedData;
+
 static void
-process_properties_changed (CockpitDBusCache *self,
-                            const gchar *path,
-                            GVariant *body)
+process_properties_changed (GDBusInterfaceInfo *iface,
+                            gpointer user_data)
 {
-  GetData *gd;
-  GVariantIter iter;
+  PropertiesChangedData *pcd = data;
+  CockpitDBusCache *self = pcd->cache;
   const gchar *property;
+  GVariantIter iter;
   const gchar *interface;
   GVariant *changed;
   GVariant *invalidated;
+  GetData *gd;
 
-  g_variant_get (body, "(&s@a{sv}@as)", &interface, &changed, &invalidated);
-
-  process_properties (self, path, interface, changed);
-
-  g_variant_iter_init (&iter, invalidated);
-  while (g_variant_iter_loop (&iter, "&s", &property))
+  if (iface)
     {
-      g_debug ("%s: calling Get() for %s %s at %s", self->name, interface, property, path);
+      g_variant_get (pcd->body, "(@s@a{sv}@as)", NULL, &changed, &invalidated);
 
-      gd = g_slice_new0 (GetData);
-      gd->cache = g_object_ref (self);
-      gd->path = g_strdup (path);
-      gd->params = g_variant_new ("(ss)", interface, property);
-      g_variant_ref_sink (gd->params);
+      process_properties (self, pcd->path, iface, changed);
 
-      g_dbus_connection_call (self->connection, self->name, gd->path,
-                              "org.freedesktop.DBus.Properties", "Get",
-                              gd->params, G_VARIANT_TYPE ("(v)"),
-                              G_DBUS_CALL_FLAGS_NO_AUTO_START, -1,
-                              self->cancellable, on_get_reply, gd);
+      g_variant_iter_init (&iter, invalidated);
+      while (g_variant_iter_loop (&iter, "&s", &property))
+        {
+          g_debug ("%s: calling Get() for %s %s at %s", self->name, interface, property, path);
+
+          gd = g_slice_new0 (GetData);
+          gd->cache = g_object_ref (self);
+          gd->path = g_strdup (path);
+          gd->params = g_variant_new ("(ss)", interface, property);
+          gd->iface = iface;
+          g_variant_ref_sink (gd->params);
+
+          g_dbus_connection_call (self->connection, self->name, gd->path,
+                                  "org.freedesktop.DBus.Properties", "Get",
+                                  gd->params, G_VARIANT_TYPE ("(v)"),
+                                  G_DBUS_CALL_FLAGS_NO_AUTO_START, -1,
+                                  self->cancellable, on_get_reply, gd);
+        }
+
+      g_variant_unref (invalidated);
+      g_variant_unref (changed);
     }
 
-  g_variant_unref (invalidated);
-  g_variant_unref (changed);
+  g_object_unref (pcd->cache);
+  g_free (pcd->path);
+  g_variant_unref (pcd->body);
+  g_slice_free (PropertiesChangedData, pcd);
 }
 
 static void
@@ -302,7 +319,15 @@ on_properties_signal (GDBusConnection *connection,
                       gpointer user_data)
 {
   CockpitDBusCache *self = user_data;
-  process_properties_changed (self, path, body);
+  PropertiesChangedData *pcd;
+
+  pcd = g_slice_new0 (PropertiesChangedData);
+  pcd->path = g_strdup (path);
+  pcd->cache = g_object_ref (self);
+  pcd->body = g_variant_ref (body);
+
+  g_variant_get (body, "(&s@a{sv}@as)", &interface, NULL, NULL);
+  call_with_interface_info (self, interface, on_introspect_properties_changed, pcd);
 }
 
 static void
@@ -328,6 +353,17 @@ static void
 process_interfaces_added (CockpitDBusCache *self,
                           GVariant *body)
 {
+  CockpitDBusCache *self = user_data;
+  PropertiesChangedData *pcd;
+
+  pcd = g_slice_new0 (PropertiesChangedData);
+  pcd->path = g_strdup (path);
+  pcd->cache = g_object_ref (self);
+  pcd->body = g_variant_ref (body);
+
+  g_variant_get (body, "(&s@a{sv}@as)", &interface, NULL, NULL);
+  call_with_interface_info (self, interface, on_introspect_properties_changed, pcd);
+
   GVariant *interfaces;
   const gchar *path;
 

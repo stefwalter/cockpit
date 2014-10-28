@@ -921,6 +921,7 @@ function full_scope(cockpit, $) {
             };
         };
 
+        /*
         this.proxy = function proxy(path, iface) {
             self.watch(path);
             return new DBusProxy(self, path, iface);
@@ -933,6 +934,7 @@ function full_scope(cockpit, $) {
             });
             return { };
         }
+        */
     }
 
     /* public */

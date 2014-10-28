@@ -36,17 +36,17 @@ struct _CockpitDBusCacheClass {
 
   void    (* present)  (CockpitDBusCache *self,
                         const gchar *path,
-                        const gchar *interface);
+                        GDBusInterfaceInfo *iface);
 
   void    (* changed)  (CockpitDBusCache *self,
                         const gchar *path,
-                        const gchar *interface,
+                        GDBusInterfaceInfo *iface,
                         const gchar *property,
                         GVariant *value);
 
   void    (* removed)  (CockpitDBusCache *self,
                         const gchar *path,
-                        const gchar *interface);
+                        GDBusInterfaceInfo *iface);
 };
 
 GType                 cockpit_dbus_cache_get_type          (void) G_GNUC_CONST;
