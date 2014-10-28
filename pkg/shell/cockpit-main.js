@@ -373,6 +373,11 @@ function get_page_iframe(params) {
              */
             iframe.attr('data-loaded', true);
             update_global_nav();
+
+            $(iframe[0].contentWindow).on('hashchange', function () {
+                var inner_params = cockpit.hash.decode(iframe[0].contentWindow.location.hash);
+                cockpit.go(params.host, [ params.path[0] ].concat(inner_params.path), inner_params.options);
+            });
         });
     }
 

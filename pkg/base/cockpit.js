@@ -107,7 +107,7 @@ hash.encode = function encode(params) {
     var res = "/" + params.path.map(encodeURIComponent).join("/");
     var query = [];
     for (var opt in params.options) {
-        if (params.options.hasOwnProperty(opt))
+        if (opt[0] != "_" && params.options.hasOwnProperty(opt))
             query.push(encodeURIComponent(opt) + "=" + encodeURIComponent(params.options[opt]));
     }
     if (query.length > 0)
@@ -211,6 +211,11 @@ function Location() {
     };
 
     self.go = function go(path, options) {
+        // XXX: This will kill the special _host_ option temoprarily
+        // until the sell catches up and passes it in again.  We wont
+        // need that option very much longer, so we don't care about
+        // that.
+
         go_count += 1;
         cur_params = { path: path, options: options || { } };
         show_hash();
