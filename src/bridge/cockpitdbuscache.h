@@ -24,12 +24,6 @@
 
 G_BEGIN_DECLS
 
-typedef enum {
-  COCKPIT_DBUS_WATCH_PATH = 1,
-  COCKPIT_DBUS_WATCH_PATH_NAMESPACE,
-  COCKPIT_DBUS_WATCH_MANAGER,
-} CockpitDBusWatchType;
-
 #define COCKPIT_TYPE_DBUS_CACHE    (cockpit_dbus_cache_get_type ())
 #define COCKPIT_DBUS_CACHE(o)      (G_TYPE_CHECK_INSTANCE_CAST ((o), COCKPIT_TYPE_DBUS_CACHE, CockpitDBusCache))
 #define COCKPIT_IS_DBUS_CACHE(k)   (G_TYPE_CHECK_INSTANCE_TYPE ((k), COCKPIT_TYPE_DBUS_CACHE))
@@ -69,11 +63,11 @@ void                  cockpit_dbus_cache_scrape            (CockpitDBusCache *se
 
 void                  cockpit_dbus_cache_watch             (CockpitDBusCache *self,
                                                             const gchar *path,
-                                                            CockpitDBusWatchType type);
+                                                            gboolean is_namespace);
 
 gboolean              cockpit_dbus_cache_unwatch           (CockpitDBusCache *self,
                                                             const gchar *path,
-                                                            CockpitDBusWatchType type);
+                                                            gboolean is_namespace);
 
 G_END_DECLS
 

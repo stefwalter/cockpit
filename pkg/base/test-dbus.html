@@ -324,6 +324,17 @@ asyncTest("flags", function() {
         });
 });
 
+asyncTest("watch seed", function() {
+    expect(1);
+
+    var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
+    dbus.watch("/otree/foobar");
+    $(dbus).on("notify", function(event, data) {
+        deepEqual(data, { }, "watch seed: correct data");
+        start();
+    });
+});
+
 QUnit.start();
 </script>
 </body>

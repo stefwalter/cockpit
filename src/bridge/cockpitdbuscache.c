@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include "cockpitdbuscache.h"
+#include "cockpitdbusutil.h"
 
 #include <string.h>
 
@@ -67,7 +68,7 @@ G_DEFINE_TYPE (CockpitDBusCache, cockpit_dbus_cache, G_TYPE_OBJECT);
 typedef struct {
   gint refs;
   gchar *path;
-  CockpitDBusWatchType type;
+  gboolean is_namespace;
 } WatchData;
 
 static void
@@ -82,7 +83,7 @@ static guint32
 watch_data_hash (gconstpointer data)
 {
   const WatchData *wd = data;
-  return g_str_hash (wd->path) ^ g_int_hash (&wd->type);
+  return g_str_hash (wd->path) ^ g_int_hash (&wd->is_namespace);
 }
 
 static gboolean
@@ -91,7 +92,7 @@ watch_data_equal (gconstpointer one,
 {
   const WatchData *w1 = one;
   const WatchData *w2 = two;
-  return w1->type == w2->type && g_str_equal (w1->path, w2->path);
+  return w1->is_namespace == w2->is_namespace && g_str_equal (w1->path, w2->path);
 }
 
 static void
@@ -133,6 +134,8 @@ ensure_properties (CockpitDBusCache *self,
       properties = g_hash_table_new_full (g_str_hash, g_str_equal,
                                           g_free, (GDestroyNotify)g_variant_unref);
       g_hash_table_replace (interfaces, g_strdup (interface), properties);
+
+      g_debug ("%s: present %s at %s", self->name, interface, path);
       g_signal_emit (self, signal_present, 0, path, interface);
     }
 
@@ -170,6 +173,7 @@ process_value (CockpitDBusCache *self,
       g_hash_table_replace (properties, g_strdup (property), value);
     }
 
+  g_debug ("%s: changed %s %s at %s", self->name, interface, property, path);
   g_signal_emit (self, signal_changed, 0, path, interface, property, value);
 }
 
@@ -269,6 +273,8 @@ process_properties_changed (CockpitDBusCache *self,
   g_variant_iter_init (&iter, invalidated);
   while (g_variant_iter_loop (&iter, "&s", &property))
     {
+      g_debug ("%s: calling Get() for %s %s at %s", self->name, interface, property, path);
+
       gd = g_slice_new0 (GetData);
       gd->cache = g_object_ref (self);
       gd->path = g_strdup (path);
@@ -347,6 +353,7 @@ process_removed (CockpitDBusCache *self,
     return;
 
   g_hash_table_remove (interfaces, interface);
+  g_debug ("%s: removed %s at %s", self->name, interface, path);
   g_signal_emit (self, signal_removed, 0, path, interface);
 }
 
@@ -1030,6 +1037,8 @@ process_introspect_node (CockpitDBusCache *self,
       g_hash_table_remove (snapshot, iface->name);
       ensure_properties (self, path, iface->name);
 
+      g_debug ("%s: calling GetAll() for %s at %s", self->name, iface->name, path);
+
       gad = g_slice_new0 (GetAllData);
       gad->cache = g_object_ref (self);
       gad->path = g_strdup (path);
@@ -1098,6 +1107,8 @@ introspect_path (CockpitDBusCache *self,
   if (!lookup_ancestor_path (self->managed, path))
     return;
 
+  g_debug ("%s: calling Introspect() on %s", self->name, path);
+
   id = g_slice_new0 (IntrospectData);
   id->cache = g_object_ref (self);
   id->path = g_strdup (path);
@@ -1158,15 +1169,35 @@ on_get_managed_objects_reply (GObject *source,
   retval = g_dbus_connection_call_finish (G_DBUS_CONNECTION (source), result, &error);
   if (error)
     {
-      g_message ("%s: couldn't get managed objects at %s", self->name, gmod->path);
+      if (!g_cancellable_is_cancelled (self->cancellable))
+        {
+          /* Doesn't support ObjectManager? */
+          if (cockpit_dbus_error_matches_unknown (error))
+            g_debug ("%s: no ObjectManager at %s", self->name, gmod->path);
+          else
+            g_message ("%s: couldn't get managed objects at %s", self->name, gmod->path);
+        }
       g_error_free (error);
     }
 
   if (retval)
     {
+      /* Note that this is indeed an object manager */
+      g_hash_table_add (self->managed, g_strdup (gmod->path));
+
       process_get_managed_objects (self, gmod->path, retval);
       g_variant_unref (retval);
     }
+
+  /*
+   * The ObjectManager itself still needs introspecting ... since the
+   * ObjectManager path itself cannot be included in the objects reported
+   * by the ObjectManager ... dumb design decision in the dbus spec IMO.
+   *
+   * But we delay on this so that any children are treated as part of
+   * object manager, and we don't go introspecting everything.
+   */
+  introspect_path (self, NULL, gmod->path);
 
   g_object_unref (gmod->cache);
   g_free (gmod->path);
@@ -1179,45 +1210,22 @@ recompile_watches (CockpitDBusCache *self)
   GHashTableIter iter;
   WatchData *wd;
 
-  /*
-   * Recompile all the lookup tables ... note that we assume that
-   * once something is an ObjectManager tree it always will be
-   * even if a watch gets removed.
-   *
-   * Also note that ObjectManager doesn't cover the top of the tree
-   * only the sub nodes.
-   */
-
   g_hash_table_remove_all (self->watch_paths);
   g_hash_table_remove_all (self->watch_descendants);
 
   g_hash_table_iter_init (&iter, self->watches);
   while (g_hash_table_iter_next (&iter, (gpointer *)&wd, NULL))
     {
-      switch (wd->type)
-        {
-        case COCKPIT_DBUS_WATCH_PATH:
-          g_hash_table_add (self->watch_paths, wd->path);
-          break;
-        case COCKPIT_DBUS_WATCH_MANAGER:
-          g_hash_table_add (self->managed, wd->path);
-          g_hash_table_add (self->watch_descendants, wd->path);
-          break;
-        case COCKPIT_DBUS_WATCH_PATH_NAMESPACE:
-          g_hash_table_add (self->watch_paths, wd->path);
-          g_hash_table_add (self->watch_descendants, wd->path);
-          break;
-        default:
-          g_warn_if_reached ();
-          break;
-        }
+      g_hash_table_add (self->watch_paths, wd->path);
+      if (wd->is_namespace)
+        g_hash_table_add (self->watch_descendants, wd->path);
     }
 }
 
 void
 cockpit_dbus_cache_watch (CockpitDBusCache *self,
                           const gchar *path,
-                          CockpitDBusWatchType type)
+                          gboolean is_namespace)
 {
   GetManagedObjectsData *gmod;
   WatchData *wd;
@@ -1226,51 +1234,55 @@ cockpit_dbus_cache_watch (CockpitDBusCache *self,
   wd = g_slice_new0 (WatchData);
   wd->refs = 1;
   wd->path = g_strdup (path);
-  wd->type = type;
+  wd->is_namespace = is_namespace;
 
   prev = g_hash_table_lookup (self->watches, wd);
   if (prev)
     {
+      g_debug ("%s: adding reference to watch", self->name);
       prev->refs++;
       watch_data_free (wd);
     }
   else
     {
+      g_debug ("%s: removing watch: %s=%s", self->name,
+               prev->is_namespace ? "path": "path_namespace",
+               prev->path);
+
       g_hash_table_add (self->watches, wd);
       recompile_watches (self);
     }
 
-  switch (type)
-    {
-    case COCKPIT_DBUS_WATCH_PATH:
-    case COCKPIT_DBUS_WATCH_PATH_NAMESPACE:
-      introspect_path (self, NULL, wd->path);
-      break;
+  /*
+   * Always assume the best ... that ObjectManager exists ...
+   * even though it often doesn't. That way good services are
+   * efficient and clean.
+   */
 
-    case COCKPIT_DBUS_WATCH_MANAGER:
+  if (is_namespace)
+    {
       gmod = g_slice_new0 (GetManagedObjectsData);
       gmod->path = g_strdup (wd->path);
       gmod->cache = g_object_ref (self);
+
+      g_debug ("%s: calling GetManagedObjects() on %s", self->name, gmod->path);
 
       g_dbus_connection_call (self->connection, self->name, gmod->path,
                               "org.freedesktop.DBus.ObjectManager", "GetManagedObjects",
                               g_variant_new ("()"), G_VARIANT_TYPE ("a{s@a{sa{sv}}}"),
                               G_DBUS_CALL_FLAGS_NO_AUTO_START, -1, /* timeout */
                               self->cancellable, on_get_managed_objects_reply, gmod);
-      break;
-
-    default:
-      g_return_if_reached ();
-      break;
     }
+
+  introspect_path (self, NULL, wd->path);
 }
 
 gboolean
 cockpit_dbus_cache_unwatch (CockpitDBusCache *self,
                             const gchar *path,
-                            CockpitDBusWatchType type)
+                            gboolean is_namespace)
 {
-  WatchData lookup = { 1, (gchar *)path, type };
+  WatchData lookup = { 1, (gchar *)path, is_namespace };
   WatchData *prev;
 
   prev = g_hash_table_lookup (self->watches, &lookup);
@@ -1280,8 +1292,16 @@ cockpit_dbus_cache_unwatch (CockpitDBusCache *self,
   prev->refs--;
   if (prev->refs == 0)
     {
+      g_debug ("%s: removing watch: %s=%s", self->name,
+               prev->is_namespace ? "path": "path_namespace",
+               prev->path);
+
       g_hash_table_remove (self->watches, prev);
       recompile_watches (self);
+    }
+  else
+    {
+      g_debug ("%s: removing reference to watch", self->name);
     }
 
   return TRUE;

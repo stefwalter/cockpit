@@ -799,6 +799,8 @@ function full_scope(cockpit, $) {
                             subscription.callback.apply(self, msg.signal);
                     }
                 });
+            } else if (msg.notify) {
+                $(self).triggerHandler("notify", msg.notify);
             } else {
                 console.warn("received unexpected dbus json message:", payload);
                 channel.close({"reason": "protocol-error"});
@@ -875,7 +877,34 @@ function full_scope(cockpit, $) {
                     var prev = subscribers[id];
                     if (prev) {
                         delete subscribers[id];
-                        var msg = JSON.stringify({ "remove-match": prev.match });
+                        if (channel.valid) {
+                            var msg = JSON.stringify({ "remove-match": prev.match });
+                            dbus_debug("dbus:", msg);
+                            channel.send(msg);
+                        }
+                    }
+                }
+            };
+        };
+
+        this.watch = function watch(path) {
+            var match;
+            if ($.isPlainObject(path))
+                match = path;
+            else
+                match = { path: String(path) };
+
+            var msg = JSON.stringify({ "watch": match });
+            dbus_debug("dbus:", msg);
+            channel.send(msg);
+
+            var id = String(last_cookie);
+            last_cookie++;
+
+            return {
+                remove: function() {
+                    if (channel.valid) {
+                        msg = JSON.stringify({ "unwatch": match });
                         dbus_debug("dbus:", msg);
                         channel.send(msg);
                     }

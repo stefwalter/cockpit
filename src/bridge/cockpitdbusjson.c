@@ -20,9 +20,10 @@
 #include "config.h"
 
 #include "cockpitdbusjson.h"
-#include "cockpitdbuscache.h"
 
 #include "cockpitchannel.h"
+#include "cockpitdbuscache.h"
+#include "cockpitdbusutil.h"
 
 #include "common/cockpitjson.h"
 
@@ -38,16 +39,6 @@
  */
 
 #define COCKPIT_DBUS_JSON(o)    (G_TYPE_CHECK_INSTANCE_CAST ((o), COCKPIT_TYPE_DBUS_JSON, CockpitDBusJson))
-
-/*
- * HACK: Work around recently added constants in gdbus
- * https://bugzilla.gnome.org/show_bug.cgi?id=727900
- */
-
-#if !GLIB_CHECK_VERSION(2,42,0)
-#define G_DBUS_ERROR_UNKNOWN_INTERFACE G_DBUS_ERROR_UNKNOWN_METHOD
-#define G_DBUS_ERROR_UNKNOWN_OBJECT G_DBUS_ERROR_UNKNOWN_METHOD
-#endif
 
 typedef struct {
   CockpitChannel parent;
@@ -1087,8 +1078,6 @@ on_introspect_ready (GObject *source,
   GDBusInterfaceInfo *found = NULL;
   const gchar *xml = NULL;
   GError *error = NULL;
-  gboolean expected;
-  gchar *remote;
   gint i;
 
   /* Cancelled? */
@@ -1107,26 +1096,7 @@ on_introspect_ready (GObject *source,
        * introspect data. GDBus is one of these.
        */
 
-      expected = FALSE;
-      remote = g_dbus_error_get_remote_error (error);
-      if (remote)
-        {
-          /*
-           * DBus used to only have the UnknownMethod error. It didn't have
-           * specific errors for UnknownObject and UnknownInterface. So we're
-           * pretty liberal on what we treat as an expected error here.
-           *
-           * HACK: GDBus also doesn't understand the newer error codes :S
-           *
-           * https://bugzilla.gnome.org/show_bug.cgi?id=727900
-           */
-          expected = (g_str_equal (remote, "org.freedesktop.DBus.Error.UnknownMethod") ||
-                      g_str_equal (remote, "org.freedesktop.DBus.Error.UnknownObject") ||
-                      g_str_equal (remote, "org.freedesktop.DBus.Error.UnknownInterface"));
-          g_free (remote);
-        }
-
-      if (expected)
+      if (cockpit_dbus_error_matches_unknown (error))
         {
           g_debug ("no introspect data found for object %s", call->path);
         }
@@ -1672,68 +1642,78 @@ on_cache_removed (CockpitDBusCache *cache,
   json_object_set_null_member (interfaces, interface);
 }
 
-static JsonArray *
+static const gchar *
 parse_json_watch (CockpitDBusJson *self,
-                  const gchar *field,
-                  JsonObject *object,
-                  CockpitDBusWatchType *type)
+                  JsonNode *node,
+                  gboolean *is_namespace)
 {
-  JsonNode *node;
-  JsonArray *array;
+  JsonObject *object;
   const gchar *path;
-  const gchar *kind;
-  guint i;
+  const gchar *path_namespace;
 
-  node = json_object_get_member (object, field);
-  g_return_val_if_fail (node != NULL, NULL);
-
-  if (!JSON_NODE_HOLDS_ARRAY (node))
+  if (!JSON_NODE_HOLDS_OBJECT (node))
     {
-      g_warning ("%s: %s paths is not an array", self->name, field);
+      g_warning ("%s: watch is not an object", self->name);
       return NULL;
     }
 
-  array = json_node_get_array (node);
-  for (i = 0; i < json_array_get_length (array); i++)
+  object = json_node_get_object (node);
+  if (!cockpit_json_get_string (object, "path", NULL, &path))
     {
-      path = array_string_element (array, i);
-      if (!path || g_variant_is_object_path (path))
+      g_warning ("%s: watch has invalid path", self->name);
+      return NULL;
+    }
+  if (!cockpit_json_get_string (object, "path_namespace", NULL, &path_namespace))
+    {
+      g_warning ("%s: watch has invalid path", self->name);
+      return NULL;
+    }
+
+  if (path && path_namespace)
+    {
+      g_warning ("%s: watch has both path and path_namespace specified", self->name);
+      return NULL;
+    }
+  else if (path_namespace)
+    {
+      if (!g_variant_is_object_path (path))
         {
-          g_warning ("%s: invalid %s path%s%s", self->name, field,
-                     path ? ": " : "", path ? path : "");
+          g_warning ("%s: watch has an invalid path_namespace: %s", self->name, path_namespace);
           return NULL;
         }
+      *is_namespace = TRUE;
+      return path_namespace;
     }
-
-  if (!cockpit_json_get_string (object, "kind", "path", &kind))
-    kind = "not a string";
-
-  if (g_str_equal (kind, "path"))
-    *type = COCKPIT_DBUS_WATCH_PATH;
-  else if (g_str_equal (kind, "path_namespace"))
-    *type = COCKPIT_DBUS_WATCH_PATH_NAMESPACE;
-  else if (g_str_equal (kind, "manager"))
-    *type = COCKPIT_DBUS_WATCH_MANAGER;
+  else if (path)
+    {
+      if (!g_variant_is_object_path (path))
+        {
+          g_warning ("%s: watch has an invalid path: %s", self->name, path);
+          return NULL;
+        }
+      *is_namespace = FALSE;
+      return path;
+    }
   else
     {
-      g_warning ("%s: invalid %s kind: %s", self->name, field, kind);
+      g_warning ("%s: watch has neither path or path_namespace specified", self->name);
       return NULL;
     }
-
-  return array;
 }
 
 static void
 handle_dbus_watch (CockpitDBusJson *self,
                    JsonObject *object)
 {
-  CockpitDBusWatchType type;
-  JsonArray *paths;
+  gboolean is_namespace;
   const gchar *path;
-  guint i;
+  JsonNode *node;
 
-  paths = parse_json_watch (self, "watch", object, &type);
-  if (!paths)
+  node = json_object_get_member (object, "watch");
+  g_return_val_if_fail (node != NULL, NULL);
+
+  path = parse_json_watch (self, node, &is_namespace);
+  if (!path)
     {
       cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
       return;
@@ -1752,37 +1732,29 @@ handle_dbus_watch (CockpitDBusJson *self,
                                             G_CALLBACK (on_cache_removed), self);
     }
 
-  for (i = 0; i < json_array_get_length (paths); i++)
-    {
-      path = json_array_get_string_element (paths, i);
-      cockpit_dbus_cache_watch (self->cache, path, type);
-    }
+  cockpit_dbus_cache_watch (self->cache, path, is_namespace);
 }
 
 static void
 handle_dbus_unwatch (CockpitDBusJson *self,
                      JsonObject *object)
 {
-  CockpitDBusWatchType type;
-  JsonArray *paths;
+  gboolean is_namespace;
   const gchar *path;
-  guint i;
+  JsonNode *node;
 
-  paths = parse_json_watch (self, "unwatch", object, &type);
-  if (!paths)
+  node = json_object_get_member (object, "unwatch");
+  g_return_val_if_fail (node != NULL, NULL);
+
+  path = parse_json_watch (self, node, &is_namespace);
+  if (!path)
     {
       cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
-      return;
     }
-
-  for (i = 0; i < json_array_get_length (paths); i++)
+  else if (!cockpit_dbus_cache_unwatch (self->cache, path, is_namespace))
     {
-      path = json_array_get_string_element (paths, i);
-      if (!cockpit_dbus_cache_unwatch (self->cache, path, type))
-        {
-          g_warning ("no previously added watch matched");
-          cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
-        }
+      g_warning ("no previously added watch matched");
+      cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
     }
 }
 

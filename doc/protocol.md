@@ -388,39 +388,46 @@ may be null if the DBus signal had no body.
         "signal": [ "/the/path", "org.Interface", "SignalName", [ "arg0", 1, 2 ] ]
     }
 
-Properties can be watched with the
+Properties can be watched with the "watch" request. Either a "path" or
+"path_namespace" can be watched. Property changes are listened for with
+DBus PropertiesChanged signals.  If a "path_namespace" is watched and
+path is a DBus ObjectManager, then it is used to watch for new DBus
+interfaces, otherwise DBus introspection is used.
 
     {
-        "watch": "/the/path"
-	"kind": "namespace"
-    }
-
-    "unwatch"
-
-
-    {
-	"props": {
-            "path": {
-                "interface": {
-                    "Prop1": x,
-                    "Prop1", y,
-                }
-            }
+        "watch": {
+	    "path": "/the/path/to/watch"
         }
     }
 
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+To remove a watch, pass the identical parameters with an "unwatch"
+request.
 
-    GHashTable(interface, GHashTable);
-	GHashTable(path, GHashTable);
-	    GHashTable(name, GVariant);
+    {
+        "unwatch": {
+            "path": "/the/path/to/watch"
+        }
+    }
 
-Poke
-	Listen to all signals on object.
+Property changes will be sent using a "notify" message. This includes
+addition of interfaces without properties, which will be an empty
+interface object, or interfaces removed, which will be null. Only the
+changes since the last "notify" message will be sent.
 
-	*all signals*
-
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    {
+	"notify": {
+            "/a/path": {
+                "org.Interface1": {
+                    "Prop1": x,
+                    "Prop2": y
+                },
+		"org.Interface2": { }
+            },
+            "/another/path": {
+                "org.Removed": null
+            }
+        }
+    }
 
 DBus types are encoded in various places in these messages, such as the
 arguments. These types are encoded as follows:

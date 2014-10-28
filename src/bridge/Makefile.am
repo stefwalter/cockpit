@@ -8,6 +8,8 @@ libcockpit_bridge_a_SOURCES = \
 	src/bridge/cockpitdbuscache.h \
 	src/bridge/cockpitdbusjson.c \
 	src/bridge/cockpitdbusjson.h \
+	src/bridge/cockpitdbusutil.c \
+	src/bridge/cockpitdbusutil.h \
 	src/bridge/cockpitpackage.c \
 	src/bridge/cockpitpackage.h \
 	src/bridge/cockpitpolkitagent.c \
