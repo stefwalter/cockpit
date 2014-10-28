@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include "cockpitdbusjson.h"
+#include "cockpitdbuscache.h"
 
 #include "cockpitchannel.h"
 
@@ -65,6 +66,9 @@ typedef struct {
   GList *active_calls;
 
   GHashTable *rules;
+  GHashTable *watches;
+  GHashTable *properties;
+  CockpitDBusCache *cache;
 } CockpitDBusJson;
 
 typedef struct {
@@ -1518,6 +1522,100 @@ handle_dbus_remove_match (CockpitDBusJson *self,
 }
 
 static void
+handle_dbus_watch (CockpitDBusJson *self,
+                   JsonObject *object)
+{
+  WatchData *watch, *prev;
+  JsonNode *node;
+
+  node = json_object_get_member (object, "watch");
+  g_return_if_fail (node != NULL);
+
+  watch = parse_json_watch (self, node);
+  if (!watch)
+    {
+      cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
+      return;
+    }
+
+  prev = g_hash_table_lookup (self->watches, rule->match);
+  if (prev == NULL)
+    {
+      g_hash_table_replace (self->watches, watch->match, watch);
+      g_dbus_connection_call (self->connection,
+                              "org.freedesktop.DBus",
+                              "/org/freedesktop/DBus",
+                              "org.freedesktop.DBus",
+                              "AddMatch",
+                              g_variant_new ("(s)", watch->match),
+                              NULL, G_DBUS_CALL_FLAGS_NO_AUTO_START, -1,
+                              self->cancellable,
+                              on_add_match_ready,
+                              g_object_ref (self));
+    }
+  else
+    {
+      prev->refs++;
+      watch_data_free (rule);
+    }
+
+  /* Every time, not just the first */
+  if (watch->path)
+    poke_path (self, watch->path);
+  else
+    poke_object_manager (self, watch->object_manager);
+}
+
+static void
+handle_dbus_unwatch (CockpitDBusJson *self,
+                     JsonObject *object)
+{
+  WatchData *watch, *prev;
+  JsonNode *node;
+
+  node = json_object_get_member (object, "unwatch");
+  g_return_if_fail (node != NULL);
+
+  watch = parse_json_watch (self, node);
+  if (!rule)
+    {
+      cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
+      return;
+    }
+
+  watch = g_hash_table_lookup (self->rules, watch->match);
+  watch_data_free (watch);
+
+  if (!prev)
+    {
+      g_warning ("no previously added watch to remove");
+      cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
+      return;
+    }
+
+  /*
+   * So there is a slight race, where we don't actually know if the AddMatch
+   * was successful yet ... but if the bus is failing AddMatch, then there's
+   * all bets are off anyway.
+   */
+
+  prev->refs--;
+  if (prev->refs == 0)
+    {
+      g_dbus_connection_call (self->connection,
+                              "org.freedesktop.DBus",
+                              "/org/freedesktop/DBus",
+                              "org.freedesktop.DBus",
+                              "RemoveMatch",
+                              g_variant_new ("(s)", prev->match),
+                              NULL, G_DBUS_CALL_FLAGS_NO_AUTO_START, -1,
+                              self->cancellable,
+                              on_remove_match_ready, g_object_ref (self));
+      g_hash_table_remove (self->watches, prev->match);
+    }
+}
+
+static void
 cockpit_dbus_json_recv (CockpitChannel *channel,
                         GBytes *message)
 {
@@ -1540,6 +1638,10 @@ cockpit_dbus_json_recv (CockpitChannel *channel,
     handle_dbus_add_match (self, object);
   else if (json_object_has_member (object, "remove-match"))
     handle_dbus_remove_match (self, object);
+  else if (json_object_has_member (object, "watch"))
+    handle_dbus_watch (self, object);
+  else if (json_object_has_member (object, "unwatch"))
+    handle_dbus_unwatch (self, object);
   else
     {
       g_warning ("got unsupported dbus command");
@@ -1550,36 +1652,28 @@ cockpit_dbus_json_recv (CockpitChannel *channel,
 }
 
 static void
-process_incoming_signal (CockpitDBusJson *self,
-                         GDBusMessage *message)
+process_rules (CockpitDBusJson *self,
+               const gchar *path,
+               const gchar *interface,
+               GDBusMessage *message)
 {
-  JsonObject *object;
-  const gchar *sender;
   GHashTableIter iter;
-  const gchar *path;
+  JsonObject *object;
   RuleData *rule;
-
-  /* Must match sender we're talking to */
-  sender = g_dbus_message_get_sender (message);
-  if (sender && g_strcmp0 (sender, self->name) != 0 &&
-      g_strcmp0 (sender, self->name_owner) != 0)
-    return;
+  RuleData *rule;
 
   /* This is a possible future optimization point, once usage patterns are clear */
   g_hash_table_iter_init (&iter, self->rules);
   while (g_hash_table_iter_next (&iter, NULL, (gpointer *)&rule))
     {
-      if (rule->interface &&
-          g_strcmp0 (rule->interface, g_dbus_message_get_interface (message)) != 0)
+      if (rule->interface && g_strcmp0 (rule->interface, interface) != 0)
         return;
 
-      if (rule->signal &&
-          g_strcmp0 (rule->signal, g_dbus_message_get_member (message)) != 0)
+      if (rule->signal && g_strcmp0 (rule->signal, g_dbus_message_get_member (message)) != 0)
         return;
 
       if (rule->path)
         {
-          path = g_dbus_message_get_path (message);
           if (rule->path_namespace)
             {
               if (!path || !g_str_has_prefix (path, rule->path))
@@ -1592,15 +1686,35 @@ process_incoming_signal (CockpitDBusJson *self,
             }
         }
 
-      if (rule->arg0 &&
-          g_strcmp0 (rule->arg0, g_dbus_message_get_arg0 (message)) != 0)
-            return;
+      if (rule->arg0 && g_strcmp0 (rule->arg0, g_dbus_message_get_arg0 (message)) != 0)
+        return;
     }
 
   /* If we got here then this is a signal to send */
   object = build_json_signal (message);
   send_json_object (self, object);
   json_object_unref (object);
+}
+
+static void
+process_incoming_signal (CockpitDBusJson *self,
+                         GDBusMessage *message)
+{
+  const gchar *sender;
+  const gchar *path;
+  const gchar *interface;
+
+  /* Must match sender we're talking to */
+  sender = g_dbus_message_get_sender (message);
+  if (sender && g_strcmp0 (sender, self->name) != 0 &&
+      g_strcmp0 (sender, self->name_owner) != 0)
+    return;
+
+  path = g_dbus_message_get_interface (path);
+  interface = g_dbus_message_get_interface (message);
+
+  process_watches (self, path, interface, message);
+  process_rules (self, path, interface, message);
 }
 
 static void
@@ -1776,6 +1890,13 @@ cockpit_dbus_json_dispose (GObject *object)
 {
   CockpitDBusJson *self = COCKPIT_DBUS_JSON (object);
   GList *l;
+
+  if (self->cache)
+    {
+      g_object_run_dispose (G_OBJECT (self->cache));
+      g_object_unref (self->cache);
+      self->cache = NULL;
+    }
 
   /* Divorce ourselves the outstanding calls */
   for (l = self->active_calls; l != NULL; l = g_list_next (l))
