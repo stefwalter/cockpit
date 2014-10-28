@@ -4,6 +4,8 @@ noinst_LIBRARIES += libcockpit-bridge.a
 libcockpit_bridge_a_SOURCES = \
 	src/bridge/cockpitchannel.c \
 	src/bridge/cockpitchannel.h \
+	src/bridge/cockpitdbuscache.c \
+	src/bridge/cockpitdbuscache.h \
 	src/bridge/cockpitdbusjson.c \
 	src/bridge/cockpitdbusjson.h \
 	src/bridge/cockpitpackage.c \

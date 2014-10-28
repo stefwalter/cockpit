@@ -316,7 +316,8 @@ sent back in a "reply" or "error" message with the same "id" field.
 
 Method reply messages are JSON objects with a "reply" field whose value is
 an array, the array contains another array of out arguments, or null if
-the DBus reply had no body. 
+the DBus reply had no body.
+
     {
         "reply": [ [ "arg0", 1, 2 ] ],
         "id": "cookie"
@@ -384,8 +385,42 @@ array of parameters: path, interface, signal name, and arguments. arguments
 may be null if the DBus signal had no body.
 
     {
-        "signal": [ "/the/path", "org.Interface", "SignalName", [ "arg0", 1, 2 ]
+        "signal": [ "/the/path", "org.Interface", "SignalName", [ "arg0", 1, 2 ] ]
     }
+
+Properties can be watched with the
+
+    {
+        "watch": "/the/path"
+	"kind": "namespace"
+    }
+
+    "unwatch"
+
+
+    {
+	"props": {
+            "path": {
+                "interface": {
+                    "Prop1": x,
+                    "Prop1", y,
+                }
+            }
+        }
+    }
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    GHashTable(interface, GHashTable);
+	GHashTable(path, GHashTable);
+	    GHashTable(name, GVariant);
+
+Poke
+	Listen to all signals on object.
+
+	*all signals*
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 DBus types are encoded in various places in these messages, such as the
 arguments. These types are encoded as follows:

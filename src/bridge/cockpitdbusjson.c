@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include "cockpitdbusjson.h"
+#include "cockpitdbuscache.h"
 
 #include "cockpitchannel.h"
 
@@ -66,6 +67,15 @@ typedef struct {
 
   /* Signal related */
   GHashTable *rules;
+
+  /* Watch related */
+  CockpitDBusCache *cache;
+  gulong present_sig;
+  gulong changed_sig;
+  gulong removed_sig;
+  JsonObject *props;
+  guint props_timeout;
+  guint props_idle;
 } CockpitDBusJson;
 
 typedef struct {
@@ -792,36 +802,6 @@ build_json_body (GDBusMessage *message,
 }
 
 static JsonObject *
-build_json_reply (GDBusMessage *message,
-                  gboolean with_type)
-{
-  JsonObject *object;
-  JsonArray *reply;
-  gchar *type = NULL;
-
-  object = json_object_new ();
-  reply = json_array_new ();
-  if (g_dbus_message_get_message_type (message) == G_DBUS_MESSAGE_TYPE_ERROR)
-    {
-      json_array_add_string_element (reply, g_dbus_message_get_error_name (message));
-      json_object_set_array_member (object, "error", reply);
-    }
-  else
-    {
-      json_object_set_array_member (object, "reply", reply);
-    }
-
-  json_array_add_element (reply, build_json_body (message, with_type ? &type : NULL));
-
-  if (type)
-    {
-      json_object_set_string_member (object, "type", type);
-      g_free (type);
-    }
-  return object;
-}
-
-static JsonObject *
 build_json_signal (GDBusMessage *message)
 {
   JsonObject *object;
@@ -880,17 +860,69 @@ send_dbus_error (CockpitDBusJson *self,
   json_object_unref (object);
 }
 
+typedef struct {
+  CockpitDBusJson *dbus_json;
+  JsonObject *reply;
+} ScrapeData;
+
+static void
+flush_props (CockpitDBusJson *self);
+
+static void
+on_scrape_complete (GObject *source,
+                    GAsyncResult *result,
+                    gpointer user_data)
+{
+  ScrapeData *sd = user_data;
+  CockpitDBusJson *self = sd->dbus_json;
+
+  if (!g_cancellable_is_cancelled (self->cancellable))
+    {
+      flush_props (self);
+      send_json_object (self, sd->reply);
+    }
+
+  g_object_unref (sd->dbus_json);
+  json_object_unref (sd->reply);
+  g_slice_free (ScrapeData, sd);
+}
+
 static void
 send_dbus_reply (CockpitDBusJson *self,
                  CallData *call,
                  GDBusMessage *message)
 {
+  GVariant *scrape = NULL;
   JsonObject *object;
   GString *flags;
+  ScrapeData *sd;
 
   g_return_if_fail (call->cookie != NULL);
 
-  object = build_json_reply (message, call->type != NULL);
+  JsonArray *reply;
+  gchar *type = NULL;
+
+  object = json_object_new ();
+  reply = json_array_new ();
+  if (g_dbus_message_get_message_type (message) == G_DBUS_MESSAGE_TYPE_ERROR)
+    {
+      json_array_add_string_element (reply, g_dbus_message_get_error_name (message));
+      json_object_set_array_member (object, "error", reply);
+    }
+  else
+    {
+      json_object_set_array_member (object, "reply", reply);
+      scrape = g_dbus_message_get_body (message);
+    }
+
+  json_array_add_element (reply, build_json_body (message, call->type != NULL ? &type : NULL));
+
+  if (type)
+    {
+      json_object_set_string_member (object, "type", type);
+      g_free (type);
+    }
+
   json_object_set_string_member (object, "id", call->cookie);
 
   if (call->flags)
@@ -904,8 +936,19 @@ send_dbus_reply (CockpitDBusJson *self,
       g_string_free (flags, TRUE);
     }
 
-  send_json_object (self, object);
-  json_object_unref (object);
+  if (scrape && self->cache)
+    {
+      sd = g_slice_new0 (ScrapeData);
+      sd->dbus_json = g_object_ref (self);
+      sd->reply = object;
+      cockpit_dbus_cache_scrape (self->cache, scrape, self->cancellable,
+                                 on_scrape_complete, sd);
+    }
+  else
+    {
+      send_json_object (self, object);
+      json_object_unref (object);
+    }
 }
 
 static GVariantType *
@@ -953,9 +996,10 @@ call_data_free (CallData *call)
 {
   if (call->dbus_json)
     call->dbus_json->active_calls = g_list_delete_link (call->dbus_json->active_calls, call->link);
-
-  json_object_unref (call->request);
-  g_variant_type_free (call->param_type);
+  if (call->request)
+    json_object_unref (call->request);
+  if (call->param_type)
+    g_variant_type_free (call->param_type);
   g_slice_free (CallData, call);
 }
 
@@ -1519,6 +1563,230 @@ handle_dbus_remove_match (CockpitDBusJson *self,
 }
 
 static void
+flush_props (CockpitDBusJson *self)
+{
+  if (self->props_timeout)
+    {
+      g_source_remove (self->props_timeout);
+      self->props_timeout = 0;
+    }
+
+  if (self->props_idle)
+    {
+      g_source_remove (self->props_idle);
+      self->props_idle = 0;
+    }
+
+  if (self->props)
+    {
+      if (!g_cancellable_is_cancelled (self->cancellable))
+        send_json_object (self, self->props);
+      json_object_unref (self->props);
+      self->props = NULL;
+    }
+}
+
+static gboolean
+on_timeout_or_idle_props (gpointer data)
+{
+  CockpitDBusJson *self = data;
+  flush_props (self);
+  return FALSE;
+}
+
+static JsonObject *
+ensure_props (CockpitDBusJson *self,
+              const gchar *path,
+              const gchar *interface)
+{
+  JsonObject *paths;
+  JsonObject *interfaces;
+  JsonObject *properties;
+  JsonNode *node;
+
+  if (!self->props)
+    {
+      self->props = json_object_new ();
+      json_object_set_object_member (self->props, "props", json_object_new ());
+      self->props_timeout = g_timeout_add (50, on_timeout_or_idle_props, self);
+      self->props_idle = g_idle_add (on_timeout_or_idle_props, self);
+    }
+
+  paths = json_object_get_object_member (self->props, "props");
+
+  node = json_object_get_member (paths, path);
+  if (node)
+    interfaces = json_node_get_object (node);
+  else
+    {
+      interfaces = json_object_new ();
+      json_object_set_object_member (paths, path, interfaces);
+    }
+
+  if (!interface)
+    return interfaces;
+
+  node = json_object_get_member (interfaces, interface);
+  if (node && !JSON_NODE_HOLDS_NULL (node))
+    properties = json_node_get_object (node);
+  else
+    {
+      properties = json_object_new ();
+      json_object_set_object_member (interfaces, interface, properties);
+    }
+
+  return properties;
+}
+
+static void
+on_cache_present (CockpitDBusCache *cache,
+                  const gchar *path,
+                  const gchar *interface,
+                  gpointer user_data)
+{
+  CockpitDBusJson *self = user_data;
+  ensure_props (self, path, interface);
+}
+
+static void
+on_cache_changed (CockpitDBusCache *cache,
+                  const gchar *path,
+                  const gchar *interface,
+                  const gchar *property,
+                  GVariant *value,
+                  gpointer user_data)
+{
+  CockpitDBusJson *self = user_data;
+  JsonObject *properties = ensure_props (self, path, interface);
+  json_object_set_member (properties, property, build_json (value));
+}
+
+static void
+on_cache_removed (CockpitDBusCache *cache,
+                  const gchar *path,
+                  const gchar *interface,
+                  gpointer user_data)
+{
+  CockpitDBusJson *self = user_data;
+  JsonObject *interfaces = ensure_props (self, path, NULL);
+  json_object_set_null_member (interfaces, interface);
+}
+
+static JsonArray *
+parse_json_watch (CockpitDBusJson *self,
+                  const gchar *field,
+                  JsonObject *object,
+                  CockpitDBusWatchType *type)
+{
+  JsonNode *node;
+  JsonArray *array;
+  const gchar *path;
+  const gchar *kind;
+  guint i;
+
+  node = json_object_get_member (object, field);
+  g_return_val_if_fail (node != NULL, NULL);
+
+  if (!JSON_NODE_HOLDS_ARRAY (node))
+    {
+      g_warning ("%s: %s paths is not an array", self->name, field);
+      return NULL;
+    }
+
+  array = json_node_get_array (node);
+  for (i = 0; i < json_array_get_length (array); i++)
+    {
+      path = array_string_element (array, i);
+      if (!path || g_variant_is_object_path (path))
+        {
+          g_warning ("%s: invalid %s path%s%s", self->name, field,
+                     path ? ": " : "", path ? path : "");
+          return NULL;
+        }
+    }
+
+  if (!cockpit_json_get_string (object, "kind", "path", &kind))
+    kind = "not a string";
+
+  if (g_str_equal (kind, "path"))
+    *type = COCKPIT_DBUS_WATCH_PATH;
+  else if (g_str_equal (kind, "path_namespace"))
+    *type = COCKPIT_DBUS_WATCH_PATH_NAMESPACE;
+  else if (g_str_equal (kind, "manager"))
+    *type = COCKPIT_DBUS_WATCH_MANAGER;
+  else
+    {
+      g_warning ("%s: invalid %s kind: %s", self->name, field, kind);
+      return NULL;
+    }
+
+  return array;
+}
+
+static void
+handle_dbus_watch (CockpitDBusJson *self,
+                   JsonObject *object)
+{
+  CockpitDBusWatchType type;
+  JsonArray *paths;
+  const gchar *path;
+  guint i;
+
+  paths = parse_json_watch (self, "watch", object, &type);
+  if (!paths)
+    {
+      cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
+      return;
+    }
+
+  if (!self->cache)
+    {
+      self->cache = cockpit_dbus_cache_new (self->connection,
+                                            self->name_owner,
+                                            self->introspect_cache);
+      self->present_sig = g_signal_connect (self->cache, "present",
+                                            G_CALLBACK (on_cache_present), self);
+      self->changed_sig = g_signal_connect (self->cache, "changed",
+                                            G_CALLBACK (on_cache_changed), self);
+      self->removed_sig = g_signal_connect (self->cache, "removed",
+                                            G_CALLBACK (on_cache_removed), self);
+    }
+
+  for (i = 0; i < json_array_get_length (paths); i++)
+    {
+      path = json_array_get_string_element (paths, i);
+      cockpit_dbus_cache_watch (self->cache, path, type);
+    }
+}
+
+static void
+handle_dbus_unwatch (CockpitDBusJson *self,
+                     JsonObject *object)
+{
+  CockpitDBusWatchType type;
+  JsonArray *paths;
+  const gchar *path;
+  guint i;
+
+  paths = parse_json_watch (self, "unwatch", object, &type);
+  if (!paths)
+    {
+      cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
+      return;
+    }
+
+  for (i = 0; i < json_array_get_length (paths); i++)
+    {
+      path = json_array_get_string_element (paths, i);
+      if (!cockpit_dbus_cache_unwatch (self->cache, path, type))
+        {
+          g_warning ("no previously added watch matched");
+          cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
+        }
+    }
+}
+
+static void
 cockpit_dbus_json_recv (CockpitChannel *channel,
                         GBytes *message)
 {
@@ -1541,6 +1809,10 @@ cockpit_dbus_json_recv (CockpitChannel *channel,
     handle_dbus_add_match (self, object);
   else if (json_object_has_member (object, "remove-match"))
     handle_dbus_remove_match (self, object);
+  else if (json_object_has_member (object, "watch"))
+    handle_dbus_watch (self, object);
+  else if (json_object_has_member (object, "unwatch"))
+    handle_dbus_unwatch (self, object);
   else
     {
       g_warning ("got unsupported dbus command");
@@ -1554,28 +1826,19 @@ static void
 process_incoming_signal (CockpitDBusJson *self,
                          GDBusMessage *message)
 {
-  JsonObject *object;
-  const gchar *sender;
   GHashTableIter iter;
-  const gchar *path;
+  JsonObject *object;
   RuleData *rule;
-
-  /* Must match sender we're talking to */
-  sender = g_dbus_message_get_sender (message);
-  if (sender && g_strcmp0 (sender, self->name) != 0 &&
-      g_strcmp0 (sender, self->name_owner) != 0)
-    return;
+  const gchar *path;
 
   /* This is a possible future optimization point, once usage patterns are clear */
   g_hash_table_iter_init (&iter, self->rules);
   while (g_hash_table_iter_next (&iter, NULL, (gpointer *)&rule))
     {
-      if (rule->interface &&
-          g_strcmp0 (rule->interface, g_dbus_message_get_interface (message)) != 0)
+      if (rule->interface && g_strcmp0 (rule->interface, g_dbus_message_get_interface (message)) != 0)
         return;
 
-      if (rule->signal &&
-          g_strcmp0 (rule->signal, g_dbus_message_get_member (message)) != 0)
+      if (rule->signal && g_strcmp0 (rule->signal, g_dbus_message_get_member (message)) != 0)
         return;
 
       if (rule->path)
@@ -1593,9 +1856,8 @@ process_incoming_signal (CockpitDBusJson *self,
             }
         }
 
-      if (rule->arg0 &&
-          g_strcmp0 (rule->arg0, g_dbus_message_get_arg0 (message)) != 0)
-            return;
+      if (rule->arg0 && g_strcmp0 (rule->arg0, g_dbus_message_get_arg0 (message)) != 0)
+        return;
     }
 
   /* If we got here then this is a signal to send */
@@ -1827,6 +2089,20 @@ cockpit_dbus_json_dispose (GObject *object)
   CockpitDBusJson *self = COCKPIT_DBUS_JSON (object);
   GList *l;
 
+  g_cancellable_cancel (self->cancellable);
+
+  if (self->cache)
+    {
+      g_signal_handler_disconnect (self->cache, self->present_sig);
+      g_signal_handler_disconnect (self->cache, self->changed_sig);
+      g_signal_handler_disconnect (self->cache, self->removed_sig);
+      g_object_run_dispose (G_OBJECT (self->cache));
+      g_object_unref (self->cache);
+      self->cache = NULL;
+    }
+
+  flush_props (self);
+
   /* Divorce ourselves the outstanding calls */
   for (l = self->active_calls; l != NULL; l = g_list_next (l))
     ((CallData *)l->data)->dbus_json = NULL;
@@ -1840,9 +2116,6 @@ cockpit_dbus_json_dispose (GObject *object)
     }
 
   g_hash_table_remove_all (self->rules);
-
-  /* And cancel them all, which should free them eventually */
-  g_cancellable_cancel (self->cancellable);
 
   G_OBJECT_CLASS (cockpit_dbus_json_parent_class)->dispose (object);
 }
