@@ -250,7 +250,7 @@ process_properties (CockpitDBusCache *self,
   properties = ensure_properties (self, path, interface);
 
   g_variant_iter_init (&iter, dict);
-  while (g_variant_iter_loop (&iter, "{sv}", &property, &variant))
+  while (g_variant_iter_loop (&iter, "{s@v}", &property, &variant))
     process_value (self, properties, path, interface, property, variant);
 }
 
@@ -542,98 +542,6 @@ cockpit_dbus_cache_class_init (CockpitDBusCacheClass *klass)
                             G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-#if 0
-typedef struct {
-  GSimpleAsyncResult *res;
-  const gchar *path;
-} IntrospectData;
-
-static void
-on_scrape_introspected (GObject *source,
-                        GAsyncResult *result,
-                        gpointer user_data)
-{
-  IntrospectData *ip = user_data;
-  ScrapeData *sp = g_simple_async_result_get_op_res_gpointer (ip->res);
-  GError *error = NULL;
-  GDBusNodeInfo *node;
-  gboolean expected;
-  const gchar *xml;
-  GVariant *retval;
-  gchar *remote;
-
-  retval = g_dbus_connection_call_finish (G_DBUS_CONNECTION (source), result, &error);
-
-  /* Bail fast if cancelled */
-
-  if (retval)
-    {
-      g_variant_get (retval, "(&s)", &xml);
-      node = g_dbus_node_info_new_for_xml (xml, &error);
-      if (node)
-        {
-          scrape_introspect_node (self, scrape, node);
-          g_dbus_node_info_unref (node);
-        }
-      g_variant_unref (retval);
-    }
-
-  if (error)
-    {
-      /*
-       * Note that many DBus implementations don't return errors when
-       * an unknown object path is introspected. They just return empty
-       * introspect data. GDBus is one of these.
-       */
-
-      expected = FALSE;
-      remote = g_dbus_error_get_remote_error (error);
-      if (remote)
-        {
-          /*
-           * DBus used to only have the UnknownMethod error. It didn't have
-           * specific errors for UnknownObject and UnknownInterface. So we're
-           * pretty liberal on what we treat as an expected error here.
-           *
-           * HACK: GDBus also doesn't understand the newer error codes :S
-           *
-           * https://bugzilla.gnome.org/show_bug.cgi?id=727900
-           */
-          expected = (g_str_equal (remote, "org.freedesktop.DBus.Error.UnknownMethod") ||
-                      g_str_equal (remote, "org.freedesktop.DBus.Error.UnknownObject") ||
-                      g_str_equal (remote, "org.freedesktop.DBus.Error.UnknownInterface"));
-          g_free (remote);
-        }
-
-      if (!expected)
-        {
-          g_warning ("Couldn't look up introspection data on %s at %s: %s",
-                     self->bus_name, poke->object_path, error->message);
-        }
-      g_error_free (error);
-      poke_remove_object_and_finish (self, poke);
-      return;
-    }
-}
-
-static void
-scrape_introspect_path (GSimpleAsyncResult *res,
-                        ScrapeData *scrape,
-                        const gchar *path)
-{
-  if (!g_hash_table_lookup (scrape->introspected_paths, path))
-    {
-      g_dbus_connection_call (self->connection, self->bus_name, object_path,
-                              "org.freedesktop.DBus.Introspectable", "Introspect",
-                              NULL, G_VARIANT_TYPE ("(s)"),
-                              G_DBUS_CALL_FLAGS_NO_AUTO_START, -1, /* timeout */
-                              self->cancellable, on_scrape_introspected, res);
-      self->outstanding++;
-      g_hash_table_add (scrape->introspected_paths, g_strdup (path));
-    }
-}
-#endif
-
 static GHashTable *
 snapshot_string_keys (GHashTable *table)
 {
@@ -854,6 +762,7 @@ on_introspect_reply (GObject *source,
 
   if (retval)
     {
+      g_debug ("%s: reply from Introspect() on %s", self->name, id->path);
       process_introspect (self, id->scrape, id->path, retval);
       g_variant_unref (retval);
     }
@@ -981,9 +890,13 @@ on_get_all_reply (GObject *source,
 
   if (retval)
     {
+      g_debug ("%s: reply to GetAll() for %s at %s", self->name, interface, gad->path);
       process_get_all (self, gad->scrape, gad->path, interface, retval);
       g_variant_unref (retval);
     }
+
+  /* Whether or not this failed, we know the interface exists */
+  ensure_properties (self, gad->path, interface);
 
   if (gad->scrape)
     {
@@ -1035,8 +948,8 @@ process_introspect_node (CockpitDBusCache *self,
         continue;
 
       g_hash_table_remove (snapshot, iface->name);
-      ensure_properties (self, path, iface->name);
 
+      if (g_hash_table_lookup (self->properties, );
       g_debug ("%s: calling GetAll() for %s at %s", self->name, iface->name, path);
 
       gad = g_slice_new0 (GetAllData);
@@ -1104,7 +1017,7 @@ introspect_path (CockpitDBusCache *self,
     return;
 
   /* A managed object never gets introspected */
-  if (!lookup_ancestor_path (self->managed, path))
+  if (lookup_ancestor_path (self->managed, path))
     return;
 
   g_debug ("%s: calling Introspect() on %s", self->name, path);
@@ -1245,9 +1158,9 @@ cockpit_dbus_cache_watch (CockpitDBusCache *self,
     }
   else
     {
-      g_debug ("%s: removing watch: %s=%s", self->name,
-               prev->is_namespace ? "path": "path_namespace",
-               prev->path);
+      g_debug ("%s: adding watch: %s=%s", self->name,
+               wd->is_namespace ? "path_namespace": "path",
+               wd->path);
 
       g_hash_table_add (self->watches, wd);
       recompile_watches (self);
@@ -1293,7 +1206,7 @@ cockpit_dbus_cache_unwatch (CockpitDBusCache *self,
   if (prev->refs == 0)
     {
       g_debug ("%s: removing watch: %s=%s", self->name,
-               prev->is_namespace ? "path": "path_namespace",
+               prev->is_namespace ? "path_namespace": "path",
                prev->path);
 
       g_hash_table_remove (self->watches, prev);

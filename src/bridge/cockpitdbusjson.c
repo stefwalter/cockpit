@@ -64,9 +64,9 @@ typedef struct {
   gulong present_sig;
   gulong changed_sig;
   gulong removed_sig;
-  JsonObject *props;
-  guint props_timeout;
-  guint props_idle;
+  JsonObject *notify;
+  guint notify_timeout;
+  guint notify_idle;
 } CockpitDBusJson;
 
 typedef struct {
@@ -857,7 +857,7 @@ typedef struct {
 } ScrapeData;
 
 static void
-flush_props (CockpitDBusJson *self);
+flush_notify (CockpitDBusJson *self);
 
 static void
 on_scrape_complete (GObject *source,
@@ -869,7 +869,7 @@ on_scrape_complete (GObject *source,
 
   if (!g_cancellable_is_cancelled (self->cancellable))
     {
-      flush_props (self);
+      flush_notify (self);
       send_json_object (self, sd->reply);
     }
 
@@ -1533,39 +1533,40 @@ handle_dbus_remove_match (CockpitDBusJson *self,
 }
 
 static void
-flush_props (CockpitDBusJson *self)
+flush_notify (CockpitDBusJson *self)
 {
-  if (self->props_timeout)
+  if (self->notify_timeout)
     {
-      g_source_remove (self->props_timeout);
-      self->props_timeout = 0;
+      g_source_remove (self->notify_timeout);
+      self->notify_timeout = 0;
     }
 
-  if (self->props_idle)
+  if (self->notify_idle)
     {
-      g_source_remove (self->props_idle);
-      self->props_idle = 0;
+      g_source_remove (self->notify_idle);
+      self->notify_idle = 0;
     }
 
-  if (self->props)
+  if (self->notify)
     {
       if (!g_cancellable_is_cancelled (self->cancellable))
-        send_json_object (self, self->props);
-      json_object_unref (self->props);
-      self->props = NULL;
+        send_json_object (self, self->notify);
+      g_debug ("%s: sending property notification", self->name);
+      json_object_unref (self->notify);
+      self->notify = NULL;
     }
 }
 
 static gboolean
-on_timeout_or_idle_props (gpointer data)
+on_timeout_or_idle_notify (gpointer data)
 {
   CockpitDBusJson *self = data;
-  flush_props (self);
+  flush_notify (self);
   return FALSE;
 }
 
 static JsonObject *
-ensure_props (CockpitDBusJson *self,
+ensure_notify (CockpitDBusJson *self,
               const gchar *path,
               const gchar *interface)
 {
@@ -1574,15 +1575,15 @@ ensure_props (CockpitDBusJson *self,
   JsonObject *properties;
   JsonNode *node;
 
-  if (!self->props)
+  if (!self->notify)
     {
-      self->props = json_object_new ();
-      json_object_set_object_member (self->props, "props", json_object_new ());
-      self->props_timeout = g_timeout_add (50, on_timeout_or_idle_props, self);
-      self->props_idle = g_idle_add (on_timeout_or_idle_props, self);
+      self->notify = json_object_new ();
+      json_object_set_object_member (self->notify, "notify", json_object_new ());
+      self->notify_timeout = g_timeout_add (50, on_timeout_or_idle_notify, self);
+      self->notify_idle = g_idle_add (on_timeout_or_idle_notify, self);
     }
 
-  paths = json_object_get_object_member (self->props, "props");
+  paths = json_object_get_object_member (self->notify, "notify");
 
   node = json_object_get_member (paths, path);
   if (node)
@@ -1615,7 +1616,7 @@ on_cache_present (CockpitDBusCache *cache,
                   gpointer user_data)
 {
   CockpitDBusJson *self = user_data;
-  ensure_props (self, path, interface);
+  ensure_notify (self, path, interface);
 }
 
 static void
@@ -1627,7 +1628,7 @@ on_cache_changed (CockpitDBusCache *cache,
                   gpointer user_data)
 {
   CockpitDBusJson *self = user_data;
-  JsonObject *properties = ensure_props (self, path, interface);
+  JsonObject *properties = ensure_notify (self, path, interface);
   json_object_set_member (properties, property, build_json (value));
 }
 
@@ -1638,7 +1639,7 @@ on_cache_removed (CockpitDBusCache *cache,
                   gpointer user_data)
 {
   CockpitDBusJson *self = user_data;
-  JsonObject *interfaces = ensure_props (self, path, NULL);
+  JsonObject *interfaces = ensure_notify (self, path, NULL);
   json_object_set_null_member (interfaces, interface);
 }
 
@@ -1717,19 +1718,6 @@ handle_dbus_watch (CockpitDBusJson *self,
     {
       cockpit_channel_close (COCKPIT_CHANNEL (self), "protocol-error");
       return;
-    }
-
-  if (!self->cache)
-    {
-      self->cache = cockpit_dbus_cache_new (self->connection,
-                                            self->name_owner,
-                                            self->introspect_cache);
-      self->present_sig = g_signal_connect (self->cache, "present",
-                                            G_CALLBACK (on_cache_present), self);
-      self->changed_sig = g_signal_connect (self->cache, "changed",
-                                            G_CALLBACK (on_cache_changed), self);
-      self->removed_sig = g_signal_connect (self->cache, "removed",
-                                            G_CALLBACK (on_cache_removed), self);
     }
 
   cockpit_dbus_cache_watch (self->cache, path, is_namespace);
@@ -1913,24 +1901,33 @@ on_name_appeared (GDBusConnection *connection,
                   gpointer user_data)
 {
   CockpitDBusJson *self = COCKPIT_DBUS_JSON (user_data);
+  gboolean keep_cache;
 
-  g_return_if_fail (self->name_owner == NULL);
-  g_return_if_fail (self->filter_added == FALSE);
+  if (self->name_owner)
+    return;
 
-  if (!self->name_owner)
+  self->name_owner = g_strdup (name_owner);
+  g_debug ("%s: name owner is %s", self->name, self->name_owner);
+
+  keep_cache = cockpit_channel_get_bool_option (COCKPIT_CHANNEL (self), "keep-cache", TRUE);
+  if (keep_cache)
     {
-      self->name_owner = g_strdup (name_owner);
-      g_debug ("%s: name owner is %s", self->name, self->name_owner);
-      cockpit_channel_ready (COCKPIT_CHANNEL (self));
+      self->cache = cockpit_dbus_cache_new (self->connection,
+                                            self->name_owner,
+                                            self->introspect_cache);
+
+      self->present_sig = g_signal_connect (self->cache, "present",
+                                            G_CALLBACK (on_cache_present), self);
+      self->changed_sig = g_signal_connect (self->cache, "changed",
+                                            G_CALLBACK (on_cache_changed), self);
+      self->removed_sig = g_signal_connect (self->cache, "removed",
+                                            G_CALLBACK (on_cache_removed), self);
     }
 
-  if (!self->filter_added)
-    {
-      self->filter_id = g_dbus_connection_add_filter (self->connection,
-                                                      on_message_filter,
-                                                      self, NULL);
-      self->filter_added = TRUE;
-    }
+  self->filter_id = g_dbus_connection_add_filter (self->connection,
+                                                  on_message_filter,
+                                                  self, NULL);
+  self->filter_added = TRUE;
 }
 
 static void
@@ -2073,7 +2070,7 @@ cockpit_dbus_json_dispose (GObject *object)
       self->cache = NULL;
     }
 
-  flush_props (self);
+  flush_notify (self);
 
   /* Divorce ourselves the outstanding calls */
   for (l = self->active_calls; l != NULL; l = g_list_next (l))

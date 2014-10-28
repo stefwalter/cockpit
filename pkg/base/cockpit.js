@@ -748,6 +748,15 @@ function full_scope(cockpit, $) {
         var subscribers = { };
         var calls = { };
 
+        if (options["keep-cache"] === false)
+            this.cache = null;
+        else
+            this.cache = { };
+
+        function update_cache(xxx) {
+            xxx;
+        }
+
         function matches(signal, match) {
             if (match.path && signal[0] !== match.path)
                 return false;
@@ -911,6 +920,19 @@ function full_scope(cockpit, $) {
                 }
             };
         };
+
+        this.proxy = function proxy(path, iface) {
+            self.watch(path);
+            return new DBusProxy(self, path, iface);
+        }
+
+        this.proxies = function proxies(iface) {
+            var all = { };
+            $(self).on("notify", function(event, data) {
+                ();
+            });
+            return { };
+        }
     }
 
     /* public */

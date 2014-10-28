@@ -328,9 +328,41 @@ asyncTest("watch seed", function() {
     expect(1);
 
     var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
-    dbus.watch("/otree/foobar");
+    dbus.watch("/otree/frobber");
     $(dbus).on("notify", function(event, data) {
-        deepEqual(data, { }, "watch seed: correct data");
+        deepEqual(data, { "/otree/frobber": {
+                "com.redhat.Cockpit.DBusTests.Frobber": {
+                      "FinallyNormalName": "There aint no place like home",
+                      "ReadonlyProperty": "blah",
+                      "aay": [], "ag": [], "ao": [], "as": [],
+                      "ay": [ 65, 66, 67, 97, 98, 99, 0 ],
+                      "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                      "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                      "y": 42 }
+                    } }, "watch seed: correct data");
+        $(dbus).off();
+        start();
+    });
+});
+
+asyncTest("watch change", function() {
+    expect(1);
+
+    var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
+    dbus.watch("/otree/frobber");
+    $(dbus).on("notify", function(event, data) {
+        dbus.
+        deepEqual(data, { "/otree/frobber": {
+                "com.redhat.Cockpit.DBusTests.Frobber": {
+                      "FinallyNormalName": "There aint no place like home",
+                      "ReadonlyProperty": "blah",
+                      "aay": [], "ag": [], "ao": [], "as": [],
+                      "ay": [ 65, 66, 67, 97, 98, 99, 0 ],
+                      "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                      "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                      "y": 42 }
+                    } }, "watch seed: correct data");
+        $(dbus).off();
         start();
     });
 });
