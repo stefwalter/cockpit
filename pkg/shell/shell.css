@@ -436,3 +436,167 @@ ul.available-interfaces-group {
     padding-left: 5px;
     padding-right: 5px;
 }
+
+/* Host switcher sidebar
+   Backported from newer patternfly for now */
+
+.sidebar-header {
+    border-bottom: 1px solid #e9e9e9;
+    padding-bottom: 11px;
+    margin: 50px 0 20px;
+}
+.sidebar-header .actions {
+    margin-top: -2px;
+}
+.sidebar-pf .sidebar-header + .list-group {
+    border-top: 0;
+    margin-top: -10px;
+}
+.sidebar-pf .sidebar-header + .list-group .list-group-item {
+    background: transparent;
+    border-color: #e9e9e9;
+    padding-left: 0;
+}
+.sidebar-pf .sidebar-header + .list-group .list-group-item-heading {
+    font-size: 12px;
+}
+.sidebar-pf .nav-pills > li.active > a {
+    background: #0099d3 !important;
+    border-color: #0076b7 !important;
+    color: #fff;
+}
+
+.sidebar-pf .nav-pills > li > a {
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    border-top: 1px solid transparent;
+    color: #333333;
+    padding: 1px 20px;
+}
+.sidebar-pf .nav-pills > li > a:hover {
+    background: #d4edfa;
+    border-color: #b3d3e7;
+}
+.sidebar-pf .nav-stacked {
+    margin-left: -20px;
+    margin-right: -16px;
+}
+.sidebar-pf .nav-stacked li + li {
+    margin-top: 0;
+}
+.sidebar-pf .panel {
+    background: transparent;
+}
+.sidebar-pf .panel-body {
+    padding: 6px 20px;
+}
+.sidebar-pf .panel-body .nav-pills > li > a {
+    padding-left: 37px;
+}
+.sidebar-pf .panel-heading {
+    padding: 9px 20px;
+}
+.sidebar-pf .panel-title {
+    font-size: 12px;
+}
+.sidebar-pf .panel-title > a:before {
+    display: inline-block;
+    margin-left: 1px;
+    margin-right: 4px;
+    width: 9px;
+}
+.sidebar-pf .panel-title > a.collapsed:before {
+    margin-left: 3px;
+    margin-right: 2px;
+}
+
+.sidebar-header-bleed-left {
+    margin-left: -20px;
+}
+.sidebar-header-bleed-left > h2 {
+    margin-left: 20px;
+}
+.sidebar-header-bleed-right {
+    margin-right: -20px;
+}
+.sidebar-header-bleed-right .actions {
+    margin-right: 20px;
+}
+.sidebar-header-bleed-right > h2 {
+    margin-right: 20px;
+}
+.sidebar-header-bleed-right + .list-group {
+    margin-right: -20px;
+}
+.sidebar-pf {
+    background: #fafafa;
+}
+.sidebar-pf.sidebar-pf-left {
+    border-right: 1px solid #d0d0d0;
+}
+.sidebar-pf.sidebar-pf-right {
+    border-left: 1px solid #d0d0d0;
+}
+.sidebar-pf > .nav-stacked {
+    margin-top: 5px;
+}
+.sidebar-pf .panel-group .panel-default,
+.sidebar-pf .treeview {
+    border-left: 0;
+    border-right: 0;
+    margin-left: -20px;
+    margin-right: -20px;
+}
+
+.sidebar-pf .treeview .list-group-item {
+    padding-left: 20px;
+    padding-right: 20px;
+}
+.sidebar-pf .treeview .list-group-item.node-selected:after {
+    content: "\f105";
+    font-family: "FontAwesome";
+    display: block;
+    position: absolute;
+    right: 10px;
+    top: 1px;
+}
+
+.sidebar-pf .host-avatar {
+    width: 30px;
+    height: 30px;
+    margin: 5px;
+    margin-right: 10px;
+    margin-left: 0px;
+    border-radius: 3px;
+    border: 1px solid #0099D3;
+}
+
+.sidebar-pf .nav-pills > li.all-hosts {
+    padding-top: 5px;
+    padding-bottom: 10px;
+    font-size: 16px;
+}
+
+.sidebar-pf .nav-pills > li.all-hosts > a {
+    color: #0099D3;
+}
+
+.sidebar-pf .nav-pills > li.all-hosts > a:hover {
+    background: none;
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+    text-decoration: underline;
+}
+
+.sidebar-pf .nav-pills > li.all-hosts .btn {
+    width: 30px;
+    height: 30px;
+}
+
+#server.container-fluid {
+  margin-top: 0;
+}
+
+.server-info {
+    padding-top: 20px;
+}

@@ -73,6 +73,10 @@ shellimages_DATA = \
 	pkg/shell/images/face-smile.png \
 	pkg/shell/images/storage-disk.png \
 	pkg/shell/images/switcher.png \
+	pkg/shell/images/avatar-paul.png \
+	pkg/shell/images/avatar-john.png \
+	pkg/shell/images/avatar-george.png \
+	pkg/shell/images/avatar-ringo.png \
 	$(NULL)
 
 # -----------------------------------------------------------------------------

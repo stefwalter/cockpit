@@ -122,54 +122,72 @@
       </div>
 
       <div id="server" class="container-fluid">
-        <div class="col-md-3">
-          <table class="cockpit-info-table">
-            <tr>
-              <td>Hardware</td>
-              <td id="system_information_hardware_text"></td>
-            </tr>
-            <tr>
-              <td>Asset Tag</td>
-              <td id="system_information_asset_tag_text"></td>
-            </tr>
-            <tr>
-              <td>BIOS</td>
-              <td id="system_information_bios_text"></td>
-            </tr>
-            <tr>
-              <td>Operating System</td>
-              <td id="system_information_os_text"></td>
-            </tr>
-            <tr>
-              <td>Host Name</td>
-              <td><button class="btn btn-default" id="system_information_hostname_button"></button></td>
-            </tr>
-            <tr>
-              <td>Domain</td>
-              <td>
-                <button class="btn btn-default" id="system_information_realms_button"></button>
-              </td>
-            </tr>
-          </table>
-        </div>
-        <div id="server-graph-columns" class="col-md-9">
-          <div id="server-graph-column-1" class="col-md-6">
-            <div style="color:black">CPU<span style="float:right" id="server_cpu_text"></span></div>
-            <div style="height:120px" id="server_cpu_graph" class="server-graph" onclick="cockpit.go_rel('cpu_status');"></div>
-            <br/>
-            <div style="color:black">Memory<span style="float:right" id="server_memory_text"></span></div>
-            <div style="height:120px" id="server_memory_graph" class="server-graph" onclick="cockpit.go_rel('memory_status')"></div>
-            <br/>
+      <div class="row">
+        <div style="min-height: 871px;" class="col-sm-9 col-md-10 col-sm-push-3 col-md-push-2 server-info">
+        
+          <div class="col-md-3">
+            <table class="cockpit-info-table">
+              <tr>
+                <td>Hardware</td>
+                <td id="system_information_hardware_text"></td>
+              </tr>
+              <tr>
+                <td>Asset Tag</td>
+                <td id="system_information_asset_tag_text"></td>
+              </tr>
+              <tr>
+                <td>BIOS</td>
+                <td id="system_information_bios_text"></td>
+              </tr>
+              <tr>
+                <td>Operating System</td>
+                <td id="system_information_os_text"></td>
+              </tr>
+              <tr>
+                <td>Host Name</td>
+                <td><button class="btn btn-default" id="system_information_hostname_button"></button></td>
+              </tr>
+              <tr>
+                <td>Domain</td>
+                <td>
+                  <button class="btn btn-default" id="system_information_realms_button"></button>
+                </td>
+              </tr>
+            </table>
           </div>
-          <div id="server-graph-column-2" class="col-md-6">
-            <div style="color:black">Disk I/O<span style="float:right" id="server_disk_io_text"></span></div>
-            <div style="height:120px" id="server_disk_io_graph" class="server-graph" onclick="cockpit.go_rel('storage')"></div>
-            <br/>
-            <div style="color:black">Network Traffic<span style="float:right" id="server_network_traffic_text"></span></div>
-            <div style="height:120px" id="server_network_traffic_graph" class="server-graph" onclick="cockpit.go_rel('networking')"></div>
-            <br/>
+          <div id="server-graph-columns" class="col-md-9">
+            <div id="server-graph-column-1" class="col-md-6">
+              <div style="color:black">CPU<span style="float:right" id="server_cpu_text"></span></div>
+              <div style="height:120px" id="server_cpu_graph" class="server-graph" onclick="cockpit.go_rel('cpu_status');"></div>
+              <br/>
+              <div style="color:black">Memory<span style="float:right" id="server_memory_text"></span></div>
+              <div style="height:120px" id="server_memory_graph" class="server-graph" onclick="cockpit.go_rel('memory_status')"></div>
+              <br/>
+            </div>
+            <div id="server-graph-column-2" class="col-md-6">
+              <div style="color:black">Disk I/O<span style="float:right" id="server_disk_io_text"></span></div>
+              <div style="height:120px" id="server_disk_io_graph" class="server-graph" onclick="cockpit.go_rel('storage')"></div>
+              <br/>
+              <div style="color:black">Network Traffic<span style="float:right" id="server_network_traffic_text"></span></div>
+              <div style="height:120px" id="server_network_traffic_graph" class="server-graph" onclick="cockpit.go_rel('networking')"></div>
+              <br/>
+            </div>
           </div>
         </div>
+        
+        <div style="min-height: 871px;" class="col-sm-3 col-md-2 col-sm-pull-9 col-md-pull-10 sidebar-pf sidebar-pf-left">
+          <ul class="nav nav-pills nav-stacked">
+            <li class="all-hosts"><a href="">All Servers <button class="btn btn-primary pull-right">+</button></a></li>
+            <li class="active"><a href="#"><img src="images/avatar-john.png" class="host-avatar" style="border-color: #07acec;">John Lennon</a></li>
+            <li><a href="#"><img src="images/avatar-paul.png" class="host-avatar" style="border-color: #074b67;">Paul McCartney</a></li>
+            <li><a href="#"><img src="images/avatar-george.png" class="host-avatar" style="border-color: #0380b1;">George Harrison</a></li>
+            <li><a href="#"><img src="images/avatar-ringo.png" class="host-avatar" style="border-color: #5cb75c;">Ringo Starr</a></li>
+            <li><a href="#"><img src="images/avatar-ringo.png" class="host-avatar" style="border-color: #af72d0;">Stuart Sutcliffe</a></li>
+            <li><a href="#"><img src="images/avatar-ringo.png" class="host-avatar" style="border-color: #c4a000;">Pete Best</a></li>
+          </ul>
+        </div>
+        
+      </div>  
       </div>
 
       <div id="cpu_status">
