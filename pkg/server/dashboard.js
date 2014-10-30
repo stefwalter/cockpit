@@ -17,45 +17,41 @@
  * along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function(cockpit, $) {
+require([
+    "jquery",
+    "cockpit/latest/cockpit"
+], function($, cockpit) {
+
+var cockpitd = cockpit.dbus();
+
+function setup() {
+    $('#server-avatar').on('click', $.proxy (this, "trigger_change_avatar"));
+    $('#server-avatar-uploader').on('change', $.proxy (this, "change_avatar"));
+
+    $('#system_information_hostname_button').on('click', function () {
+        if (!cockpit.check_admin(self.client))
+            return;
+            PageSystemInformationChangeHostname.client = self.client;
+        $('#system_information_change_hostname').modal('show');
+    });
+
+    $('#system_information_realms_button').on('click', function () {
+        if (!cockpit.check_admin(self.client))
+            return;
+
+        if (self.realms.Joined && self.realms.Joined.length > 0) {
+            var name = self.realms.Joined[0][0];
+            var details = self.realms.Joined[0][1];
+            cockpit.realms_op_set_parameters(self.realms, 'leave', name, details);
+            $('#realms-op').modal('show');
+        } else {
+            cockpit.realms_op_set_parameters(self.realms, 'join', '', { });
+            $('#realms-op').modal('show');
+        }
+    });
+}
 
 PageServer.prototype = {
-    _init: function() {
-        this.id = "server";
-    },
-
-    getTitle: function() {
-        return null;
-    },
-
-    setup: function() {
-        var self = this;
-
-        $('#server-avatar').on('click', $.proxy (this, "trigger_change_avatar"));
-        $('#server-avatar-uploader').on('change', $.proxy (this, "change_avatar"));
-
-        $('#system_information_hostname_button').on('click', function () {
-            if (!cockpit.check_admin(self.client))
-                return;
-            PageSystemInformationChangeHostname.client = self.client;
-            $('#system_information_change_hostname').modal('show');
-        });
-
-        $('#system_information_realms_button').on('click', function () {
-            if (!cockpit.check_admin(self.client))
-                return;
-
-            if (self.realms.Joined && self.realms.Joined.length > 0) {
-                var name = self.realms.Joined[0][0];
-                var details = self.realms.Joined[0][1];
-                cockpit.realms_op_set_parameters(self.realms, 'leave', name, details);
-                $('#realms-op').modal('show');
-            } else {
-                cockpit.realms_op_set_parameters(self.realms, 'join', '', { });
-                $('#realms-op').modal('show');
-            }
-        });
-    },
 
     enter: function() {
         var self = this;
@@ -264,10 +260,7 @@ PageServer.prototype = {
 };
 
 function PageServer() {
-    this._init();
 }
-
-cockpit.pages.push(new PageServer());
 
 PageSystemInformationChangeHostname.prototype = {
     _init: function() {
@@ -417,6 +410,10 @@ function PageSystemInformationChangeHostname() {
     this._init();
 }
 
-cockpit.dialogs.push(new PageSystemInformationChangeHostname());
+var change_hostname_dialog = new PageSystemInformationChangeHostname();
 
-})(cockpit, $);
+$(function () {
+    setup();
+});
+
+});

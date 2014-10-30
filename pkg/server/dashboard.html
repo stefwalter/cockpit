@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="../@@latest@@/cockpit.css" type="text/css" rel="stylesheet">
+    <link href="../@@latest@@/patternfly.css" type="text/css" rel="stylesheet">
+    <script src="../@@latest@@/jquery.js"></script>
+    <script src="../@@latest@@/bootstrap.js"></script>
+    <script src="../@@latest@@/cockpit.js"></script>
+    <script src="dashboard.js"></script>
+</head>
+<body>
+      <div class="container-fluid">
+        <div class="col-md-3">
+          <table class="cockpit-info-table">
+            <tr>
+              <td>Hardware</td>
+              <td id="system_information_hardware_text"></td>
+            </tr>
+            <tr>
+              <td>Asset Tag</td>
+              <td id="system_information_asset_tag_text"></td>
+            </tr>
+            <tr>
+              <td>BIOS</td>
+              <td id="system_information_bios_text"></td>
+            </tr>
+            <tr>
+              <td>Operating System</td>
+              <td id="system_information_os_text"></td>
+            </tr>
+            <tr>
+              <td>Host Name</td>
+              <td><button class="btn btn-default" id="system_information_hostname_button"></button></td>
+            </tr>
+            <tr>
+              <td>Domain</td>
+              <td>
+                <button class="btn btn-default" id="system_information_realms_button"></button>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div id="server-graph-columns" class="col-md-9">
+          <div id="server-graph-column-1" class="col-md-6">
+            <div style="color:black">CPU<span style="float:right" id="server_cpu_text"></span></div>
+            <div style="height:120px" id="server_cpu_graph" class="server-graph" onclick="cockpit.go_rel('cpu_status');"></div>
+            <br/>
+            <div style="color:black">Memory<span style="float:right" id="server_memory_text"></span></div>
+            <div style="height:120px" id="server_memory_graph" class="server-graph" onclick="cockpit.go_rel('memory_status')"></div>
+            <br/>
+          </div>
+          <div id="server-graph-column-2" class="col-md-6">
+            <div style="color:black">Disk I/O<span style="float:right" id="server_disk_io_text"></span></div>
+            <div style="height:120px" id="server_disk_io_graph" class="server-graph" onclick="cockpit.go_rel('storage')"></div>
+            <br/>
+            <div style="color:black">Network Traffic<span style="float:right" id="server_network_traffic_text"></span></div>
+            <div style="height:120px" id="server_network_traffic_graph" class="server-graph" onclick="cockpit.go_rel('networking')"></div>
+            <br/>
+          </div>
+        </div>
+      </div>
+
+</body>
+</html>

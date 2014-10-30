@@ -16,7 +16,6 @@ shell_js_PARTS = \
 	pkg/shell/cockpit-language.js \
 	pkg/shell/cockpit-dashboard.js \
 	pkg/shell/cockpit-setup.js \
-	pkg/shell/cockpit-server.js \
 	pkg/shell/cockpit-cpu-status.js \
 	pkg/shell/cockpit-memory-status.js \
 	pkg/shell/cockpit-networking.js \
