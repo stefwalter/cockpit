@@ -38,6 +38,7 @@ along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
     <div id="qunit-fixture">test markup, will be hidden</div>
     <div id="done-flag" style="display:none">Done</div>
 <script>
+window.debugging = "dbus";
 
 asyncTest("call method", function() {
     expect(3);
@@ -410,6 +411,164 @@ asyncTest("flags", function() {
         });
 });
 
+asyncTest("watch path", function() {
+    expect(1);
+
+    var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
+    dbus.watch("/otree/frobber").
+        done(function() {
+            deepEqual(dbus.cache.lookup("/otree/frobber", "com.redhat.Cockpit.DBusTests.Frobber"),
+                      { "FinallyNormalName": "There aint no place like home",
+                        "ReadonlyProperty": "blah",
+                        "aay": [], "ag": [], "ao": [], "as": [],
+                        "ay": "QUJDYWJjAA==",
+                        "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                        "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                        "y": 42 }, "watch path: correct data");
+            $(dbus).off();
+            start();
+        });
+});
+
+asyncTest("watch object manager", function() {
+    expect(1);
+
+    var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
+    dbus.watch({ "path_namespace": "/otree" }).
+        done(function() {
+            deepEqual(dbus.cache.data, {"/otree/frobber": { "com.redhat.Cockpit.DBusTests.Frobber":
+                      { "FinallyNormalName": "There aint no place like home",
+                        "ReadonlyProperty": "blah",
+                        "aay": [], "ag": [], "ao": [], "as": [],
+                        "ay": "QUJDYWJjAA==",
+                        "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                        "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                        "y": 42 } } }, "watch object manager: correct data");
+            $(dbus).off();
+            start();
+        });
+});
+
+
+asyncTest("watch change", function() {
+    expect(1);
+
+    var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
+    dbus.watch("/otree/frobber");
+    $(dbus).on("notify", function(event, data) {
+        deepEqual(data, { "/otree/frobber": {
+                "com.redhat.Cockpit.DBusTests.Frobber": {
+                      "FinallyNormalName": "There aint no place like home",
+                      "ReadonlyProperty": "blah",
+                      "aay": [], "ag": [], "ao": [], "as": [],
+                      "ay": "QUJDYWJjAA==",
+                      "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                      "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                      "y": 42 }
+                    } }, "watch seed: correct data");
+        $(dbus).off();
+        start();
+    });
+});
+
+asyncTest("watch barrier", function() {
+    expect(2);
+
+    var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
+    dbus.watch({ "path_namespace": "/otree" });
+    dbus.call("/otree/frobber", "com.redhat.Cockpit.DBusTests.Frobber",
+              "HelloWorld", [ "Browser-side JS" ]).
+        done(function(reply) {
+            deepEqual(dbus.cache.lookup("/otree/frobber", "com.redhat.Cockpit.DBusTests.Frobber"),
+                      { "FinallyNormalName": "There aint no place like home",
+                        "ReadonlyProperty": "blah",
+                        "aay": [], "ag": [], "ao": [], "as": [],
+                        "ay": "QUJDYWJjAA==",
+                        "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                        "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                        "y": 42 }, "watch seed: correct data");
+        }).
+        always(function() {
+            equal(this.state(), "resolved", "call method: finished successfuly");
+            $(dbus).off();
+            start();
+        });
+});
+
+asyncTest("watch interfactes", function() {
+    expect(3);
+
+    var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
+    dbus.watch({ "path_namespace": "/otree" }).
+        done(function() {
+            deepEqual(dbus.cache.data, {"/otree/frobber": { "com.redhat.Cockpit.DBusTests.Frobber":
+                      { "FinallyNormalName": "There aint no place like home",
+                        "ReadonlyProperty": "blah",
+                        "aay": [], "ag": [], "ao": [], "as": [],
+                        "ay": "QUJDYWJjAA==",
+                        "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                        "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                        "y": 42 } } }, "watch object manager: correct data");
+            dbus.call("/otree/frobber", "com.redhat.Cockpit.DBusTests.Frobber", "AddAlpha", []).
+                done (function () {
+                    deepEqual(dbus.cache.data, {"/otree/frobber": { "com.redhat.Cockpit.DBusTests.Frobber":
+                              { "FinallyNormalName": "There aint no place like home",
+                                "ReadonlyProperty": "blah",
+                                "aay": [], "ag": [], "ao": [], "as": [],
+                                "ay": "QUJDYWJjAA==",
+                                "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                                "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                                "y": 42 },
+                            "com.redhat.Cockpit.DBusTests.Alpha": {}
+                        } }, "watch object manager: correct data");
+                dbus.call("/otree/frobber", "com.redhat.Cockpit.DBusTests.Frobber", "RemoveAlpha", []).
+                    done (function () {
+                        deepEqual(dbus.cache.data, {"/otree/frobber": { "com.redhat.Cockpit.DBusTests.Frobber":
+                                  { "FinallyNormalName": "There aint no place like home",
+                                    "ReadonlyProperty": "blah",
+                                    "aay": [], "ag": [], "ao": [], "as": [],
+                                    "ay": "QUJDYWJjAA==",
+                                    "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+                                    "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+                                    "y": 42 } } }, "watch object manager: correct data");
+                        $(dbus).off();
+                        start();
+                    });
+            });
+    });
+});
+
+asyncTest("proxy", function() {
+    expect(6);
+
+    var dbus = cockpit.dbus("com.redhat.Cockpit.DBusTests.Test");
+    var proxy = dbus.proxy("/otree/frobber", "com.redhat.Cockpit.DBusTests.Frobber");
+    proxy.wait(function() {
+        deepEqual(proxy.data, {
+            "FinallyNormalName": "There aint no place like home",
+            "ReadonlyProperty": "blah",
+            "aay": [], "ag": [], "ao": [], "as": [],
+            "ay": "QUJDYWJjAA==",
+            "b": false, "d": 43, "g": "", "i": 0, "n": 0,
+            "o": "/", "q": 0, "s": "", "t": 0, "u": 0, "x": 0,
+            "y": 42
+        }, "proxy: correct data");
+
+        strictEqual(proxy.FinallyNormalName, "There aint no place like home", "proxy: property value");
+        strictEqual(proxy.ReadonlyProperty, "blah", "proxy: another property value");
+
+        equal(typeof proxy.HelloWorld, "function", "proxy: has function defined");
+        proxy.HelloWorld("From a proxy").
+            done(function(message) {
+                equal(message, "Word! You said `From a proxy'. I'm Skeleton, btw!", "proxy: method args");
+            }).
+            always(function() {
+                equal(this.state(), "resolved", "proxy: method called");
+                $(dbus).off();
+                start();
+            });
+   });
+});
 
 QUnit.start();
 </script>
