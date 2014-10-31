@@ -841,7 +841,7 @@ on_properties_signal (GDBusConnection *connection,
   pcd->batch = batch_create (self);
   pcd->path = intern_string (self, path);
 
-  introspect_maybe (self, pcd->batch, pcd->path, interface, process_properties_changed, pcd);
+  introspect_maybe (self, NULL, pcd->path, interface, process_properties_changed, pcd);
 
   scrape_variant (self, pcd->batch, changed);
   g_variant_unref (changed);
@@ -850,7 +850,6 @@ on_properties_signal (GDBusConnection *connection,
 typedef struct {
   CockpitDBusCache *cache;
   const gchar *path;
-  const gchar *manager_path;
   GVariant *dict;
   BatchData *batch;
 } ProcessInterfaceData;
@@ -874,7 +873,6 @@ process_interface (GDBusInterfaceInfo *iface,
 static void
 process_interfaces (CockpitDBusCache *self,
                     BatchData *batch,
-                    const gchar *manager_path,
                     GHashTable *snapshot,
                     const gchar *path,
                     GVariant *dict)
@@ -902,7 +900,6 @@ process_interfaces (CockpitDBusCache *self,
       pid = g_slice_new0 (ProcessInterfaceData);
       pid->cache = g_object_ref (self);
       pid->batch = batch_ref (batch);
-      pid->manager_path = manager_path;
       pid->path = path;
       pid->dict = g_variant_ref (inner);
       cockpit_dbus_cache_introspect (self, path, interface, process_interface, pid);
@@ -922,13 +919,8 @@ process_interfaces_added (CockpitDBusCache *self,
   GVariant *interfaces;
   const gchar *path;
 
-  if (!g_variant_is_of_type (body, G_VARIANT_TYPE ("(oa{sa{sv}})")))
-    {
-      g_debug ("%s: received InterfacesAdded with bad type", self->name);
-    }
   else
     {
-      g_debug ("%s: signal InterfacesAdded at %s", self->name, manager_path);
 
       g_variant_get (body, "(&o@a{sa{sv}})", &path, &interfaces);
       process_interfaces (self, NULL, manager_path, NULL,
@@ -961,7 +953,6 @@ process_removed (CockpitDBusCache *self,
 
 static void
 process_interfaces_removed (CockpitDBusCache *self,
-                            const gchar *manager_path,
                             GVariant *body)
 {
   GVariant *array;
@@ -970,47 +961,135 @@ process_interfaces_removed (CockpitDBusCache *self,
   GVariantIter iter;
   BatchData *batch;
 
-  if (!g_variant_is_of_type (body, G_VARIANT_TYPE ("(oas)")))
-    {
-      g_debug ("%s: received InterfacesRemoved with bad type", self->name);
-    }
-  else
-    {
-      g_debug ("%s: signal InterfacesRemoved at %s", self->name, manager_path);
 
-      batch = batch_create (self);
+  batch = batch_create (self);
 
-      g_variant_get (body, "(&o@as)", &path, &array);
-      path = intern_string (self, path);
+  g_variant_get (body, "(&o@as)", &path, &array);
+  path = intern_string (self, path);
 
-      g_variant_iter_init (&iter, array);
-      while (g_variant_iter_loop (&iter, "&s", &interface))
-        process_removed (self, path, intern_string (self, interface));
+  g_variant_iter_init (&iter, array);
+  while (g_variant_iter_loop (&iter, "&s", &interface))
+    process_removed (self, path, intern_string (self, interface));
 
-      batch_unref (self, batch);
+  batch_unref (self, batch);
 
-      g_variant_unref (array);
-    }
+  g_variant_unref (array);
 }
 
 static void
-on_manager_signal (GDBusConnection *connection,
-                   const gchar *sender,
-                   const gchar *path,
-                   const gchar *interface,
-                   const gchar *member,
-                   GVariant *body,
-                   gpointer user_data)
+process_manager_signal (CockpitDBusCache *self,
+                        gpointer user_data)
 {
+  GDBusMessage *message = user_data;
   CockpitDBusCache *self = user_data;
+  GVariant *body;
+  const gchar *path;
+
+  path = g_dbus_message_get_path (message);
+  g_return_if_fail (path != NULL);
+
+  member = g_dbus_message_get_member (message);
+  g_return_if_fail (path != NULL);
 
   /* Note that this is an ObjectManager */
   cockpit_paths_add (self->managed, path);
 
+  body = g_dbus_message_get_body (message);
+
   if (g_str_equal (member, "InterfacesAdded"))
-    process_interfaces_added (self, path, body);
+    {
+      if (g_variant_is_of_type (body, G_VARIANT_TYPE ("(oa{sa{sv}})")))
+        {
+          g_debug ("%s: signal InterfacesAdded at %s", self->name, path);
+        }
+      else
+        {
+          g_debug ("%s: received InterfacesAdded with bad type", self->name);
+          return;
+        }
+    }
   else if (g_str_equal (member, "InterfacesRemoved"))
-    process_interfaces_removed (self, path, body);
+    {
+      if (g_variant_is_of_type (body, G_VARIANT_TYPE ("(oas)")))
+        {
+          g_debug ("%s: signal InterfacesRemoved at %s", self->name, manager_path);
+          
+        }
+      else
+        {
+          g_debug ("%s: received InterfacesRemoved with bad type", self->name);
+          return;
+        }
+    }
+
+      process_interfaces_removed (self, path, body);
+  process_interfaces_added (self, path, body);
+}
+
+typedef struct {
+  CockpitDBusCache *cache;
+  GDBusMessage *message;
+  GHookFunc handler;
+} SignalData;
+
+static void
+signal_data_free (gpointer data)
+{
+  SignalData *sd = data;
+  g_object_unref (sd->cache);
+  g_object_unref (sd->message);
+  g_slice_free (SignalData, sd);
+}
+
+static gboolean
+on_signal_message (gpointer message)
+{
+  SignalData *sd = data;
+  barrier_push (sd->cache, sd->handler, g_object_ref (sd->message));
+  return FALSE;
+}
+
+static GDBusMessage *
+on_message_filter (GDBusConnection *connection,
+                   GDBusMessage *message,
+                   gboolean incoming,
+                   gpointer user_data)
+{
+  /* No way to subscrcibe and get full GDBusMessage objects ... so this is a filter */
+  CockpitDBusJson *self = user_data;
+  const gchar *interface;
+  const gchar *sender;
+  GSourceFunc handler;
+  SignalData *sd;
+
+  if (incoming && g_dbus_message_get_message_type (message) == G_DBUS_MESSAGE_TYPE_SIGNAL)
+    {
+      /* These never change while the filter is installed, safe to access */
+      sender = g_dbus_message_get_sender (message);
+      if (!sender || g_strcmp0 (sender, self->name) == 0 ||
+          g_strcmp0 (sender, self->name_owner) == 0)
+        {
+          interface = g_dbus_message_get_interface (message);
+          if (g_strcmp0 (interface, "org.freedesktop.DBus.Properties"))
+            handler = process_properties_signal;
+          else if (g_strcmp0 (interface, "org.freedesktop.DBus.ObjectManager"))
+            handler = process_manager_signal;
+          else
+            handler = NULL;
+
+          if (handler)
+            {
+              sd = g_slice_new0 (SignalData);
+              sd->dbus_json = g_object_ref (self);
+              sd->message = g_object_ref (message);
+              sd->handler = handler;
+              g_main_context_invoke_full (NULL, G_PRIORITY_DEFAULT,
+                                          handler, sd, signal_data_free);
+            }
+        }
+    }
+
+  return message;
 }
 
 static void

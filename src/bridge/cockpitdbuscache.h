@@ -42,7 +42,11 @@ struct _CockpitDBusCacheClass {
                              GDBusInterfaceInfo *iface);
 };
 
-typedef void       (* CockpitDBusIntrospectFunc)           (GDBusInterfaceInfo *iface,
+typedef void       (* CockpitDBusIntrospectFunc)           (CockpitDBusCache *cache,
+                                                            GDBusInterfaceInfo *iface,
+                                                            gpointer user_data);
+
+typedef void       (* CockpitDBusBarrierFunc)              (CockpitDBusCache *cache,
                                                             gpointer user_data);
 
 GType                 cockpit_dbus_cache_get_type          (void) G_GNUC_CONST;
