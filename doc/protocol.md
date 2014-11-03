@@ -81,6 +81,7 @@ open until the "init" message has been received.
 The following fields are defined:
 
  * "version": The version of the protocol. Currently zero, and unstable.
+ * "capabilities": An array of capability strings
  * "channel-seed": A seed to be used when generating new channel ids.
  * "default-host": The default host to put in "open" messages.
  * "user": An object containing information about the logged in user.
@@ -105,6 +106,10 @@ The following fields are defined:
  * "host": The destination host for the channel, defaults to "localhost"
  * "user": Optional alternate user for authenticating with host
  * "superuser": When true, try to run this channel as root.
+
+If "binary" is set then this channel transfers binary messages. If "binary"
+is set to "base64" then messages in the channel are encoded using "base64",
+otherwise if it's set to "raw" they are transferred directly.
 
 If "binary" is set then this channel transfers binary messages. If "binary"
 is set to "base64" then messages in the channel are encoded using "base64",

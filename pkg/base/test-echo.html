@@ -82,6 +82,32 @@ asyncTest("base64", function() {
     });
 });
 
+asyncTest("binary", function() {
+    expect(2);
+
+    var channel = cockpit.channel({ "payload": "echo", "binary": true });
+
+    $(channel).on("message", function(ev, payload) {
+        ok(payload instanceof ArrayBuffer, "got an array buffer");
+
+        var check = new Uint8Array(payload);
+        var array = [];
+        for (var i = 0; i < payload.byteLength; i++)
+            array.push(check[i]);
+        deepEqual(array, [ 0, 1, 2, 3, 4, 5, 6, 7 ], "got back right data");
+
+        channel.close();
+        $(channel).off();
+        start();
+    });
+
+    var buffer = new ArrayBuffer(8);
+    var view = new Uint8Array(buffer);
+    for (var i = 0; i < 8; i++)
+        view[i] = i;
+    channel.send(buffer);
+});
+
 QUnit.start();
 
 </script>

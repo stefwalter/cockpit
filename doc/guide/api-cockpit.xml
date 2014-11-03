@@ -1423,8 +1423,9 @@
  channel.send(data)
 </programlisting>
       <para>Send a message over the channel. The contents of the message depends on the
-        payload type of the channel. The <code>data</code> will be converted to a string if not already
-        a string.</para>
+        payload type of the channel. If a binary channel, then <code>data</code> is expected
+        to be an <code>ArrayBuffer</code>. If not binary, then the <code>data</code> will be
+        converted to a string if not already a string.</para>
     </refsection>
 
     <refsection id="latest-channels-close">
@@ -1449,7 +1450,8 @@
  channel.addEventListener("message", function(event, data) { ... })
 </programlisting>
       <para>An event triggered when the channel receives a message. The message is
-        passed as a string to the handler in the <code>data</code>. The contents of
+        passed as a string to the handler in the <code>data</code>. In the case of binary
+        channels <code>data</code> is an <code>ArrayBuffer</code> object. The contents of
         the message depends on the payload type of the channel.</para>
     </refsection>
 
@@ -1520,7 +1522,8 @@
   cockpit.transport.inject(message)
 </programlisting>
       <para>Inject a message into the underlying channel transport. The <code>message</code>
-        should be a string, and should be valid according to the Cockpit message protocol.</para>
+        should be a <code>string</code> or <code>ArrayBuffer</code>, and should be valid
+        according to the Cockpit message protocol.</para>
       <para>This function is rarely used. In general you should only <code>inject()</code>
         messages you got from a <code><link linkend="latest-transport-filter">filter()</link></code>.</para>
     </refsection>
