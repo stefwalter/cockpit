@@ -621,6 +621,178 @@ function basic_scope(cockpit) {
      * https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/Base64_encoding_and_decoding
      */
 
+    var have_array_buffer = !!window.ArrayBuffer;
+
+    function array_from_raw_string(str, constructor) {
+        var length = str.length;
+        var data = new (constructor || Array)(length);
+        for (var i = 0; i < length; i++)
+            data[i] = str.charCodeAt(i) & 0xFF;
+        return data;
+    }
+
+    function Utf8TextEncoder(constructor) {
+        var self = this;
+        self.encoding = "utf-8";
+
+        self.encode = function encode(string, options) {
+            if (constructor === String)
+                return unescape(encodeURIComponent(string));
+
+            var i, data, c, inl = string.length, oi, olen = 0;
+
+            /* mapping... */
+            for (i = 0; i < inl; i++) {
+                c = string.charCodeAt(i);
+                olen += c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : c < 0x200000 ? 4 : c < 0x4000000 ? 5 : 6;
+            }
+
+            data = new (constructor || Array)(olen);
+
+            /* transcription... */
+            for (oi = 0, i = 0; oi < olen; i++) {
+                c = string.charCodeAt(i);
+                if (c < 128) {
+                    data[oi] = c;
+                    oi += 1;
+                } else if (c < 0x800) {
+                    data[oi] = 192 + (c >>> 6);
+                    data[oi + 1] = 128 + (c & 63);
+                    oi += 2;
+                } else if (c < 0x10000) {
+                    data[oi] = 224 + (c >>> 12);
+                    data[oi + 1] = 128 + (c >>> 6 & 63);
+                    data[oi + 2] = 128 + (c & 63);
+                    oi += 3;
+                } else if (c < 0x200000) {
+                    data[oi] = 240 + (c >>> 18);
+                    data[oi + 1] = 128 + (c >>> 12 & 63);
+                    data[oi + 2] = 128 + (c >>> 6 & 63);
+                    data[oi + 3] = 128 + (c & 63);
+                    oi += 4;
+                } else if (c < 0x4000000) {
+                    data[oi] = 248 + (c >>> 24);
+                    data[oi + 1] = 128 + (c >>> 18 & 63);
+                    data[oi + 2] = 128 + (c >>> 12 & 63);
+                    data[oi + 3] = 128 + (c >>> 6 & 63);
+                    data[oi + 4] = 128 + (c & 63);
+                    oi += 5;
+                } else /* if (nChr <= 0x7fffffff) */ {
+                    data[oi] = 252 + (c >>> 30);
+                    data[oi + 1] = 128 + (c >>> 24 & 63);
+                    data[oi + 2] = 128 + (c >>> 18 & 63);
+                    data[oi + 3] = 128 + (c >>> 12 & 63);
+                    data[oi + 4] = 128 + (c >>> 6 & 63);
+                    data[oi + 5] = 128 + (c & 63);
+                    oi += 6;
+                }
+            }
+
+            return data;
+        };
+    }
+
+    function EncodingError() {
+        this.message = "UTF8 encoding error";
+        this.toString = function() { return this.message; };
+    }
+
+    function Utf8TextDecoder(fatal) {
+        var self = this;
+        var buffer = null;
+        self.encoding = "utf-8";
+
+        self.decode = function decode(data, options) {
+            var stream = options && options.stream;
+            var str = "";
+
+            if (typeof data === "string")
+                data = array_from_raw_string(data);
+
+            /* The first buffer */
+            var inp = stream && buffer ? buffer : data;
+            var inl = inp.byteLength;
+            if (inl === undefined)
+                inl = inp.length;
+
+            /* The next buffer if any */
+            var nxi = 0;
+            var nxp = stream && buffer ? data : null;
+            var nxl = nxp ? nxp.byteLength : null;
+            if (nxl === undefined)
+                nxl = nxp.length;
+
+            var x, p, i = 0;
+            while (i < inl) {
+                p = inp[i];
+                x = p == 255 ? -1 :
+                    p > 251 && p < 254 ? 6 :
+                    p > 247 && p < 252 ? 5 :
+                    p > 239 && p < 248 ? 4 :
+                    p > 223 && p < 240 ? 3 :
+                    p > 191 && p < 224 ? 2 : 1;
+
+                if (x < 0 || x > inl) {
+                    /* Steal from other buffer? */
+                    while (x > 0 && nxp && x > inl && nxi < nxl) {
+                        buffer.push(nxp[nxi]);
+                        nxi++;
+                        inl++;
+                    }
+
+                    if (nxi == nxl) {
+                        nxp = null;
+                        nxi = nxl = 0;
+                    }
+
+                    if (x != inl) {
+                        /* Streaming mode */
+                        if (stream) {
+                            if (!buffer)
+                                buffer = new Array(inl - i);
+                            for (; i < inl; i++)
+                                buffer.push(inp[i]);
+                            break;
+                        }
+
+                        /* An error */
+                        if (fatal)
+                            throw EncodingError();
+
+                        /* Invalid character, next byte */
+                        i++;
+                        str += "\ufffd";
+                        continue;
+                    }
+                }
+
+                /* (nPart - 252 << 30) may be not so safe in ECMAScript! So...: */
+                str += String.fromCharCode(x == 6 ? (p - 252) * 1073741824 + (inp[i + 1] - 128 << 24) + (inp[i + 2] - 128 << 18) + (inp[i + 3] - 128 << 12) + (inp[i + 4] - 128 << 6) + inp[i + 5] - 128 : x == 5 ? (p - 248 << 24) + (inp[i + 1] - 128 << 18) + (inp[i + 2] - 128 << 12) + (inp[i + 3] - 128 << 6) + inp[i + 4] - 128 : x == 4 ? (p - 240 << 18) + (inp[i + 1] - 128 << 12) + (inp[i + 2] - 128 << 6) + inp[i + 3] - 128 : x == 3 ? (p - 224 << 12) + (inp[i + 1] - 128 << 6) + inp[i + 2] - 128 : x == 2 ? (p - 192 << 6) + inp[i + 1] - 128 : p);
+                i += x;
+
+                /* Swap in next buffer */
+                if (i == inl && nxp) {
+                    i = nxi;
+                    inl = nxl;
+                    inp = nxp;
+                    nxp = null;
+                    nxi = nxl = 0;
+                    buffer = null;
+                }
+            }
+
+            return str;
+        };
+    }
+
+    cockpit.utf8_encoder = function utf8_encoder(constructor) {
+        return new Utf8TextEncoder(constructor);
+    };
+
+    cockpit.utf8_decoder = function utf8_decoder(fatal) {
+        return new Utf8TextDecoder(fatal);
+    };
+
     function uint6_to_b64 (x) {
         return x < 26 ? x + 65 : x < 52 ? x + 71 : x < 62 ? x - 4 : x === 62 ? 43 : x === 63 ? 47 : 65;
     }
@@ -629,7 +801,7 @@ function basic_scope(cockpit) {
         if (typeof data === "string")
             return window.btoa(data);
         /* For when the caller has chosen to use ArrayBuffer */
-        if (window.ArrayBuffer && data instanceof window.ArrayBuffer)
+        if (have_array_buffer && data instanceof window.ArrayBuffer)
             data = new window.Uint8Array(data);
         var length, mod3 = 2, str = "";
         if (data.byteLength !== undefined)

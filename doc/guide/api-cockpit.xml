@@ -1549,6 +1549,26 @@
         <code>String</code> for the decoded data, then you must guarantee that the data
         does not contain bytes that would be invalid for a string.</para>
     </refsection>
+
+    <refsection id="latest-channel-utf8-encode">
+      <title>cockpit.channel.utf8_encode()</title>
+<programlisting>
+  data = cockpit.channel.utf8_encode(str)
+</programlisting>
+        <para>Encode a string into a UTF8 sequence of bytes. The <code>str</code>
+          argument should be a <code>string</code>. The returned value is a
+          <code>Uint8Array</code>.</para>
+    </refsection>
+
+    <refsection id="latest-channel-utf8-decode">
+      <title>cockpit.channel.utf8_decode()</title>
+<programlisting>
+  str = cockpit.channel.base64_decode(data)
+</programlisting>
+      <para>Decode a UTF8 sequence of bytes data into a string. The <code>data</code>
+        argument should be a <code>Uint8Array</code>. The return value will be a
+        <code>string</code>.</para>
+    </refsection>
   </refsection>
 
   <refsection>
