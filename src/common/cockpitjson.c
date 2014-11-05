@@ -510,7 +510,7 @@ cockpit_json_parse (const gchar *data,
            *
            * https://bugzilla.gnome.org/show_bug.cgi?id=728951
            */
-          json_node_init_null (root);
+          json_node_set_boolean (root, TRUE);
         }
     }
   else
@@ -612,7 +612,8 @@ cockpit_json_write_object (JsonObject *object,
   JsonNode *node;
   gchar *ret;
 
-  node = json_node_init_object (json_node_alloc (), object);
+  node = json_node_new (JSON_NODE_OBJECT);
+  json_node_set_object (node, object);
   ret = cockpit_json_write (node, length);
   json_node_free (node);
 
