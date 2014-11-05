@@ -74,6 +74,7 @@ typedef struct {
   gchar *command;
   gchar *expect_key;
   gchar *knownhosts_file;
+  gboolean ignore_key;
 
   /* Output from the connect thread */
   ssh_channel channel;
@@ -426,9 +427,12 @@ cockpit_ssh_connect (CockpitSshData *data)
 
   g_debug ("%s: connected", data->logname);
 
-  problem = verify_knownhost (data);
-  if (problem != NULL)
-    return problem;
+  if (!data->ignore_key)
+    {
+      problem = verify_knownhost (data);
+      if (problem != NULL)
+        return problem;
+    }
 
   /* The problem returned when auth failure */
   problem = cockpit_ssh_authenticate (data);
@@ -503,6 +507,7 @@ enum {
   PROP_HOST_KEY,
   PROP_HOST_FINGERPRINT,
   PROP_KNOWN_HOSTS,
+  PROP_IGNORE_KEY,
 };
 
 struct _CockpitSshTransport {
@@ -515,6 +520,7 @@ struct _CockpitSshTransport {
   GThread *connect_thread;
   gint connecting;
   gint connect_fd;
+  gboolean result_emitted;
 
   /* Data shared with connect thread*/
   CockpitSshData *data;
@@ -786,6 +792,14 @@ close_immediately (CockpitSshTransport *self,
   if (problem == NULL)
     problem = self->problem;
 
+  g_object_ref (self);
+
+  if (!self->result_emitted)
+    {
+      self->result_emitted = TRUE;
+      g_signal_emit_by_name (self, "result", problem);
+    }
+
   g_debug ("%s: closing io%s%s", self->logname,
            problem ? ": " : "", problem ? problem : "");
 
@@ -802,6 +816,8 @@ close_immediately (CockpitSshTransport *self,
   ssh_disconnect (self->data->session);
 
   cockpit_transport_emit_closed (COCKPIT_TRANSPORT (self), problem);
+
+  g_object_unref (self);
 }
 
 static void
@@ -1007,6 +1023,8 @@ cockpit_ssh_source_prepare (GSource *source,
       if (g_atomic_int_get (&self->connecting))
         return FALSE;
 
+      g_object_ref (self);
+
       /* Get the result from connecting thread */
       thread = self->connect_thread;
       self->connect_fd = -1;
@@ -1014,11 +1032,20 @@ cockpit_ssh_source_prepare (GSource *source,
       self->data = g_thread_join (thread);
       g_assert (self->data != NULL);
 
+      if (!self->result_emitted)
+        {
+          self->result_emitted = TRUE;
+          g_signal_emit_by_name (self, "result", self->data->problem);
+        }
+
       if (self->data->problem)
         {
           close_immediately (self, self->data->problem);
+          g_object_unref (self);
           return FALSE;
         }
+
+      g_object_unref (self);
 
       ssh_event_add_session (self->event, self->data->session);
       ssh_set_channel_callbacks (self->data->channel, &self->channel_cbs);
@@ -1242,6 +1269,9 @@ cockpit_ssh_transport_set_property (GObject *obj,
     case PROP_HOST_KEY:
       self->data->expect_key = g_value_dup_string (value);
       break;
+    case PROP_IGNORE_KEY:
+      self->data->ignore_key = g_value_get_boolean (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -1384,9 +1414,16 @@ cockpit_ssh_transport_class_init (CockpitSshTransportClass *klass)
          g_param_spec_string ("host-fingerprint", NULL, NULL, NULL,
                               G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (object_class, PROP_IGNORE_KEY,
+         g_param_spec_boolean ("ignore-key", NULL, NULL, FALSE,
+                               G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (object_class, PROP_CREDS,
          g_param_spec_boxed ("creds", NULL, NULL, COCKPIT_TYPE_CREDS,
                              G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_signal_new ("result", COCKPIT_TYPE_SSH_TRANSPORT, G_SIGNAL_RUN_FIRST, 0, NULL, NULL,
+                g_cclosure_marshal_generic, G_TYPE_NONE, 1, G_TYPE_STRING);
 
   g_object_class_override_property (object_class, PROP_NAME, "name");
 }

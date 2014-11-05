@@ -39,10 +39,12 @@
 
 static gint      opt_port         = 9090;
 static gboolean  opt_no_tls       = FALSE;
+static gboolean  opt_container    = FALSE;
 
 static GOptionEntry cmd_entries[] = {
   {"port", 'p', 0, G_OPTION_ARG_INT, &opt_port, "Local port to bind to (9090 if unset)", NULL},
   {"no-tls", 0, 0, G_OPTION_ARG_NONE, &opt_no_tls, "Don't use TLS", NULL},
+  {"container", 0, 0, G_OPTION_ARG_NONE, &opt_container, "Change behavior for running in container", NULL },
   {NULL}
 };
 
@@ -59,6 +61,7 @@ main (int argc,
   GTlsCertificate *certificate = NULL;
   GError *local_error = NULL;
   GError **error = &local_error;
+  gboolean login_loopback = FALSE;
   gchar **roots = NULL;
   gchar *cert_path = NULL;
   GMainLoop *loop;
@@ -84,7 +87,16 @@ main (int argc,
       goto out;
     }
 
-  cockpit_set_journal_logging (!isatty (2));
+  if (opt_container)
+    {
+      /* Force ssh based login when in a container */
+      login_loopback = TRUE;
+    }
+  else
+    {
+      /* Only write to journal when not in a container */
+      cockpit_set_journal_logging (!isatty (2));
+    }
 
   if (opt_no_tls)
     {
@@ -102,7 +114,7 @@ main (int argc,
 
   roots = cockpit_web_server_resolve_roots (DATADIR "/cockpit/static", NULL);
 
-  data.auth = cockpit_auth_new ();
+  data.auth = cockpit_auth_new (login_loopback);
   data.static_roots = (const gchar **)roots;
 
   server = cockpit_web_server_new (opt_port,
