@@ -234,14 +234,6 @@ done
 AC_PATH_PROG([PHANTOMJS], [phantomjs])
 AM_CONDITIONAL([WITH_PHANTOMJS], [test -n "$PHANTOMJS"])
 
-# storaged
-
-LVM2_INTERFACE=$interfacesdir/com.redhat.lvm2.xml
-AC_CHECK_FILE($LVM2_INTERFACE, ,
-    [AC_MSG_ERROR(Need com.redhat.lvm2.xml. Try installing storaged)]
-)
-AC_SUBST(LVM2_INTERFACE)
-
 # usermod
 #
 # usermod might not be world-executable, so AC_PATH_PROG might not
