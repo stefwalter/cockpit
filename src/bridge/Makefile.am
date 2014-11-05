@@ -24,12 +24,6 @@ libcockpit_bridge_a_SOURCES = \
 	src/bridge/cockpitrestjson.h \
 	src/bridge/cockpittextstream.c \
 	src/bridge/cockpittextstream.h \
-	src/bridge/deprecated/cockpitdbusjson1.c \
-	src/bridge/deprecated/cockpitdbusjson1.h \
-	src/bridge/deprecated/cockpitdbusjson2.c \
-	src/bridge/deprecated/cockpitdbusjson2.h \
-	src/bridge/deprecated/cockpitfakemanager.c \
-	src/bridge/deprecated/cockpitfakemanager.h \
 	$(NULL)
 
 libcockpit_bridge_a_CFLAGS = \

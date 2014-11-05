@@ -23,6 +23,7 @@
 
 #include "cockpitdbusrules.h"
 #include "cockpitpaths.h"
+#include "common/polyfill.h"
 
 #include <string.h>
 

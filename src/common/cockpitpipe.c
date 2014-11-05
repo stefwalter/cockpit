@@ -22,8 +22,6 @@
 #include "cockpitpipe.h"
 #include "cockpitunixfd.h"
 
-#include <glib-unix.h>
-
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
@@ -104,7 +102,9 @@ cockpit_pipe_init (CockpitPipe *self)
   self->priv->out_fd = -1;
   self->priv->status = -1;
 
-  self->priv->context = g_main_context_ref_thread_default ();
+  self->priv->context = g_main_context_get_thread_default ();
+  if (self->priv->context)
+    g_main_context_ref (self->priv->context);
 }
 
 static void
@@ -478,7 +478,7 @@ cockpit_pipe_constructed (GObject *object)
 
   if (self->priv->in_fd >= 0)
     {
-      if (!g_unix_set_fd_nonblocking (self->priv->in_fd, TRUE, &error))
+      if (!cockpit_unix_set_fd_nonblocking (self->priv->in_fd, TRUE, &error))
         {
           g_warning ("%s: couldn't set file descriptor to non-blocking: %s",
                      self->priv->name, error->message);
@@ -493,7 +493,7 @@ cockpit_pipe_constructed (GObject *object)
 
   if (self->priv->out_fd >= 0)
     {
-      if (!g_unix_set_fd_nonblocking (self->priv->out_fd, TRUE, &error))
+      if (!cockpit_unix_set_fd_nonblocking (self->priv->out_fd, TRUE, &error))
         {
           g_warning ("%s: couldn't set file descriptor to non-blocking: %s",
                      self->priv->name, error->message);
@@ -867,7 +867,7 @@ cockpit_pipe_connect (const gchar *name,
     }
   else
     {
-      if (!g_unix_set_fd_nonblocking (sock, TRUE, NULL))
+      if (!cockpit_unix_set_fd_nonblocking (sock, TRUE, NULL))
         g_return_val_if_reached (NULL);
       native_len = g_socket_address_get_native_size (address);
       native = g_malloc (native_len);
@@ -915,7 +915,10 @@ calculate_spawn_flags (const gchar **env)
     {
       if (g_str_has_prefix (env[0], "PATH="))
         {
+/* TODO: */
+#if 0
           flags |= G_SPAWN_SEARCH_PATH_FROM_ENVP;
+#endif
           path_flag = TRUE;
           break;
         }

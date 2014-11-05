@@ -22,6 +22,8 @@
 
 #include "websocket.h"
 
+#include "src/common/polyfill.h"
+
 #include <gio/gio.h>
 
 G_BEGIN_DECLS

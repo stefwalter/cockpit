@@ -181,7 +181,6 @@ include src/common/Makefile-common.am
 include src/websocket/Makefile-websocket.am
 include tools/Makefile-tools.am
 include src/ws/Makefile-ws.am
-include src/daemon/Makefile-daemon.am
 include src/static/Makefile-static.am
 include src/remotectl/Makefile-remotectl.am
 include src/reauthorize/Makefile-reauthorize.am

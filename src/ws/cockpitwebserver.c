@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <systemd/sd-daemon.h>
 
 #include "cockpitws.h"
 #include "cockpitwebresponse.h"
@@ -104,7 +103,10 @@ cockpit_web_server_init (CockpitWebServer *server)
 {
   server->requests = g_hash_table_new_full (g_direct_hash, g_direct_equal,
                                             cockpit_request_free, NULL);
+#if 0
+TODO
   server->main_context = g_main_context_ref_thread_default ();
+#endif
   server->ssl_exception_prefix = g_string_new ("");
 }
 
@@ -262,9 +264,11 @@ on_io_closed (GObject *stream,
 
   if (!g_io_stream_close_finish (G_IO_STREAM (stream), result, &error))
     {
+#if 0
       if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_BROKEN_PIPE))
         g_debug ("http close error: %s", error->message);
       else
+#endif
         g_message ("http close error: %s", error->message);
       g_error_free (error);
     }
@@ -419,6 +423,7 @@ cockpit_web_server_class_init (CockpitWebServerClass *klass)
                                    g_param_spec_string ("ssl-exception-prefix", NULL, NULL, "",
                                                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+#if 0
   sig_handle_stream = g_signal_new ("handle-stream",
                                     G_OBJECT_CLASS_TYPE (klass),
                                     G_SIGNAL_RUN_LAST,
@@ -446,6 +451,7 @@ cockpit_web_server_class_init (CockpitWebServerClass *klass)
                                       G_TYPE_STRING,
                                       G_TYPE_HASH_TABLE,
                                       COCKPIT_TYPE_WEB_RESPONSE);
+#endif
 }
 
 CockpitWebServer *
@@ -1128,10 +1134,14 @@ cockpit_web_server_initable_init (GInitable *initable,
   CockpitWebServer *server = COCKPIT_WEB_SERVER (initable);
   gboolean ret = FALSE;
   gboolean failed;
+#if 0
   int n, fd;
+#endif
 
   server->socket_service = g_socket_service_new ();
 
+#if 0
+TODO
   n = sd_listen_fds (0);
   if (n > 0)
     {
@@ -1164,6 +1174,7 @@ cockpit_web_server_initable_init (GInitable *initable,
         }
     }
   else
+#endif
     {
       /* No fds passed in, let's listen on our own. */
       if (server->port == 0)

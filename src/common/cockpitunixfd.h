@@ -48,6 +48,10 @@ GSource *   cockpit_unix_fd_source_new    (gint fd,
 int         cockpit_unix_fd_close_all     (int from,
                                            int except);
 
+gboolean cockpit_unix_set_fd_nonblocking (gint       fd,
+                                    gboolean   nonblock,
+                                    GError   **error);
+
 G_END_DECLS
 
 #endif /* __COCKPIT_UNIX_FD_H__ */

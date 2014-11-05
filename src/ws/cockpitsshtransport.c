@@ -1193,8 +1193,12 @@ cockpit_ssh_transport_constructed (GObject *object)
   data = self->data;
   self->data = NULL;
 
+  cockpit_ssh_connect_thread (data);
+#if 0
+TODO
   self->connect_thread = g_thread_new ("ssh-transport-connect",
                                        cockpit_ssh_connect_thread, data);
+#endif
 
   g_debug ("%s: constructed", self->logname);
 }

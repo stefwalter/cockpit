@@ -23,6 +23,8 @@
 
 #include "cockpitpaths.h"
 
+#include "common/polyfill.h"
+
 #include <gio/gio.h>
 
 #include <string.h>

@@ -1,27 +1,5 @@
-test_dbus_generated = test-dbus-generated.h test-dbus-generated.c
-
-test-dbus-generated.h: test-dbus-generated.c
-test-dbus-generated.c: Makefile.am $(srcdir)/src/common/com.redhat.Cockpit.DBusTests.xml
-	$(AM_V_GEN) $(GDBUS_CODEGEN) \
-		--interface-prefix com.redhat.Cockpit.DBusTests \
-		--c-namespace Test \
-		--c-generate-object-manager \
-		--generate-c-code test-dbus-generated \
-		$(srcdir)/src/common/com.redhat.Cockpit.DBusTests.xml \
-		$(NULL)
-
-test_built_sources = $(test_dbus_generated)
-mock_dbus_sources = \
-	src/common/mock-service.c \
-	src/common/mock-service.h \
-	$(NULL)
-
 BUILT_SOURCES += $(test_built_sources)
 CLEANFILES += $(test_built_sources)
-
-EXTRA_DIST += \
-	src/common/com.redhat.Cockpit.DBusTests.xml \
-	$(NULL)
 
 noinst_LIBRARIES += libcockpit-common.a
 
@@ -29,6 +7,7 @@ nodist_libcockpit_common_a_SOURCES = \
 	$(dbus_built_sources) \
 	$(NULL)
 libcockpit_common_a_SOURCES = \
+	src/common/polyfill.c src/common/polyfill.h \
 	src/common/cockpitcertificate.c \
 	src/common/cockpitcertificate.h \
 	src/common/cockpitenums.h \

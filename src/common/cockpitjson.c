@@ -460,17 +460,11 @@ cockpit_json_parse (const gchar *data,
                     gssize length,
                     GError **error)
 {
-  static GPrivate cached_parser = G_PRIVATE_INIT (g_object_unref);
   JsonParser *parser;
   JsonNode *root;
   JsonNode *ret;
 
-  parser = g_private_get (&cached_parser);
-  if (parser == NULL)
-    {
       parser = json_parser_new ();
-      g_private_set (&cached_parser, parser);
-    }
 
   /*
    * HACK: Workaround for the fact that json-glib did not utf-8
@@ -518,6 +512,7 @@ cockpit_json_parse (const gchar *data,
       ret = NULL;
     }
 
+g_object_unref (parser);
   return ret;
 }
 

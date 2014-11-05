@@ -23,6 +23,7 @@
 #define __COCKPIT_TEST_H__
 
 #include <json-glib/json-glib.h>
+#include "common/polyfill.h"
 
 G_BEGIN_DECLS
 

@@ -21,6 +21,7 @@
 #define COCKPIT_TEMPLATE_H__
 
 #include <glib.h>
+#include "common/polyfill.h"
 
 typedef GBytes * (* CockpitTemplateFunc)          (const gchar *variable,
                                                    gpointer user_data);

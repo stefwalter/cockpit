@@ -24,7 +24,6 @@
 
 #include "cockpitlog.h"
 
-#include <systemd/sd-journal.h>
 #include <syslog.h>
 #include <string.h>
 
@@ -117,10 +116,7 @@ cockpit_journal_log_handler (const gchar *log_domain,
 
   if (to_journal)
     {
-      sd_journal_send ("MESSAGE=%s", message,
-                       "PRIORITY=%d", (int)priority,
-                       "COCKPIT_DOMAIN=%s", log_domain ? log_domain : "",
-                       NULL);
+      syslog (priority, "%s", message);
     }
 
   /* After journal, since this may have side effects */
@@ -143,7 +139,7 @@ printerr_handler (const gchar *string)
   if (len > 0 && string[len-1] == '\n')
     len -= 1;
 
-  sd_journal_print (LOG_ERR, "%.*s", len, string);
+  syslog (LOG_ERR, "%.*s", len, string);
 }
 
 static void

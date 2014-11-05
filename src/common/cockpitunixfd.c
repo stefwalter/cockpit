@@ -21,7 +21,7 @@
 
 #include "cockpitunixfd.h"
 
-#include <glib-unix.h>
+#include "common/polyfill.h"
 
 #include <sys/resource.h>
 

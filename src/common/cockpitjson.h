@@ -24,6 +24,8 @@
 
 #include <json-glib/json-glib.h>
 
+#include "polyfill.h"
+
 G_BEGIN_DECLS
 
 #if !JSON_CHECK_VERSION(0, 99, 2)

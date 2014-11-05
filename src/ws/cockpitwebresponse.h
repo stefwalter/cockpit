@@ -22,6 +22,8 @@
 
 #include <gio/gio.h>
 
+#include "common/polyfill.h"
+
 G_BEGIN_DECLS
 
 #define COCKPIT_TYPE_WEB_RESPONSE         (cockpit_web_response_get_type ())

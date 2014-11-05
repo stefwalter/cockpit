@@ -59,23 +59,19 @@ if test -z "$JSL"; then
   JSL=/bin/true
 fi
 
-GLIB_VERSION="2.34"
+GLIB_VERSION="2.28"
 
 GIO_REQUIREMENT="gio-unix-2.0 >= $GLIB_VERSION"
-SYSTEMD_REQUIREMENT="libsystemd-journal >= 187 libsystemd-daemon"
 JSON_GLIB_REQUIREMENT="json-glib-1.0 >= 0.14.0"
 LIBSSH_REQUIREMENT="libssh >= 0.6.0"
-GUDEV_REQUIREMENT="gudev-1.0 >= 165"
-UDISKS_REQUIREMENT="udisks2 >= 2.0.91"
-ACCOUNTS_REQUIREMENT="accountsservice >= 0.6.35"
-POLKIT_REQUIREMENT="polkit-agent-1 >= 0.105"
+GUDEV_REQUIREMENT="gudev-1.0 >= 147"
+POLKIT_REQUIREMENT="polkit-agent-1 >= 0.96"
 
 PKG_CHECK_MODULES(GIO, [$GIO_REQUIREMENT])
 GLIB_VERSION_DEF="GLIB_VERSION_$(echo $GLIB_VERSION | tr '.' '_')"
 GIO_CFLAGS="$GIO_CFLAGS -DGLIB_VERSION_MIN_REQUIRED=$GLIB_VERSION_DEF"
 GIO_CFLAGS="$GIO_CFLAGS -DGLIB_VERSION_MAX_ALLOWED=$GLIB_VERSION_DEF"
 
-PKG_CHECK_MODULES(SYSTEMD, [$SYSTEMD_REQUIREMENT])
 PKG_CHECK_MODULES(JSON_GLIB, [$JSON_GLIB_REQUIREMENT])
 PKG_CHECK_MODULES(LIBSSH, [$LIBSSH_REQUIREMENT])
 PKG_CHECK_MODULES(POLKIT, [$POLKIT_REQUIREMENT])
@@ -91,8 +87,8 @@ else
   AC_MSG_ERROR(no. Please install MIT kerberos devel package)
 fi
 
-COCKPIT_CFLAGS="$GIO_CFLAGS $JSON_GLIB_CFLAGS $SYSTEMD_CFLAGS"
-COCKPIT_LIBS="$GIO_LIBS $JSON_GLIB_LIBS $SYSTEMD_LIBS -lutil"
+COCKPIT_CFLAGS="$GIO_CFLAGS $JSON_GLIB_CFLAGS"
+COCKPIT_LIBS="$GIO_LIBS $JSON_GLIB_LIBS -lutil"
 AC_SUBST(COCKPIT_CFLAGS)
 AC_SUBST(COCKPIT_LIBS)
 
@@ -122,19 +118,6 @@ PKG_CHECK_MODULES(COCKPIT_DAEMON, [$GUDEV_REQUIREMENT
 
 COCKPIT_DAEMON_CFLAGS="$COCKPIT_CFLAGS $COCKPIT_DAEMON_CFLAGS"
 COCKPIT_DAEMON_LIBS="$COCKPIT_LIBS $COCKPIT_DAEMON_LIBS"
-
-# dbus interfaces dir
-
-# Can't use PKG_CHECK_VAR() as not all our target systems have it
-AC_CHECK_PROGS(PKG_CONFIG, pkg-config)
-AC_MSG_CHECKING(for dbus interfaces directory)
-interfacesdir=$($PKG_CONFIG dbus-1 --variable=interfaces_dir)
-if test "$interfacesdir" = ""; then
-    AC_MSG_ERROR(Couldn't find dbus interfaces directory. Try installing dbus-devel)
-else
-    AC_MSG_RESULT($interfacesdir)
-    AC_SUBST(interfacesdir)
-fi
 
 # dbus session dir
 AC_MSG_CHECKING(for dbus session services directory)
@@ -215,17 +198,6 @@ GETTEXT_PACKAGE=cockpit
 AC_SUBST([GETTEXT_PACKAGE])
 AM_GLIB_GNU_GETTEXT
 AC_DEFINE_UNQUOTED([GETTEXT_PACKAGE],["$GETTEXT_PACKAGE"],[gettext domain])
-
-# For po2json
-
-for mod in JSON Locale::PO; do
-  AC_MSG_CHECKING([for CPAN perl module $mod])
-  if perl -e "use $mod;"; then
-    AC_MSG_RESULT([yes])
-  else
-    AC_MSG_ERROR([The CPAN perl module $mod is required])
-  fi
-done
 
 # phantomjs
 

@@ -94,6 +94,8 @@ cockpit_transport_class_init (CockpitTransportClass *klass)
 
   object_class->get_property = cockpit_transport_get_property;
 
+#if 0
+ TODO
   g_object_class_install_property (object_class, 1,
               g_param_spec_string ("name", "name", "name", NULL,
                                    G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
@@ -114,6 +116,7 @@ cockpit_transport_class_init (CockpitTransportClass *klass)
                                   G_STRUCT_OFFSET (CockpitTransportClass, closed),
                                   NULL, NULL, g_cclosure_marshal_generic,
                                   G_TYPE_NONE, 1, G_TYPE_STRING);
+#endif
 }
 
 void

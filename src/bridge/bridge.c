@@ -33,8 +33,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <glib-unix.h>
-
 
 /* This program is run on each managed server, with the credentials
    of the user that is logged into the Server Console.
@@ -305,8 +303,8 @@ run_bridge (void)
   GError *error = NULL;
   gpointer polkit_agent;
   GPid daemon_pid;
-  guint sig_term;
-  guint sig_int;
+  guint sig_term = 0;
+  guint sig_int = 0;
   int outfd;
 
   cockpit_set_journal_logging (!isatty (2));
@@ -324,8 +322,11 @@ run_bridge (void)
       outfd = 1;
     }
 
+#if 0
+TODO
   sig_term = g_unix_signal_add (SIGTERM, on_signal_done, &terminated);
   sig_int = g_unix_signal_add (SIGINT, on_signal_done, &interupted);
+#endif
 
   /* Start a session daemon if necessary */
   daemon_pid = start_dbus_daemon ();

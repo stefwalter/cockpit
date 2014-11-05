@@ -238,11 +238,13 @@ static gboolean
 should_suppress_output_error (CockpitWebResponse *self,
                               GError *error)
 {
+#if 0
   if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_BROKEN_PIPE))
     {
       g_debug ("%s: output error: %s", self->logname, error->message);
       return TRUE;
     }
+#endif
 
   return FALSE;
 }

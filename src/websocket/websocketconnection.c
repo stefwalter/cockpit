@@ -174,7 +174,10 @@ web_socket_connection_init (WebSocketConnection *self)
                                                WebSocketConnectionPrivate);
 
   g_queue_init (&pv->outgoing);
+#if 0
+TODO
   pv->main_context = g_main_context_ref_thread_default ();
+#endif
 }
 
 static void
@@ -1593,6 +1596,8 @@ web_socket_connection_class_init (WebSocketConnectionClass *klass)
                                    g_param_spec_int ("flavor", "WebSocket flavor", "Flavor of WebSockets to speak with peer",
                                                      0, G_MAXINT, 0, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
+#if 0
+TODO
   /**
    * WebSocketConnection::open:
    * @self: the WebSocket
@@ -1675,6 +1680,7 @@ web_socket_connection_class_init (WebSocketConnectionClass *klass)
                                  G_STRUCT_OFFSET (WebSocketConnectionClass, close),
                                  NULL, NULL, g_cclosure_marshal_generic,
                                  G_TYPE_NONE, 0);
+#endif
 }
 
 /**

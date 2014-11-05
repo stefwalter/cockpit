@@ -21,6 +21,7 @@
 #define __COCKPIT_PIPE_H__
 
 #include <gio/gio.h>
+#include "polyfill.h"
 
 G_BEGIN_DECLS
 

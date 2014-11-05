@@ -20,7 +20,6 @@
 #ifndef __COCKPIT_BRIDGE_TYPES_H__
 #define __COCKPIT_BRIDGE_TYPES_H__
 
-#include <glib-unix.h>
 #include <gio/gio.h>
 
 struct _CockpitWebServer;

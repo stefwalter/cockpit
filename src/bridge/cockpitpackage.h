@@ -24,6 +24,8 @@
 
 #include <json-glib/json-glib.h>
 
+#include "common/polyfill.h"
+
 GHashTable *      cockpit_package_listing            (JsonArray **listing);
 
 gchar *           cockpit_package_resolve            (GHashTable *mapping,

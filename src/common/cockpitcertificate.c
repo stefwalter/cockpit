@@ -23,6 +23,8 @@
 #include "cockpitlog.h"
 #include "cockpitmemory.h"
 
+#include "common/polyfill.h"
+
 #include <glib/gstdio.h>
 
 #include <errno.h>

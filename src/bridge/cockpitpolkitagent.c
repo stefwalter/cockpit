@@ -444,10 +444,10 @@ cockpit_polkit_agent_register (CockpitTransport *transport,
   guint handler = 0;
   gchar *string;
 
-  authority = polkit_authority_get_sync (cancellable, &error);
+  authority = polkit_authority_get ();
   if (authority == NULL)
     {
-      g_message ("couldn't get polkit authority: %s", error->message);
+      g_message ("couldn't get polkit authority");
       goto out;
     }
 
@@ -472,9 +472,7 @@ cockpit_polkit_agent_register (CockpitTransport *transport,
   fatal = g_log_set_always_fatal (0);
   handler = g_log_set_handler (NULL, G_LOG_LEVEL_WARNING, cockpit_null_log_handler, NULL);
 
-  handle = polkit_agent_listener_register_with_options (listener,
-                                                        POLKIT_AGENT_REGISTER_FLAGS_NONE,
-                                                        subject, NULL, options, cancellable, &error);
+  polkit_agent_register_listener (listener, subject, NULL, &error);
 
   g_log_set_always_fatal (fatal);
   g_log_remove_handler (NULL, handler);
@@ -514,6 +512,4 @@ out:
 void
 cockpit_polkit_agent_unregister (gpointer handle)
 {
-  if (handle)
-    polkit_agent_listener_unregister (handle);
 }

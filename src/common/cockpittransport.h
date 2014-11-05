@@ -22,6 +22,7 @@
 
 #include <glib-object.h>
 #include <json-glib/json-glib.h>
+#include "polyfill.h"
 
 G_BEGIN_DECLS
 
