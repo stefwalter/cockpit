@@ -921,7 +921,7 @@ $.extend(window.options, { sink: true, protocol: "cockpit1" });
 
 /* Initialize cockpit when page is loaded */
 $(function() {
-    cockpit.register_component([ "terminal" ], "terminal", "terminal.html");
+    cockpit.register_component([ "terminal" ], "server", "terminal.html");
     cockpit.register_component([ "playground" ], "playground", "test.html");
 
     /* Initialize the rest of Cockpit */
