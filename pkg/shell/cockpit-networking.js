@@ -17,9 +17,11 @@
  * along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
  */
 
-var cockpit = cockpit || { };
-
-(function($, cockpit) {
+require([
+    'jquery',
+    '../base/cockpit',
+    '../server/server'
+], function($, cockpit, server) {
 
 function nm_debug() {
     if (window.debugging == "all" || window.debugging == "nm")
@@ -3154,4 +3156,4 @@ function PageNetworkVlanSettings() {
 
 cockpit.dialogs.push(new PageNetworkVlanSettings());
 
-})($, cockpit);
+});

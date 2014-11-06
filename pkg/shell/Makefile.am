@@ -24,8 +24,6 @@ shell_js_PARTS = \
 	pkg/shell/cockpit-realms.js \
 	pkg/shell/cockpit-shutdown.js \
 	pkg/shell/cockpit-services.js \
-	pkg/shell/cockpit-journal.js \
-	pkg/shell/cockpit-journal-renderer.js \
 	pkg/shell/cockpit-accounts.js \
 	pkg/shell/cockpit-docker.js \
 	$(NULL)

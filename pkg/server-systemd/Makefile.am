@@ -8,6 +8,12 @@ noinst_DATA += \
 	pkg/server-systemd/terminal.min.html \
 	$(NULL)
 
+serversystemd_TESTS = \
+	pkg/shell/test-journal-renderer.html \
+	$(NULL)
+
+TESTS += $(serversystemd_TESTS)
+
 CLEANFILES += \
 	pkg/server-systemd/terminal.min.html \
 	$(NULL)

@@ -1,7 +1,7 @@
 /*
  * This file is part of Cockpit.
  *
- * Copyright (C) 2013 Red Hat, Inc.
+ * Copyright (C) 2014 Red Hat, Inc.
  *
  * Cockpit is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -16,9 +16,13 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
  */
-
-(function(cockpit, $) {
+define([
+    "jquery",
+    "cockpit/latest/cockpit",
+], function($, cockpit) {
 "use strict";
+
+var server = { };
 
 /**
  * cockpit.journal([match, ...], [options])
@@ -61,7 +65,7 @@
  *  .stop(): stop following or retrieving entries.
  */
 
-cockpit.journal = function journal(/* ... */) {
+server.journal = function journal(/* ... */) {
     var matches = [];
     var options = { follow: true };
     for (var i = 0; i < arguments.length; i++) {
@@ -238,7 +242,7 @@ function output_funcs_for_box(box)
     };
 }
 
-cockpit.simple_logbox = function simple_logbox(machine, box, match, max_entries)
+server.logbox = function logbox(machine, box, match, max_entries)
 {
     var entries = [ ];
 
@@ -461,212 +465,268 @@ function journal_filler(machine, box, start, match, header, day_box, start_box, 
     };
 }
 
-PageJournal.prototype = {
-    _init: function() {
-        this.id = "journal";
-    },
+var month_names = [         'January',
+                            'February',
+                            'March',
+                            'April',
+                            'May',
+                            'June',
+                            'July',
+                            'August',
+                            'September',
+                            'October',
+                            'November',
+                            'December'
+                          ];
 
-    getTitle: function() {
-        return C_("page-title", "Journal");
-    },
+/* Render the journal entries by passing suitable HTML strings back to
+   the caller via the 'output_funcs'.
 
-    show: function() {
-    },
+   Rendering is context aware.  It will insert 'reboot' markers, for
+   example, and collapse repeated lines.  You can extend the output at
+   the bottom and also at the top.
 
-    setup: function() {
-        var self = this;
+   A new renderer is created by calling 'cockpit.journal_renderer' like
+   so:
 
-        $('#journal-box').on('click', '.cockpit-logline', function (event) {
-            self.details($(this).data('cockpit-journal-cursor'));
-        });
-    },
+      var renderer = cockpit.journal_renderer(funcs);
 
-    enter: function() {
-        var me = this;
+   You can feed new entries into the renderer by calling various
+   methods on the returned object:
 
-        $('#content-header-extra').
-            append('<div class="btn-group" id="journal-current-day-menu"> \
-                      <button class="btn btn-default dropdown-toggle" data-toggle="dropdown" style="padding-left:10px"><span id="journal-current-day"></span> <span class="caret"></span></button> \
-                      <ul class="dropdown-menu" role="menu"> \
-                        <li><a data-op="recent">Recent</a></li> \
-                        <li><a data-op="boot">Current boot</a></li> \
-                        <li><a data-op="last-24h">Last 24 hours</a></li> \
-                        <li><a data-op="last-week">Last 7 days</a></li> \
-                      </ul> \
-                    </div>');
+      - renderer.append (journal_entry)
+      - renderer.append_flush ()
+      - renderer.prepend (journal_entry)
+      - renderer.prepend_flush ()
 
-        $('#journal-current-day-menu a').on('click', function () {
-            me.query_start = $(this).attr("data-op");
-            me.reset_query ();
-        });
+   A 'journal_entry' is one element of the result array returned by a
+   call to 'Query' with the 'cockpit.journal_fields' as the fields to
+   return.
 
-        var priority_labels = [ _("Errors"), _("Warnings"), _("Notices"), _("All") ];
-        var priority_buttons = priority_labels.map(function (l, i) {
-            function click() {
-                if (i != me.query_prio) {
-                    me.query_prio = i;
-                    update_priority_buttons(i);
-                    me.reset_query();
-                }
+   Calling 'append' will append the given entry to the end of the
+   output, naturally, and 'prepend' will prepend it to the start.
+
+   The output might lag behind what has been input via 'append' and
+   'prepend', and you need to call 'append_flush' and 'prepend_flush'
+   respectively to ensure that the output is up-to-date.  Flushing a
+   renderer does not introduce discontinuities into the output.  You
+   can continue to feed entries into the renderer after flushing and
+   repeated lines will be correctly collapsed across the flush, for
+   example.
+
+   The renderer will call methods of the 'output_funcs' object to
+   produce the desired output:
+
+      - output_funcs.append (rendered)
+      - output_funcs.remove_last ()
+      - output_funcs.prepend (rendered)
+      - output_funcs.remove_first ()
+
+   The 'rendered' argument is the return value of one of the rendering
+   functions described below.  The 'append' and 'prepend' methods
+   should add this element to the output, naturally, and 'remove_last'
+   and 'remove_first' should remove the indicated element.
+
+   If you never call 'prepend' on the renderer, 'output_func.prepend'
+   isn't called either.  If you never call 'renderer.prepend' after
+   'renderer.prepend_flush', then 'output_func.remove_first' will
+   never be called.  The same guarantees exist for the 'append' family
+   of functions.
+
+   The actual rendering is also done by calling methods on
+   'output_funcs':
+
+      - output_funcs.render_line (ident, prio, message, count, time, cursor)
+      - output_funcs.render_day_header (day)
+      - output_funcs.render_reboot_separator ()
+
+*/
+
+server.journal_renderer = function journal_renderer(output_funcs)
+{
+    function copy_object (o)
+    {
+        var c = { }; for (var p in o) c[p] = o[p]; return c;
+    }
+
+    // A 'entry' object describes a journal entry in formatted form.
+    // It has fields 'bootid', 'ident', 'prio', 'message', 'time',
+    // 'day', all of which are strings.
+
+    function format_entry (journal_entry)
+    {
+        function pad(n) {
+            var str = n.toFixed();
+            if (str.length == 1)
+                str = '0' + str;
+            return str;
+        }
+
+        var d = new Date(journal_entry["__REALTIME_TIMESTAMP"] / 1000);
+        return {
+            cursor: journal_entry["__CURSOR"],
+            full: journal_entry,
+            day: C_("month-name", month_names[d.getMonth()]) + ' ' + d.getDate().toFixed() + ', ' + d.getFullYear().toFixed(),
+            time: pad(d.getHours()) + ':' + pad(d.getMinutes()),
+            bootid: journal_entry["_BOOT_ID"],
+            ident: journal_entry["SYSLOG_IDENTIFIER"] || journal_entry["_COMM"],
+            prio: journal_entry["PRIORITY"],
+            message: journal_entry["MESSAGE"]
+        };
+    }
+
+    function entry_is_equal (a, b)
+    {
+        return (a && b &&
+                a.day == b.day &&
+                a.bootid == b.bootid &&
+                a.ident == b.ident &&
+                a.prio == b.prio &&
+                a.message == b.message);
+    }
+
+    // A state object describes a line that should be eventually
+    // output.  It has an 'entry' field as per description above, and
+    // also 'count', 'last_time', and 'first_time', which record
+    // repeated entries.  Additionally:
+    //
+    // line_present: When true, the line has been output already with
+    //     some preliminary data.  It needs to be removed before
+    //     outputting more recent data.
+    //
+    // header_present: The day header has been output preliminarily
+    //     before the actual log lines.  It needs to be removed before
+    //     prepending more lines.  If both line_present and
+    //     header_present are true, then the header comes first in the
+    //     output, followed by the line.
+
+    function render_state_line (state)
+    {
+        return output_funcs.render_line(state.entry.ident,
+                                        state.entry.prio,
+                                        state.entry.message,
+                                        state.count,
+                                        state.last_time,
+                                        state.entry.full);
+    }
+
+    // We keep the state of the first and last journal lines,
+    // respectively, in order to collapse repeated lines, and to
+    // insert reboot markers and day headers.
+    //
+    // Normally, there are two state objects, but if only a single
+    // line has been output so far, top_state and bottom_state point
+    // to the same object.
+
+    var top_state, bottom_state;
+
+    top_state = bottom_state = { };
+
+    function start_new_line () {
+        // If we now have two lines, split the state
+        if (top_state === bottom_state && top_state.entry) {
+            top_state = copy_object (bottom_state);
+        }
+    }
+
+    function top_output ()
+    {
+        if (top_state.header_present) {
+            output_funcs.remove_first ();
+            top_state.header_present = false;
+        }
+        if (top_state.line_present) {
+            output_funcs.remove_first ();
+            top_state.line_present = false;
+        }
+        if (top_state.entry) {
+            output_funcs.prepend (render_state_line (top_state));
+            top_state.line_present = true;
+        }
+    }
+
+    function prepend (journal_entry)
+    {
+        var entry = format_entry (journal_entry);
+
+        if (entry_is_equal (top_state.entry, entry)) {
+            top_state.count += 1;
+            top_state.first_time = entry.time;
+        } else {
+            top_output ();
+
+            if (top_state.entry) {
+                if (entry.bootid != top_state.entry.bootid)
+                    output_funcs.prepend (output_funcs.render_reboot_separator ());
+                if (entry.day != top_state.entry.day)
+                    output_funcs.prepend (output_funcs.render_day_header (top_state.entry.day));
             }
-            return $('<button>', { 'class': 'btn btn-default',
-                                   'on': { 'click': click }
-                                 }).text(l);
-        });
 
-        function update_priority_buttons(v) {
-            priority_buttons.forEach(function (b, i) {
-                b.toggleClass('active', i <= v);
-            });
+            start_new_line ();
+            top_state.entry = entry;
+            top_state.count = 1;
+            top_state.first_time = top_state.last_time = entry.time;
+            top_state.line_present = false;
         }
-
-        $('#content-header-extra').append($('<div>', { 'class': 'btn-group' }).append(priority_buttons));
-
-        this.query_prio = parseInt(cockpit.get_page_param('prio') || "0", 10);
-        this.query_service = cockpit.get_page_param('service') || "";
-        this.query_tag = cockpit.get_page_param('tag') || "";
-        this.query_start = cockpit.get_page_param('start') || "recent";
-
-        update_priority_buttons (this.query_prio);
-
-        this.address = cockpit.get_page_machine();
-
-        this.reset_query ();
-    },
-
-    leave: function() {
-        if (this.filler)
-            this.filler.stop();
-    },
-
-    reset_query: function () {
-        if (this.filler)
-            this.filler.stop();
-
-        var prio_param = this.query_prio;
-        var service_param = this.query_service;
-        var start_param = this.query_start;
-        var tag_param = this.query_tag;
-
-        cockpit.set_page_param('prio', prio_param.toString());
-        cockpit.set_page_param('service', service_param);
-        cockpit.set_page_param('tag', tag_param);
-        cockpit.set_page_param('start', start_param);
-
-        var match = [ ];
-
-        var prio_level = { "0": 3,
-                           "1": 4,
-                           "2": 5,
-                           "3": null
-                         }[prio_param];
-
-        if (prio_level) {
-            for (var i = 0; i <= prio_level; i++)
-                match.push('PRIORITY=' + i.toString());
-        }
-
-        if (service_param)
-            match.push('_SYSTEMD_UNIT=' + service_param);
-        else if (tag_param)
-            match.push('SYSLOG_IDENTIFIER=' + tag_param);
-
-        if (start_param == 'recent')
-            $(window).scrollTop($(document).height());
-
-        this.filler = journal_filler(this.address,
-                                     $('#journal-box'), start_param, match,
-                                     '#topnav', '#journal-current-day',
-                                     $('#journal-start'), $('#journal-end'));
-    },
-
-    details: function(cursor) {
-        if (cursor)
-            cockpit.location.go('journal-entry', { c: cursor });
     }
+
+    function prepend_flush ()
+    {
+        top_output ();
+        if (top_state.entry) {
+            output_funcs.prepend (output_funcs.render_day_header (top_state.entry.day));
+            top_state.header_present = true;
+        }
+    }
+
+    function bottom_output ()
+    {
+        if (bottom_state.line_present) {
+            output_funcs.remove_last ();
+            bottom_state.line_present = false;
+        }
+        if (bottom_state.entry) {
+            output_funcs.append (render_state_line (bottom_state));
+            bottom_state.line_present = true;
+        }
+    }
+
+    function append (journal_entry)
+    {
+        var entry = format_entry (journal_entry);
+
+        if (entry_is_equal (bottom_state.entry, entry)) {
+            bottom_state.count += 1;
+            bottom_state.last_time = entry.time;
+        } else {
+            bottom_output ();
+
+            if (!bottom_state.entry || entry.day != bottom_state.entry.day) {
+                output_funcs.append (output_funcs.render_day_header (entry.day));
+                bottom_state.header_present = true;
+            }
+            if (bottom_state.entry && entry.bootid != bottom_state.entry.bootid)
+                output_funcs.append (output_funcs.render_reboot_separator ());
+
+            start_new_line ();
+            bottom_state.entry = entry;
+            bottom_state.count = 1;
+            bottom_state.first_time = bottom_state.last_time = entry.time;
+            bottom_state.line_present = false;
+        }
+    }
+
+    function append_flush ()
+    {
+        bottom_output ();
+    }
+
+    return { prepend: prepend,
+             prepend_flush: prepend_flush,
+
+             append: append,
+             append_flush: append_flush
+           };
 };
 
-function PageJournal() {
-    this._init();
-}
-
-cockpit.pages.push(new PageJournal());
-
-
-PageJournalEntry.prototype = {
-    _init: function() {
-        this.id = "journal-entry";
-        this.section_id = "journal";
-    },
-
-    getTitle: function() {
-        return C_("page-title", "Journal");
-    },
-
-    show: function() {
-    },
-
-    enter: function() {
-        var cursor = cockpit.get_page_param('c');
-        var out = $('#journal-entry-fields');
-
-        out.empty();
-
-        function show_entry(entry) {
-            $('#journal-entry-message').text(entry["MESSAGE"]);
-
-            var d = new Date(entry["__REALTIME_TIMESTAMP"] / 1000);
-            $('#journal-entry-date').text(d.toString());
-
-            var id;
-            if (entry["SYSLOG_IDENTIFIER"])
-                id = entry["SYSLOG_IDENTIFIER"];
-            else if (entry["_SYSTEMD_UNIT"])
-                id = entry["_SYSTEMD_UNIT"];
-            else
-                id = _("Journal entry");
-            $('#journal-entry-id').text(id);
-
-            var keys = Object.keys(entry).sort();
-            $.each(keys, function(i, key) {
-                if (key != "MESSAGE") {
-                    out.append(
-                        $('<tr>').append(
-                            $('<td style="text-align:right">').
-                                text(key),
-                            $('<td style="text-align:left">').
-                                text(entry[key])));
-                }
-            });
-        }
-
-        function show_error(error) {
-            out.append(
-                $('<tr>').append(
-                    $('<td>').
-                        text(error)));
-        }
-
-        cockpit.journal({ cursor: cursor, count: 1, follow: false }).
-            done(function (entries) {
-                if (entries.length >= 1 && entries[0]["__CURSOR"] == cursor)
-                    show_entry(entries[0]);
-                else
-                    show_error(_("Journal entry not found"));
-            }).
-            fail(function (error) {
-                show_error(error);
-            });
-    },
-
-    leave: function() {
-    }
-};
-
-function PageJournalEntry() {
-    this._init();
-}
-
-cockpit.pages.push(new PageJournalEntry());
-
-})(cockpit, jQuery);
+});

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cockpit logs</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="../@@latest@@/cockpit.css" type="text/css" rel="stylesheet">
+    <script src="../@@latest@@/cockpit.js"></script>
+<script>
+require([
+    "jquery",
+    "cockpit/latest/cockpit",
+    "cockpit/server/server"
+], function($, cockpit, server) {
+PageJournal.prototype = {
+    _init: function() {
+        this.id = "journal";
+    },
+
+    getTitle: function() {
+        return C_("page-title", "Journal");
+    },
+
+    show: function() {
+    },
+
+    setup: function() {
+        var self = this;
+
+        $('#journal-box').on('click', '.cockpit-logline', function (event) {
+            self.details($(this).data('cockpit-journal-cursor'));
+        });
+    },
+
+    enter: function() {
+        var me = this;
+
+        $('#content-header-extra').
+            append('<div class="btn-group" id="journal-current-day-menu"> \
+                      <button class="btn btn-default dropdown-toggle" data-toggle="dropdown" style="padding-left:10px"><span id="journal-current-day"></span> <span class="caret"></span></button> \
+                      <ul class="dropdown-menu" role="menu"> \
+                        <li><a data-op="recent">Recent</a></li> \
+                        <li><a data-op="boot">Current boot</a></li> \
+                        <li><a data-op="last-24h">Last 24 hours</a></li> \
+                        <li><a data-op="last-week">Last 7 days</a></li> \
+                      </ul> \
+                    </div>');
+
+        $('#journal-current-day-menu a').on('click', function () {
+            me.query_start = $(this).attr("data-op");
+            me.reset_query ();
+        });
+
+        var priority_labels = [ _("Errors"), _("Warnings"), _("Notices"), _("All") ];
+        var priority_buttons = priority_labels.map(function (l, i) {
+            function click() {
+                if (i != me.query_prio) {
+                    me.query_prio = i;
+                    update_priority_buttons(i);
+                    me.reset_query();
+                }
+            }
+            return $('<button>', { 'class': 'btn btn-default',
+                                   'on': { 'click': click }
+                                 }).text(l);
+        });
+
+        function update_priority_buttons(v) {
+            priority_buttons.forEach(function (b, i) {
+                b.toggleClass('active', i <= v);
+            });
+        }
+
+        $('#content-header-extra').append($('<div>', { 'class': 'btn-group' }).append(priority_buttons));
+
+        this.query_prio = parseInt(cockpit.get_page_param('prio') || "0", 10);
+        this.query_service = cockpit.get_page_param('service') || "";
+        this.query_tag = cockpit.get_page_param('tag') || "";
+        this.query_start = cockpit.get_page_param('start') || "recent";
+
+        update_priority_buttons (this.query_prio);
+
+        this.address = cockpit.get_page_machine();
+
+        this.reset_query ();
+    },
+
+    leave: function() {
+        if (this.filler)
+            this.filler.stop();
+    },
+
+    reset_query: function () {
+        if (this.filler)
+            this.filler.stop();
+
+        var prio_param = this.query_prio;
+        var service_param = this.query_service;
+        var start_param = this.query_start;
+        var tag_param = this.query_tag;
+
+        cockpit.set_page_param('prio', prio_param.toString());
+        cockpit.set_page_param('service', service_param);
+        cockpit.set_page_param('tag', tag_param);
+        cockpit.set_page_param('start', start_param);
+
+        var match = [ ];
+
+        var prio_level = { "0": 3,
+                           "1": 4,
+                           "2": 5,
+                           "3": null
+                         }[prio_param];
+
+        if (prio_level) {
+            for (var i = 0; i <= prio_level; i++)
+                match.push('PRIORITY=' + i.toString());
+        }
+
+        if (service_param)
+            match.push('_SYSTEMD_UNIT=' + service_param);
+        else if (tag_param)
+            match.push('SYSLOG_IDENTIFIER=' + tag_param);
+
+        if (start_param == 'recent')
+            $(window).scrollTop($(document).height());
+
+        this.filler = journal_filler(this.address,
+                                     $('#journal-box'), start_param, match,
+                                     '#topnav', '#journal-current-day',
+                                     $('#journal-start'), $('#journal-end'));
+    },
+
+    details: function(cursor) {
+        if (cursor)
+            cockpit.location.go('journal-entry', { c: cursor });
+    }
+};
+
+function PageJournal() {
+    this._init();
+}
+
+cockpit.pages.push(new PageJournal());
+
+
+PageJournalEntry.prototype = {
+    _init: function() {
+        this.id = "journal-entry";
+        this.section_id = "journal";
+    },
+
+    getTitle: function() {
+        return C_("page-title", "Journal");
+    },
+
+    show: function() {
+    },
+
+    enter: function() {
+        var cursor = cockpit.get_page_param('c');
+        var out = $('#journal-entry-fields');
+
+        out.empty();
+
+        function show_entry(entry) {
+            $('#journal-entry-message').text(entry["MESSAGE"]);
+
+            var d = new Date(entry["__REALTIME_TIMESTAMP"] / 1000);
+            $('#journal-entry-date').text(d.toString());
+
+            var id;
+            if (entry["SYSLOG_IDENTIFIER"])
+                id = entry["SYSLOG_IDENTIFIER"];
+            else if (entry["_SYSTEMD_UNIT"])
+                id = entry["_SYSTEMD_UNIT"];
+            else
+                id = _("Journal entry");
+            $('#journal-entry-id').text(id);
+
+            var keys = Object.keys(entry).sort();
+            $.each(keys, function(i, key) {
+                if (key != "MESSAGE") {
+                    out.append(
+                        $('<tr>').append(
+                            $('<td style="text-align:right">').
+                                text(key),
+                            $('<td style="text-align:left">').
+                                text(entry[key])));
+                }
+            });
+        }
+
+        function show_error(error) {
+            out.append(
+                $('<tr>').append(
+                    $('<td>').
+                        text(error)));
+        }
+
+        cockpit.journal({ cursor: cursor, count: 1, follow: false }).
+            done(function (entries) {
+                if (entries.length >= 1 && entries[0]["__CURSOR"] == cursor)
+                    show_entry(entries[0]);
+                else
+                    show_error(_("Journal entry not found"));
+            }).
+            fail(function (error) {
+                show_error(error);
+            });
+    },
+
+    leave: function() {
+    }
+};
+
+function PageJournalEntry() {
+    this._init();
+}
+
+cockpit.pages.push(new PageJournalEntry());
+
+
+    $(show);
+});
+</script>
+</head>
+<body>
+  <div id="journal" class="container-fluid">
+    <div>
+        <div id="journal-end"></div>
+        <div id="journal-box"></div>
+        <div id="journal-start"></div>
+    </div>
+  </div>
+
+  <div id="journal-entry" class="container-fluid">
+    <ol class="breadcrumb">
+      <li><a onclick="cockpit.location.go('journal')">Journal</a></li>
+      <li class="active">Entry</li>
+    </ol>
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <span id="journal-entry-id"></span>
+        <span id="journal-entry-date" style="float:right"></span>
+      </div>
+      <div id="journal-entry-message" style="margin:10px"></div>
+      <table class="cockpit-info-table" style="margin-bottom:10px" id="journal-entry-fields">
+      </table>
+    </div>
+  </div>
+</body>
+</html>
