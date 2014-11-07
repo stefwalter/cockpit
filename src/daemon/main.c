@@ -28,6 +28,7 @@
 /* ---------------------------------------------------------------------------------------------------- */
 
 static GMainLoop *loop = NULL;
+static int outfd = -1;
 
 static gboolean  name_acquired;
 static gboolean  opt_replace = FALSE;
@@ -67,6 +68,15 @@ on_name_lost (GDBusConnection *connection,
     {
       g_message ("Failed to acquire the name %s on the session message bus", name);
     }
+
+  /* Signal to parent that we've failed to start */
+  if (outfd >= 0)
+    {
+      write (outfd, "FAIL", 4);
+      close (outfd);
+      outfd = -1;
+    }
+
   g_main_loop_quit (loop);
 }
 
@@ -77,6 +87,15 @@ on_name_acquired (GDBusConnection *connection,
 {
   name_acquired = TRUE;
   g_debug ("Acquired the name %s on the session message bus", name);
+
+  /* Signal to parent that we've started */
+  if (outfd >= 0)
+    {
+      write (outfd, "START", 5);
+      close (outfd);
+      outfd = -1;
+    }
+
 }
 
 static gboolean
@@ -105,6 +124,19 @@ main (int argc,
 
   /* Ignore SIGPIPE, it's not useful in daemons */
   signal (SIGPIPE, SIG_IGN);
+
+  /*
+   * This process signals its parent on stdout. However lots of stuff wants
+   * to write * to stdout, such as g_debug, and uses fd 1 to do that. Reroute
+   * fd 1 so that it goes to stderr, and use another fd for stdout.
+   */
+
+  outfd = dup (1);
+  if (outfd < 0 || dup2 (2, 1) < 1)
+    {
+      g_warning ("daemon couldn't redirect stdout to stderr");
+      outfd = 1;
+    }
 
   g_type_init ();
 

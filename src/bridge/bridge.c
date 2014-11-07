@@ -182,9 +182,55 @@ send_init_command (CockpitTransport *transport)
 }
 
 static void
-setup_dbus_daemon (gpointer addrfd)
+setup_child (gpointer addrfd)
 {
   cockpit_unix_fd_close_all (3, GPOINTER_TO_INT (addrfd));
+}
+
+static gchar *
+read_string_output (gint fd)
+{
+  GString *output;
+  gchar *line;
+  gssize ret;
+  gsize len;
+
+  output = g_string_new ("");
+  for (;;)
+    {
+      len = output->len;
+      g_string_set_size (output, len + 256);
+      ret = read (fd, output->str + len, 256);
+      if (ret < 0)
+        {
+          g_string_set_size (output, len);
+          if (errno != EAGAIN && errno != EINTR)
+            break;
+        }
+      else if (ret == 0)
+        {
+          g_string_set_size (output, len);
+          break;
+        }
+      else
+        {
+          g_string_set_size (output, len + ret);
+          line = strchr (output->str, '\n');
+          if (line != NULL)
+            {
+              *line = '\0';
+              break;
+            }
+        }
+    }
+
+  if (output->len == 0)
+    {
+      g_string_free (output, TRUE);
+      return NULL;
+    }
+
+  return g_string_free (output, FALSE);
 }
 
 static GPid
@@ -192,10 +238,7 @@ start_dbus_daemon (void)
 {
   GError *error = NULL;
   const gchar *env;
-  GString *address = NULL;
-  gchar *line;
-  gsize len;
-  gssize ret;
+  gchar *address;
   GPid pid = 0;
   gchar *print_address = NULL;
   int addrfd[2] = { -1, -1 };
@@ -240,51 +283,48 @@ start_dbus_daemon (void)
       goto out;
     }
 
-  address = g_string_new ("");
-  for (;;)
-    {
-      len = address->len;
-      g_string_set_size (address, len + 256);
-      ret = read (addrfd[0], address->str + len, 256);
-      if (ret < 0)
-        {
-          g_string_set_size (address, len);
-          if (errno != EAGAIN && errno != EINTR)
-            {
-              g_warning ("couldn't read address from dbus-daemon: %s", g_strerror (errno));
-              goto out;
-            }
-        }
-      else if (ret == 0)
-        {
-          g_string_set_size (address, len);
-          break;
-        }
-      else
-        {
-          g_string_set_size (address, len + ret);
-          line = strchr (address->str, '\n');
-          if (line != NULL)
-            {
-              *line = '\0';
-              break;
-            }
-        }
-    }
-
-  if (address->str[0] == '\0')
+  address = read_string_output (addrfd[0]);
+  if (address == NULL)
     g_warning ("dbus-daemon didn't send us a dbus address");
   else
-    g_setenv ("DBUS_SESSION_BUS_ADDRESS", address->str, TRUE);
+    g_setenv ("DBUS_SESSION_BUS_ADDRESS", address, TRUE);
 
 out:
   if (addrfd[0] >= 0)
     close (addrfd[0]);
-  if (address)
-    g_string_free (address, TRUE);
+  g_free (address);
   g_free (print_address);
   return pid;
 }
+
+static void
+start_cockpitd (void)
+{
+  GError *error = NULL;
+
+  gchar *alternate;
+  gchar *argv = {
+    PACKAGE_LIBEXEC_DIR,
+    NULL,
+  };
+
+  env = g_getenv ("COCKPIT_LIBEXEC");
+  if (
+
+       ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
+
+  g_spawn_async ("/", argv, NULL, G_SPAWN_DEFAULT, NULL, NULL,
+                 setup_child, GINT_TO_POINTER (-1), NULL, &error);
+
+  if (error != NULL)
+    {
+      g_warning ("couldn't start %s: %s", argv[0], error->message);
+      g_error_free (error);
+      pid = 0;
+      goto out;
+    }
+      
+
 
 static gboolean
 on_signal_done (gpointer data)
