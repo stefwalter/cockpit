@@ -4,14 +4,8 @@ serversystemd_DATA = \
 	pkg/server-systemd/log.min.html \
 	pkg/server-systemd/manifest.json \
 	pkg/server-systemd/server.js \
-	pkg/server-systemd/terminal.html \
-	pkg/server-systemd/terminal.min.html \
-	$(NULL)
-nodist_serversystemd_DATA = \
 	pkg/server-systemd/server.min.js \
-	$(NULL)
-noinst_DATA += \
-	pkg/server-systemd/log.min.html \
+	pkg/server-systemd/terminal.html \
 	pkg/server-systemd/terminal.min.html \
 	$(NULL)
 

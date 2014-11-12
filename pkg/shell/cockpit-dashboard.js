@@ -359,7 +359,7 @@ PageDashboard.prototype = {
                                    resource_monitors[current_monitor].options);
             self.plot.reset();
             self.plot.set_options(options);
-            for (addr in hosts)
+            for (var addr in hosts)
                 plot_add(addr);
             self.plot.refresh();
             self.plot.start_walking(1);
