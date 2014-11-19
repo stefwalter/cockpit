@@ -57,7 +57,6 @@ dec2b4d2082571d7d6f5248871ae6779  src/static/images/brand.v1.svg
 d0319bfae8015e34551701c916ba26dc  src/static/images/brand.v1.png
 b9b7c9be481046a8ae7fb70e5dc5bb2a  src/static/images/brand-large.v0.png
 460dec79d8dee20ba90b9be38d26da2a  src/static/images/brand-large.v1.svg
-4fc6e38dcfedb6ef70c3c45a4c66e4de  src/static/images/brand-large.v1.png
 6ecf333d0b64c1e63393f8ad1fb24b5b  src/static/images/bg-login.x0.jpg
 2dbfb4f6ec283470e2c0ff566c32da19  src/static/images/bg-login.x1.jpg
 9db7e11be99577dee73d85db978342f6  src/static/images/waiting.gif
