@@ -733,6 +733,27 @@ sent by the server might have the following additional fields:
 
 No payload messages will be sent by this channel.
 
+Payload: metrics1
+-----------------
+
+"open":
+
+ * "source"
+ * "metrics": [ "one", "two" ]
+ * "instances": [ "one", "two" ]    optional
+ * "interval": 1000
+ * "start":29292929
+ * "end": 292093000
+
+{
+  "instances": {
+      "xmetricy: [ "one", "two", "three" ],
+      "oooo": [ ],
+  }
+}
+
+[[v,[x,y,z],v,null,v]]
+
 Problem codes
 -------------
 
