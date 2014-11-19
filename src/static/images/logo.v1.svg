@@ -10,8 +10,8 @@
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    version="1.0"
-   width="230"
-   height="69"
+   width="115"
+   height="35"
    id="svg6180"
    inkscape:version="0.48.5 r10040"
    sodipodi:docname="logo.v1.svg"
@@ -26,7 +26,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -42,14 +42,14 @@
      inkscape:window-width="1920"
      inkscape:window-height="1014"
      id="namedview3407"
-     showgrid="true"
+     showgrid="false"
      fit-margin-top="0"
      fit-margin-left="0"
      fit-margin-right="0"
      fit-margin-bottom="0"
-     inkscape:zoom="2.6715909"
-     inkscape:cx="71.70482"
-     inkscape:cy="76.502346"
+     inkscape:zoom="7.5564002"
+     inkscape:cx="102.78563"
+     inkscape:cy="14.459912"
      inkscape:window-x="0"
      inkscape:window-y="27"
      inkscape:window-maximized="1"
@@ -65,7 +65,7 @@
   <defs
      id="defs6182" />
   <g
-     transform="matrix(1.1679456,0,0,1.1679456,-327.29068,-408.79992)"
+     transform="matrix(0.60117978,0,0,0.60117978,-170.46746,-212.04583)"
      id="layer1"
      style="opacity:0.66500005">
     <path
@@ -100,7 +100,7 @@
        inkscape:connector-curvature="0" />
   </g>
   <path
-     d="m 218.44106,57.834017 3.28843,0 0,0.442627 -1.37993,0 0,3.44468 -0.52855,0 0,-3.44468 -1.37995,0 0,-0.442627 m 3.80917,0 0.7837,0 0.99203,2.645348 0.9972,-2.645348 0.78372,0 0,3.887307 -0.51294,0 0,-3.413439 -1.00242,2.666175 -0.52854,0 -1.00242,-2.666175 0,3.413439 -0.51033,0 0,-3.887307"
+     d="m 110.4385,28.145917 1.69267,0 0,0.227835 -0.71029,0 0,1.77309 -0.27207,0 0,-1.77309 -0.71031,0 0,-0.227835 m 1.96071,0 0.4034,0 0.51063,1.361647 0.5133,-1.361647 0.4034,0 0,2.000925 -0.26403,0 0,-1.75701 -0.51598,1.372367 -0.27205,0 -0.51599,-1.372367 0,1.75701 -0.26268,0 0,-2.000925"
      id="path2391"
      style="opacity:0.66500005;fill:#ffffff;enable-background:new"
      inkscape:connector-curvature="0" />
