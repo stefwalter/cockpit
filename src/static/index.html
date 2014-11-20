@@ -9,7 +9,7 @@
     <style>
         /* Login page specific overrides */
         .login-pf {
-            background: url("/static/images/bg-login.x0.jpg") no-repeat 50% 0;
+            background: url("/static/images/bg-login.x1.jpg") no-repeat 50% 0;
             background-size: auto;
             background-color: #101010;
             color: #fff;
@@ -36,6 +36,9 @@
             background-position: 6px 9px;
             height: 28px;
             width: 28px;
+        }
+        .login-pf #brand img {
+            height: auto;
         }
     </style>
     <script>
@@ -226,13 +229,13 @@
   </head>
   <body class="login-pf">
     <span id="badge">
-      <img src="/static/images/logo.v0.png" alt="" />
+      <img src="/static/images/logo.v1.png" alt="" />
     </span>
     <div class="container">
       <div class="row">
         <div class="col-sm-12">
           <div id="brand">
-            <img src="/static/images/brand-large.v0.png">
+            <img src="/static/images/brand-large.v1.png">
           </div><!--/#brand-->
         </div><!--/.col-*-->
 
@@ -271,12 +274,9 @@
           <p>
             <label id="server-name" class="control-label">Server: </label>
             <div class="message-icon">
-              <span class="pficon-layered">
-                <span class="pficon pficon-warning-triangle"></span>
-                <span class="pficon pficon-warning-exclamation"></span>
-              </span>
+                <span class="pficon pficon-info"></span>
             </div>
-            Not ready for use on production servers.
+            Log in with your server user account.
           </p>
         </div><!--/.col-*-->
 

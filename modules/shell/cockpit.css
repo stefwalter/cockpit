@@ -878,3 +878,9 @@ ul.available-interfaces-group {
 .storage-mount-size {
     text-align: right;
 }
+
+/* Fedora 21 Server branding */
+.navbar-pf .navbar-brand {
+    padding: 0;
+    height: 24px;
+}

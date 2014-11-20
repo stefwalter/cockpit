@@ -71,12 +71,12 @@ staticfonts_DATA = \
 
 staticimagesdir = $(staticdir)/images
 staticimages_DATA = \
-	src/static/images/logo.v0.svg \
-	src/static/images/logo.v0.png \
-	src/static/images/brand.v0.svg \
-	src/static/images/brand.v0.png \
-	src/static/images/brand-large.v0.png \
-	src/static/images/bg-login.x0.jpg \
+	src/static/images/logo.v1.svg \
+	src/static/images/logo.v1.png \
+	src/static/images/brand.v1.svg \
+	src/static/images/brand.v1.png \
+	src/static/images/brand-large.v1.png \
+	src/static/images/bg-login.x1.jpg \
 	src/static/images/waiting.gif \
 	$(NULL)
 
