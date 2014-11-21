@@ -452,7 +452,7 @@ PageContainers.prototype = {
         this.client = shell.docker(this.address);
 
         /* TODO: This code needs to be migrated away from old dbus */
-        this.dbus_client = shell.dbus(this.address, { payload: "dbus-json1" });
+        this.dbus_client = shell.dbus(this.address);
 
         var reds = [ "#250304",
                      "#5c080c",
@@ -1070,7 +1070,7 @@ PageContainerDetails.prototype = {
             });
 
         /* TODO: This code needs to be migrated away from old dbus */
-        this.dbus_client = shell.dbus(this.address, { payload: "dbus-json1" });
+        this.dbus_client = shell.dbus(this.address);
 
         $(this.client).on('container.container-details', function (event, id, container) {
             if (id == self.container_id)
@@ -1264,7 +1264,7 @@ PageImageDetails.prototype = {
         this.name = F(_("Image %{id}"), { id: this.image_id.slice(0,12) });
 
         /* TODO: migrate this code away from old dbus */
-        this.dbus_client = shell.dbus(this.address, { payload: "dbus-json1" });
+        this.dbus_client = shell.dbus(this.address);
 
         $('#image-details-containers table tbody tr').remove();
 
@@ -1590,7 +1590,7 @@ function DockerClient(machine) {
             });
 
         /* TODO: This code needs to be migrated away from dbus-json1 */
-        dbus_client = shell.dbus(machine, { payload: "dbus-json1" });
+        dbus_client = shell.dbus(machine);
         monitor = dbus_client.get("/com/redhat/Cockpit/LxcMonitor",
                                   "com.redhat.Cockpit.MultiResourceMonitor");
         $(monitor).on('NewSample', handle_new_samples);
