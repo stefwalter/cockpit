@@ -9,12 +9,12 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="100"
+   width="145"
    height="26"
    id="svg6558"
    version="1.1"
    inkscape:version="0.48.5 r10040"
-   sodipodi:docname="New document 26"
+   sodipodi:docname="brand.v1.svg"
    inkscape:export-filename="/home/andreasn/development/cockpit/src/static/images/brand.v1.png"
    inkscape:export-xdpi="90"
    inkscape:export-ydpi="90">
@@ -44,9 +44,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0"
      inkscape:pageshadow="2"
-     inkscape:zoom="8"
-     inkscape:cx="63.994827"
-     inkscape:cy="16.758887"
+     inkscape:zoom="4"
+     inkscape:cx="100.10161"
+     inkscape:cy="32.492648"
      inkscape:current-layer="layer1"
      showgrid="false"
      inkscape:grid-bbox="true"
@@ -76,7 +76,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -463,7 +463,7 @@
          y="8.905057"
          x="26.323961"
          id="tspan11930-8"
-         sodipodi:role="line">SERVER</tspan></text>
+         sodipodi:role="line">FEDORA SERVER</tspan></text>
     <rect
        inkscape:export-ydpi="90"
        inkscape:export-xdpi="90"

@@ -55,8 +55,6 @@ dcb26c7239d850266941e80370e207c1  lib/fonts/fontawesome-webfont.ttf
 3293616ec0c605c7c2db25829a0a509e  lib/fonts/fontawesome-webfont.woff
 a30d1da6fd7098a0ec4c99254c1b3395  src/static/images/logo.v1.svg
 8b3f18d532d99d79aa03e544908aa8dc  src/static/images/logo.v1.png
-60934f8c44020ac23c5e0815d95e9176  src/static/images/brand.v1.svg
-c3844f743b5c202f622acfe8bb4e86d2  src/static/images/brand.v1.png
 66eb89f87fc9444dd2978ef6d484954b  src/static/images/brand-large.v1.png
 2dbfb4f6ec283470e2c0ff566c32da19  src/static/images/bg-login.x1.jpg
 9db7e11be99577dee73d85db978342f6  src/static/images/waiting.gif
