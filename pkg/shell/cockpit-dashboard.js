@@ -140,6 +140,7 @@ function host_edit_dialog(addr) {
                 avatar_editor.start_cropping();
             });
     });
+    $('#host-edit-color-popover').hide();
     $('#host-edit-dialog').modal('show');
 
     avatar_editor.stop_cropping();
