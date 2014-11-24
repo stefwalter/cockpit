@@ -69,9 +69,15 @@ html, body {
     width: 28px;
 }
 
-#dashboard-hosts .btn {
+#dashboard-hosts .btn,
+#dashboard-enable-edit,
+#dashboard-add {
     height: 28px;
     width: 28px;
+    padding: 8px;
+}
+
+#dashboard-hosts .btn {
     margin-top: 2px;
 }
 
