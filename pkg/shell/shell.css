@@ -114,28 +114,18 @@ html, body {
     white-space: nowrap;
 }
 
-#host-edit-avatar canvas,
-#host-edit-color {
-    border: 1px solid transparent;
-}
-
-#host-edit-avatar canvas:hover,
-#host-edit-color:hover {
-    border: 1px solid #333;
-    cursor: pointer;
-}
-
 #host-edit-color-popover .color-cell {
     display: inline-block;
     width: 25px;
     height: 25px;
     margin: 2px;
-    border: 1px solid transparent;
 }
 
+#host-edit-avatar canvas:hover,
+#host-edit-color:hover,
 #host-edit-color-popover .color-cell:hover {
-    border: 1px solid #333;
     cursor: pointer;
+    box-shadow: inset 0px 0px 0px 1px #7BB2DD;
 }
 
 #host-edit-apply {

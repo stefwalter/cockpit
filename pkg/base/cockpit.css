@@ -397,7 +397,7 @@ code, kbd, pre, samp {
 /* Ensure that btn-default is at least as wide as tall
  * Avoids the problem with short labels */
 
-.btn-default {
+.btn {
     min-height: 28px;
     min-width: 28px;
 }
