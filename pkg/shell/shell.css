@@ -108,8 +108,14 @@ html, body {
     white-space: nowrap;
 }
 
-#host-edit-avatar:hover,
+#host-edit-avatar canvas,
+#host-edit-color {
+    border: 1px solid transparent;
+}
+
+#host-edit-avatar canvas:hover,
 #host-edit-color:hover {
+    border: 1px solid #333;
     cursor: pointer;
 }
 
@@ -122,7 +128,12 @@ html, body {
 }
 
 #host-edit-color-popover .color-cell:hover {
-    border: 1px solid #000;
+    border: 1px solid #333;
+    cursor: pointer;
+}
+
+#host-edit-apply {
+    min-width: 55px;
 }
 
 
