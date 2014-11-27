@@ -26,7 +26,7 @@ shell_js_PARTS = \
 	$(NULL)
 
 shell.js: $(shell_js_PARTS)
-	$(V_CHECK) $(srcdir)/tools/missing $(srcdir)/tools/jshint $<
+	$(V_CHECK) $(srcdir)/tools/missing $(srcdir)/tools/jshint $^
 	$(AM_V_GEN) cat $^ > $@.tmp && mv $@.tmp $@
 
 shelldir = $(pkgdatadir)/shell
