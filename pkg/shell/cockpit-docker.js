@@ -1610,7 +1610,8 @@ function DockerClient(machine) {
             trigger_event();
         });
         $(watch).on("close", function(event, options) {
-            console.warn("monitor for docker directory failed: " + options.problem);
+            if (options.problem)
+                console.warn("monitor for docker directory failed: " + options.problem);
         });
 
         $(me).triggerHandler("event");
