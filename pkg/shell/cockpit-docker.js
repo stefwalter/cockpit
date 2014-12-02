@@ -880,10 +880,11 @@ PageSearchImage.prototype = {
         $('#containers-search-image-results').hide();
         $('#containers-search-image-results tbody tr').remove();
         this.search_request = client.search(term).
-          done(function(resp){
+          done(function(data) {
+              var resp = data && JSON.parse(data);
               $('#containers-search-image-waiting').removeClass('waiting');
 
-              if(resp.length > 0) {
+              if(resp && resp.length > 0) {
                   $('#containers-search-image-results').show();
                   resp.forEach(function(entry) {
                       var row = $('<tr>').append(
@@ -1799,8 +1800,7 @@ function DockerClient(machine) {
             })
             .done(function(resp) {
                 docker_debug("searched:", term, resp);
-            })
-            .then(JSON.parse);
+            });
     };
 
     this.commit = function create(id, repotag, options, run_config) {
