@@ -828,10 +828,10 @@ PageSearchImage.prototype = {
         this.client.pull(repo, tag).
             stream(function(data) {
                 buffer += data;
-                var next = docker.json_skip(buffer, 0);
+                var next = modules.docker.json_skip(buffer, 0);
                 if (next === 0)
                     return; /* not enough data yet */
-                var progress = buffer.substring(0, next);
+                var progress = JSON.parse(buffer.substring(0, next));
                 buffer = buffer.substring(next);
                 if ("error" in progress) {
                     failed = true;
@@ -880,8 +880,7 @@ PageSearchImage.prototype = {
         $('#containers-search-image-results').hide();
         $('#containers-search-image-results tbody tr').remove();
         this.search_request = client.search(term).
-          done(function(data){
-              var resp = JSON.parse(data);
+          done(function(resp){
               $('#containers-search-image-waiting').removeClass('waiting');
 
               if(resp.length > 0) {

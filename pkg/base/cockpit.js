@@ -2051,7 +2051,6 @@ function full_scope(cockpit, $) {
                 }
 
                 $(channel).off();
-                channel = null;
             });
 
             var jpromise = dfd.promise;
