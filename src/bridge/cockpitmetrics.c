@@ -19,56 +19,61 @@
 
 #include "config.h"
 
-#include "cockpitechochannel.h"
+#include "cockpitmetrics.h"
 
-/**
- * CockpitEchoChannel:
- *
- * A #CockpitChannel that never sends messages and ignores
- * all messages it receives.
- *
- * The payload type for this channel is 'echo'.
- */
-
-#define COCKPIT_ECHO_CHANNEL(o)    (G_TYPE_CHECK_INSTANCE_CAST ((o), COCKPIT_TYPE_ECHO_CHANNEL, CockpitEchoChannel))
-
-typedef struct {
-  CockpitChannel parent;
-} CockpitEchoChannel;
-
-typedef struct {
-  CockpitChannelClass parent_class;
-} CockpitEchoChannelClass;
-
-G_DEFINE_TYPE (CockpitEchoChannel, cockpit_echo_channel, COCKPIT_TYPE_CHANNEL);
+G_DEFINE_ABSTRACT_TYPE (CockpitMetrics, cockpit_metrics, COCKPIT_TYPE_CHANNEL);
 
 static void
-cockpit_echo_channel_recv (CockpitChannel *channel,
-                           GBytes *message)
-{
-  g_debug ("received echo channel payload");
-  cockpit_channel_send (channel, message, FALSE);
-}
-
-static void
-cockpit_echo_channel_init (CockpitEchoChannel *self)
+cockpit_metrics_init (CockpitMetrics *self)
 {
 
 }
 
 static void
-cockpit_echo_channel_constructed (GObject *object)
+cockpit_pcp_metrics_recv (CockpitChannel *channel,
+                          GBytes *message)
 {
-  G_OBJECT_CLASS (cockpit_echo_channel_parent_class)->constructed (object);
-  cockpit_channel_ready (COCKPIT_CHANNEL (object));
+  g_warning ("received unexpected metrics1 payload");
+  cockpit_channel_close (channel, "protocol-error");
 }
 
 static void
-cockpit_echo_channel_class_init (CockpitEchoChannelClass *klass)
+cockpit_metrics_prepare (CockpitChannel *channel)
 {
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  COCKPIT_CHANNEL_CLASS (cockpit_metrics_parent_class)->prepare (channel);
+}
+
+static void
+cockpit_metrics_class_init (CockpitMetricsClass *klass)
+{
   CockpitChannelClass *channel_class = COCKPIT_CHANNEL_CLASS (klass);
 
-  gobject_class->constructed = cockpit_echo_channel_constructed;
+  channel_class->prepare = cockpit_echo_channel_prepare;
   channel_class->recv = cockpit_echo_channel_recv;
+}
+
+CockpitChannel *
+cockpit_metrics_open (CockpitTransport *transport,
+                      const gchar *id,
+                      JsonObject *options)
+{
+  GType channel_type;
+  const gchar *source;
+
+    /* Source will be further validated when channel opens */
+  if (!cockpit_json_get_string (options, "source", NULL, &source))
+    source = NULL;
+
+#if 0
+  if (g_strcmp0 (source, "internal") == 0)
+    channel_type = COCKPIT_TYPE_INTERNAL_METRICS;
+  else
+#endif
+    channel_type = COCKPIT_TYPE_PCP_METRICS;
+
+  return g_object_new (channel_type,
+                       "transport", transport,
+                       "id", id,
+                       "options", options,
+                       NULL);
 }

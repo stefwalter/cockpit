@@ -19,7 +19,12 @@
 
 #include "config.h"
 
+#include "cockpitmetrics.h"
 #include "cockpitpcpmetrics.h"
+
+#include "common/cockpitjson.h"
+
+#include <pcp/pmapi.h>
 
 /**
  * CockpitPcpMetrics:
@@ -31,7 +36,7 @@
 
 typedef struct {
   CockpitMetrics parent;
-  gchar *name;
+  const gchar *name;
   int context;
   int numpmid;
   pmID *pmidlist;
@@ -39,17 +44,9 @@ typedef struct {
 
 typedef struct {
   CockpitMetricsClass parent_class;
-} CockpitPcpMetricslClass;
+} CockpitPcpMetricsClass;
 
-G_DEFINE_TYPE (CockpitPcpMetrics, cockpit_pcp_metrics, COCKPIT_TYPE_CHANNEL);
-
-static void
-cockpit_pcp_metrics_recv (CockpitChannel *channel,
-                          GBytes *message)
-{
-  g_warning ("%s: received unexpected metrics1 payload: %s", name);
-  cockpit_channel_close (channel, "protocol-error");
-}
+G_DEFINE_TYPE (CockpitPcpMetrics, cockpit_pcp_metrics, COCKPIT_TYPE_METRICS);
 
 static void
 cockpit_pcp_metrics_init (CockpitPcpMetrics *self)
@@ -57,6 +54,7 @@ cockpit_pcp_metrics_init (CockpitPcpMetrics *self)
 
 }
 
+#if 0
 static gboolean
 parse_options (CockpitChannel *channel,
                int *context_type,
@@ -69,34 +67,8 @@ parse_options (CockpitChannel *channel,
                struct timeval *end,
                const gchar ***instances)
 {
-  const gchar *problem = "protocol-error";
-  const gchar *source;
-  gboolean ret = FALSE;
-
-  source = cockpit_channel_get_option (channel, "source");
-  if (!source)
-    {
-      g_warning ("no \"source\" option specified for metrics channel");
-      goto out;
-    }
-  else if (g_str_has_prefix (source, "/"))
-    {
-      *context_type = PM_CONTEXT_ARCHIVE;
-      *context_name = source;
-    }
-  else if (g_str_equal (source, "system"))
-    {
-      *context_type = PM_CONTEXT_LOCAL;
-      *context_name = NULL;
-    }
-  else
-    {
-      g_warning ("unsupported \"source\" option specified for metrics: %s", source);
-      goto out;
-    }
 
   *metrics = 
-
 }
 
 static gboolean
@@ -154,24 +126,29 @@ on_timeout_fetch (gpointer data)
 
   return FALSE;
 }
+#endif
 
 static void
-cockpit_pcp_metrics_constructed (GObject *object)
+cockpit_pcp_metrics_prepare (CockpitChannel *channel)
 {
-  CockpitPcpMetrics *self = COCKPIT_PCP_METRICS (object);
-  CockpitChannel *channel = COCKPIT_CHANNEL (object);
+  CockpitPcpMetrics *self = COCKPIT_PCP_METRICS (channel);
   const gchar *problem = "protocol-error";
   const gchar *source;
+  JsonObject *options;
   gboolean ret = FALSE;
   const char *name;
   int type;
 
-  G_OBJECT_CLASS (cockpit_pcp_metrics_parent_class)->constructed (object);
+  COCKPIT_CHANNEL_CLASS (cockpit_pcp_metrics_parent_class)->prepare (channel);
 
-  source = cockpit_channel_get_option (channel, "source");
-  self->name = source;
+  options = cockpit_channel_get_options (channel);
 
-  if (!source)
+  if (!cockpit_json_get_string (options, "source", NULL, &source))
+    {
+      g_warning ("invalid \"source\" option for metrics channel");
+      goto out;
+    }
+  else if (!source)
     {
       g_warning ("no \"source\" option specified for metrics channel");
       goto out;
@@ -192,7 +169,8 @@ cockpit_pcp_metrics_constructed (GObject *object)
       goto out;
     }
 
-  self->context = pmContextNew (type, name);
+  self->name = source;
+  self->context = pmNewContext(type, name);
   if (self->context < 0)
     {
       g_warning ("%s: couldn't create PCP context: %s", self->name, pmErrStr (self->context));
@@ -201,7 +179,11 @@ cockpit_pcp_metrics_constructed (GObject *object)
     }
 
   self->numpmid = 0;
-  self->metrics = cockpit_channel_get_strv_option (channel, "metrics");
+  if (!cockpit_json_get_strv (options, "metrics", NULL, &self->metrics))
+    {
+      g_warning ("%s: invalid \"metrics\" option was specified", self->name);
+      goto out;
+    }
   if (self->metrics)
     self->numpmid = g_strv_length (self->metrics);
   if (self->numpmid == 0)
@@ -218,10 +200,17 @@ cockpit_pcp_metrics_constructed (GObject *object)
       goto out;
     }
 
-  value = cockpit_channel_get_int_option (channel, "interval");
+  if (!cockpit_json_get_int (options, "interval", 0, &value))
+    {
+      g_warning ("%s: invalid \"interval\" option");
+      goto out;
+    }
   if (value == 0)
-    value = 1000;
-  if (value < 0 || value > G_MAXINT)
+    {
+      if (type != PM_CONTEXT_LOCAL)
+        value = 1000;
+    }
+  else if (value < 0 || value > G_MAXINT)
     {
       g_warning ("%s: invalid \"interval\" value: %" G_GINT64_FORMAT, self->name, value);
       goto out;
@@ -254,11 +243,24 @@ out:
 }
 
 static void
-cockpit_echo_channel_class_init (CockpitEchoChannelClass *klass)
+cockpit_pcp_metrics_finalize (GObject *object)
+{
+  CockpitPcpMetrics *self = COCKPIT_PCP_METRICS (object);
+
+  if (self->context >= 0)
+    pmDestroyContext (self->context);
+  g_strfreev (self->metrics);
+  g_free (self->pmidlist);
+
+  G_OBJECT_CLASS (cockpit_pcp_metrics_parent_class)->finalize (object);
+}
+
+static void
+cockpit_pcp_metrics_class_init (CockpitPcpMetricsClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   CockpitChannelClass *channel_class = COCKPIT_CHANNEL_CLASS (klass);
 
-  gobject_class->constructed = cockpit_echo_channel_constructed;
-  channel_class->recv = cockpit_echo_channel_recv;
+  gobject_class->finalize = cockpit_pcp_metrics_finalize;
+  channel_class->prepare = cockpit_pcp_metrics_prepare;
 }

@@ -746,8 +746,8 @@ Open options:
    * "internal": cockpit-bridge internal metrics
  * "metrics": [ "the.metric", "two" ]: string ids of the metrics to use
  * "instances": [ "eth0", "eth1" ]: optional limit to these instances
- * "interval": 1000 in milliseconds, default 1000
- * "start":29292929: optional start time for PCP log data
+ * "interval": 1000 in milliseconds, default 1000 for non-log, default log resolution when reading from log
+ * "start":29292929: optional desired start time for PCP log data
  * "end": 292093000: optional end time for PCP log data
 
 As part of the payload we send metadata messages, these describe the

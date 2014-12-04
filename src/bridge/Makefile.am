@@ -18,8 +18,12 @@ libcockpit_bridge_a_SOURCES = \
 	src/bridge/cockpitpackage.h \
 	src/bridge/cockpitpaths.c \
 	src/bridge/cockpitpaths.h \
+	src/bridge/cockpitpcpmetrics.c \
+	src/bridge/cockpitpcpmetrics.h \
 	src/bridge/cockpitpolkitagent.c \
 	src/bridge/cockpitpolkitagent.h \
+	src/bridge/cockpitmetrics.c \
+	src/bridge/cockpitmetrics.h \
 	src/bridge/cockpitnullchannel.c \
 	src/bridge/cockpitnullchannel.h \
 	src/bridge/cockpitresource.c \

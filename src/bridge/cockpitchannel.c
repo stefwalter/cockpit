@@ -570,6 +570,8 @@ CockpitChannel *
     channel_type = COCKPIT_TYPE_NULL_CHANNEL;
   else if (g_strcmp0 (payload, "echo") == 0)
     channel_type = COCKPIT_TYPE_ECHO_CHANNEL;
+  else if (g_strcmp0 (payload, "metrics1") == 0)
+    return cockpit_metrics_open (transport, id, options);
   else
     channel_type = COCKPIT_TYPE_CHANNEL;
 
