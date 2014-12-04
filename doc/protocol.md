@@ -736,23 +736,50 @@ No payload messages will be sent by this channel.
 Payload: metrics1
 -----------------
 
-"open":
+XXX: Complete documentation
 
- * "source"
- * "metrics": [ "one", "two" ]
- * "instances": [ "one", "two" ]    optional
- * "interval": 1000
- * "start":29292929
- * "end": 292093000
+Open options:
+
+ * "source": string
+   * absolute file path starting with "/" for PCP log
+   * "system": pcp PM_CONTEXT_LOCAL
+   * "internal": cockpit-bridge internal metrics
+ * "metrics": [ "the.metric", "two" ]: string ids of the metrics to use
+ * "instances": [ "eth0", "eth1" ]: optional limit to these instances
+ * "interval": 1000 in milliseconds, default 1000
+ * "start":29292929: optional start time for PCP log data
+ * "end": 292093000: optional end time for PCP log data
+
+As part of the payload we send metadata messages, these describe the
+data in the following data packets below. The metadata messages can
+be combined into one, or sent separately.
 
 {
-  "instances": {
-      "xmetricy: [ "one", "two", "three" ],
-      "oooo": [ ],
-  }
+  /* following data messages will contain following metrics and instances, in this order */
+  "metrics": {
+      "the.metric": [ "eth0", "eth1" ],
+      "oooo": null, /* not instanced */
+  },
+  /* following data messages start at timestamp, at N interval */
+  "timestamp": 2929292929,
+  "interval": 1000
 }
 
-[[v,[x,y,z],v,null,v]]
+Data messages look like this:
+
+[ /* multiple rows of data, can be combined into one data message */
+  [ [ 100, 200 ], 53939 ],
+
+  /* null if values did not change since last */
+  [ null, 56000 ],
+
+  [ [ 103, 204 ], 57000 ],
+  /* Short arrays mean data did not change */
+  [ [ 103 ], 57000 ],
+  [ ],
+]
+
+XXX: Complete documentation
 
 Problem codes
 -------------
