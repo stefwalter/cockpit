@@ -24,6 +24,7 @@
 #include "cockpitechochannel.h"
 #include "cockpithttpstream.h"
 #include "cockpitnullchannel.h"
+#include "cockpitmetrics.h"
 #include "cockpitresource.h"
 #include "cockpitstream.h"
 #include "cockpitfsread.h"

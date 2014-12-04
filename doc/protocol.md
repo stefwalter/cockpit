@@ -746,16 +746,16 @@ Open options:
    * "internal": cockpit-bridge internal metrics
  * "metrics": [ "the.metric", "two" ]: string ids of the metrics to use
  * "instances": [ "eth0", "eth1" ]: optional limit to these instances
- * "interval": 1000 in milliseconds, default 1000 for non-log, default log resolution when reading from log
- * "start":29292929: optional desired start time for PCP log data
- * "end": 292093000: optional end time for PCP log data
+ * "interval": 1234 in milliseconds, default 1000
+ * "timestamp":29292929: optional desired start time for PCP log data
+ * "limit": 50: optional number of samples, unlimited if not set
 
 As part of the payload we send metadata messages, these describe the
-data in the following data packets below. The metadata messages can
+data in the following samples messages below. The metadata messages can
 be combined into one, or sent separately.
 
 {
-  /* following data messages will contain following metrics and instances, in this order */
+  /* following samples will contain following metrics and instances, in this order */
   "metrics": {
       "the.metric": [ "eth0", "eth1" ],
       "oooo": null, /* not instanced */
@@ -765,16 +765,16 @@ be combined into one, or sent separately.
   "interval": 1000
 }
 
-Data messages look like this:
+Samples messages look like this:
 
-[ /* multiple rows of data, can be combined into one data message */
+[ /* multiple samples per message are possible */
   [ [ 100, 200 ], 53939 ],
 
-  /* null if values did not change since last */
+  /* null for any value that not change since last */
   [ null, 56000 ],
 
   [ [ 103, 204 ], 57000 ],
-  /* Short arrays mean data did not change */
+  /* Short arrays mean trailing samples did not change */
   [ [ 103 ], 57000 ],
   [ ],
 ]

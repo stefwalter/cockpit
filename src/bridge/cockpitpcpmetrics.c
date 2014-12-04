@@ -40,6 +40,10 @@ typedef struct {
   int context;
   int numpmid;
   pmID *pmidlist;
+  gchar **metrics;
+  gchar **instances;
+  gint64 timestamp;
+  int delta;
 } CockpitPcpMetrics;
 
 typedef struct {
@@ -51,7 +55,7 @@ G_DEFINE_TYPE (CockpitPcpMetrics, cockpit_pcp_metrics, COCKPIT_TYPE_METRICS);
 static void
 cockpit_pcp_metrics_init (CockpitPcpMetrics *self)
 {
-
+  self->context = -1;
 }
 
 #if 0
@@ -137,12 +141,16 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
   JsonObject *options;
   gboolean ret = FALSE;
   const char *name;
+  gint64 interval;
+  gint64 value;
   int type;
+  int rc;
 
   COCKPIT_CHANNEL_CLASS (cockpit_pcp_metrics_parent_class)->prepare (channel);
 
   options = cockpit_channel_get_options (channel);
 
+  /* "source" option */
   if (!cockpit_json_get_string (options, "source", NULL, &source))
     {
       g_warning ("invalid \"source\" option for metrics channel");
@@ -163,9 +171,15 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       type = PM_CONTEXT_LOCAL;
       name = NULL;
     }
+  else if (g_str_equal (source, "pmcd"))
+    {
+      type = PM_CONTEXT_HOST;
+      name = "127.0.0.1:44321";
+    }
   else
     {
-      g_warning ("unsupported \"source\" option specified for metrics: %s", source);
+      g_message ("unsupported \"source\" option specified for metrics: %s", source);
+      problem = "not-supported";
       goto out;
     }
 
@@ -178,6 +192,7 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       goto out;
     }
 
+  /* "metrics" option */
   self->numpmid = 0;
   if (!cockpit_json_get_strv (options, "metrics", NULL, &self->metrics))
     {
@@ -191,7 +206,6 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       g_warning ("%s: no \"metrics\" were specified", self->name);
       goto out;
     }
-
   self->pmidlist = g_new0 (pmID, self->numpmid);
   rc = pmLookupName (self->numpmid, self->metrics, self->pmidlist);
   if (rc < 0)
@@ -200,45 +214,59 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       goto out;
     }
 
-  if (!cockpit_json_get_int (options, "interval", 0, &value))
+  /* "interval" option */
+  if (!cockpit_json_get_int (options, "interval", 1000, &interval))
     {
-      g_warning ("%s: invalid \"interval\" option");
+      g_warning ("%s: invalid \"interval\" option", self->name);
       goto out;
     }
-  if (value == 0)
+  else if (interval <= 0 || interval > G_MAXINT)
     {
-      if (type != PM_CONTEXT_LOCAL)
-        value = 1000;
-    }
-  else if (value < 0 || value > G_MAXINT)
-    {
-      g_warning ("%s: invalid \"interval\" value: %" G_GINT64_FORMAT, self->name, value);
+      g_warning ("%s: invalid \"interval\" value: %" G_GINT64_FORMAT, self->name, interval);
       goto out;
     }
 
-  self->interval = (int)value;
-
-  value = cockpit_channel_get_int_option (channel, "begin");
-  xxxx end xxxx;
-
-  self->instances = cockpit_channel_get_strv_option (channel, "instances");
-
-  ret = TRUE;
-
-  if (type == PM_CONTEXT_LOCAL)
+  /* "timestamp" option */
+  if (!cockpit_json_get_int (options, "timestamp", 0, &timestamp))
     {
-      self->epoch = g_get_monotonic_time ();
-      self->wait = g_idle_add_full (G_PRIORITY_HIGH_IDLE, on_timeout_fetch, self, NULL);
+      g_warning ("%s: invalid \"timestamp\" option");
+      goto out;
     }
+  if (timestamp < 0 || timestamp / 1000 > G_MAXLONG)
+    {
+      g_warning ("%s: invalid \"timestamp\" value: %" G_GINT64_FORMAT, self->name, timestamp);
+      goto out;
+    }
+
+  /* "instances" option */
+  if (!cockpit_json_get_strv (options, "instances", NULL, &self->instances))
+    {
+      g_warning ("%s: invalid \"instances\" option");
+      goto out;
+    }
+
+  /* "limit" option */
+  if (!cockpit_json_get_int (options, "instances", -1, &self->limit))
+    {
+      g_warning ("%s: invalid \"instances\" option");
+      goto out;
+    }
+  else if (self->limit < -1)
+    {
+      g_warning ("%s: invalid \"limit\" option value");
+      goto out;
+    }
+
+  problem = NULL;
+  if (type == PM_CONTEXT_ARCHIVE)
+    perform_load (self, timestamp, interval);
+
   else
-    {
-      self->wait = g_idle_add_full (G_PRIORITY_IDLE, on_timeout_load, self, NULL);
-    }
+    cockpit_metrics_metronome (COCKPIT_METRICS (self), timestamp, interval);
+  cockpit_channel_ready (channel);
 
 out:
-  if (ret)
-    cockpit_channel_ready (channel);
-  else
+  if (problem)
     cockpit_channel_close (channel, problem);
 }
 
@@ -250,6 +278,7 @@ cockpit_pcp_metrics_finalize (GObject *object)
   if (self->context >= 0)
     pmDestroyContext (self->context);
   g_strfreev (self->metrics);
+  g_strfreev (self->instances);
   g_free (self->pmidlist);
 
   G_OBJECT_CLASS (cockpit_pcp_metrics_parent_class)->finalize (object);

@@ -38,18 +38,79 @@ cockpit_pcp_metrics_recv (CockpitChannel *channel,
 }
 
 static void
-cockpit_metrics_prepare (CockpitChannel *channel)
+cockpit_metrics_dispose (GObject *object)
 {
-  COCKPIT_CHANNEL_CLASS (cockpit_metrics_parent_class)->prepare (channel);
+  CockpitMetrics *self = COCKPIT_METRICS (object);
+
+  if (self->priv->timeout)
+    {
+      g_source_remove (self->priv->timeout);
+      self->priv->timeout = 0;
+    }
+
+  G_OBJECT_CLASS (cockpit_metrics_parent_class)->dispose (object);
 }
 
 static void
 cockpit_metrics_class_init (CockpitMetricsClass *klass)
 {
   CockpitChannelClass *channel_class = COCKPIT_CHANNEL_CLASS (klass);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+  object_class->dispose = cockpit_metrics_dispose;
 
   channel_class->prepare = cockpit_echo_channel_prepare;
   channel_class->recv = cockpit_echo_channel_recv;
+}
+
+static gboolean
+on_timeout_tick (gpointer data)
+{
+  CockpitMetrics *self = data;
+  gint64 current;
+
+  g_source_remove (self->priv->timeout);
+  self->priv->timeout = 0;
+
+  klass = COCKPIT_CHANNEL_GET_CLASS (self);
+
+  /*
+   * TODO: It would be nice to only get the system time once.
+   * Not sure this can be done without sacrificing accuracy.
+   */
+
+  current = g_get_monotonic_time() / 1000;
+
+  if (self->priv->next == 0)
+    self->priv->next = current;
+
+  klass = COCKPIT_METRICS_GET_CLASS (self);
+  while (current <= self->priv->next)
+    {
+      self->priv->next += self->priv->interval;
+
+      if (klass->tick)
+        (klass->tick) (self, current);
+
+      /* No idea how long above tick took */
+      current = g_get_monotonic_time() / 1000;
+    }
+
+  self->timeout = g_timeout_add (self->priv->next - current, on_timeout_tick, self);
+  return FALSE;
+}
+
+static void
+cockpit_metrics_metronome (CockpitMetrics *self,
+                           gint64 timestamp,
+                           gint64 interval)
+{
+  g_return_if_fail (self->priv->timeout == 0);
+  g_return_if_fail (self->priv->interval > 0);
+
+  self->priv->next = timestamp;
+  self->priv->interval = interval;
+  on_timeout_tick (self);
 }
 
 CockpitChannel *
