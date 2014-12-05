@@ -27,9 +27,7 @@ G_BEGIN_DECLS
 #define COCKPIT_TYPE_METRICS      (cockpit_metrics_get_type ())
 #define COCKPIT_METRICS(o)        (G_TYPE_CHECK_INSTANCE_CAST ((o), COCKPIT_TYPE_METRICS, CockpitMetrics))
 
-typedef struct {
-  /* ... */
-} CockpitMetricsPrivate;
+typedef struct _CockpitMetricsPrivate CockpitMetricsPrivate;
 
 typedef struct {
   CockpitChannel parent;
