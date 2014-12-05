@@ -43,7 +43,9 @@ typedef struct {
   pmDesc *pmdescs;
   gchar **metrics;
   gchar **instances;
-  guint64 interval;
+  gint64 interval;
+  gint64 limit;
+  guint idler;
 
   GHashTable *filter;
 
@@ -120,8 +122,8 @@ result_meta_equal (pmResult *r1,
 }
 
 static void
-send_json (CockpitPcpMetrics *self,
-           JsonObject *object)
+send_object (CockpitPcpMetrics *self,
+             JsonObject *object)
 {
   CockpitChannel *channel = (CockpitChannel *)self;
   GBytes *bytes;
@@ -131,9 +133,28 @@ send_json (CockpitPcpMetrics *self,
   g_bytes_unref (bytes);
 }
 
+static void
+send_array (CockpitPcpMetrics *self,
+            JsonArray *array)
+{
+  CockpitChannel *channel = (CockpitChannel *)self;
+  GBytes *bytes;
+  JsonNode *node;
+  gsize length;
+  gchar *ret;
+
+  node = json_node_new (JSON_NODE_ARRAY);
+  json_node_set_array (node, array);
+  ret = cockpit_json_write (node, &length);
+  json_node_free (node);
+
+  bytes = g_bytes_new_take (ret, length);
+  cockpit_channel_send (channel, bytes, TRUE);
+  g_bytes_unref (bytes);
+}
+
 static JsonObject *
 build_meta (CockpitPcpMetrics *self,
-            gint64 timestamp,
             pmResult *result)
 {
   JsonArray *instances;
@@ -141,9 +162,13 @@ build_meta (CockpitPcpMetrics *self,
   JsonObject *root;
   pmValueSet *vs;
   FilterPair *pair;
+  gint64 timestamp;
   char *instance;
   int i, j, k;
   int rc;
+
+  timestamp = (result->timestamp.tv_sec * 1000) +
+              (result->timestamp.tv_usec / 1000);
 
   root = json_object_new ();
   json_object_set_int_member (root, "timestamp", timestamp);
@@ -205,14 +230,10 @@ build_meta (CockpitPcpMetrics *self,
   return root;
 }
 
-static void
-send_meta_if_necessary (CockpitPcpMetrics *self,
-                        gint64 timestamp,
-                        pmResult *result)
+static JsonObject *
+build_meta_if_necessary (CockpitPcpMetrics *self,
+                         pmResult *result)
 {
-  gboolean send_meta = TRUE;
-  JsonObject *message;
-
   if (self->last)
     {
       /*
@@ -221,15 +242,10 @@ send_meta_if_necessary (CockpitPcpMetrics *self,
        */
 
       if (result_meta_equal (self->last, result))
-        send_meta = FALSE;
+        return NULL;
     }
 
-  if (send_meta)
-    {
-      message = build_meta (self, timestamp, result);
-      send_json (self, message);
-      json_object_unref (message);
-    }
+  return build_meta (self, result);
 }
 
 static JsonNode *
@@ -336,6 +352,8 @@ cockpit_pcp_metrics_tick (CockpitMetrics *metrics,
                           gint64 timestamp)
 {
   CockpitPcpMetrics *self = (CockpitPcpMetrics *)metrics;
+  JsonArray *message;
+  JsonObject *meta;
   pmResult *result;
   int rc;
 
@@ -350,14 +368,138 @@ cockpit_pcp_metrics_tick (CockpitMetrics *metrics,
       return;
     }
 
-  send_meta_if_necessary (self, result);
-  send_samples (self, result);
+  meta = build_meta_if_necessary (self, result);
+  if (meta)
+    {
+      send_object (self, meta);
+      json_object_unref (meta);
+    }
+
+  /* Send one set of samples */
+  message = json_array_new ();
+  json_array_add_array_element (message, build_samples (self, result));
+  send_array (self, message);
+  json_array_unref (message);
 
   if (self->last)
     {
       pmFreeResult (self->last);
       self->last = result;
     }
+
+  /* Sent enough samples? */
+  self->limit--;
+  if (self->limit <= 0)
+    cockpit_channel_close (COCKPIT_CHANNEL (self), NULL);
+}
+
+static gboolean
+on_idle_batch (gpointer user_data)
+{
+  const int archive_batch = 60;
+  CockpitPcpMetrics *self = user_data;
+  JsonArray *message = NULL;
+  const gchar *problem;
+  JsonObject *meta;
+  pmResult *result;
+  gint i;
+  int rc;
+
+  if (pmUseContext (self->context) < 0)
+    g_return_if_reached ();
+
+  for (i = 0; i < archive_batch; i++)
+    {
+      /* Sent enough samples? */
+      self->limit--;
+      if (self->limit <= 0)
+        rc = PM_ERR_EOL;
+      else
+        rc = pmFetch (self->numpmid, self->pmidlist, &result);
+      if (rc < 0)
+        {
+          if (rc == PM_ERR_EOL)
+            {
+              problem = NULL;
+              if (message)
+                send_array (self, message);
+            }
+          else
+            {
+              g_message ("%s: couldn't read from archive: %s", self->name, pmErrStr (self->context));
+              problem = "internal-error";
+            }
+          cockpit_channel_close (COCKPIT_CHANNEL (self), problem);
+          if (message)
+            json_array_unref (message);
+          return FALSE;
+        }
+
+      meta = build_meta_if_necessary (self, result);
+      if (meta)
+        {
+          send_array (self, message);
+          json_array_unref (message);
+          message = NULL;
+
+          send_object (self, meta);
+          json_object_unref (meta);
+        }
+
+      if (message == NULL)
+          message = json_array_new ();
+      json_array_add_array_element (message, build_samples (self, result));
+
+      if (self->last)
+        {
+          pmFreeResult (self->last);
+          self->last = result;
+        }
+    }
+
+  if (message)
+    {
+      send_array (self, message);
+      json_array_unref (message);
+    }
+
+  return TRUE;
+}
+
+static void
+perform_load (CockpitPcpMetrics *self,
+              gint64 timestamp)
+{
+  struct timeval stamp;
+  pmResult *result;
+  int rc;
+
+  if (timestamp == 0)
+    {
+      stamp.tv_sec = 0x7fffffff;
+      if (pmSetMode (PM_MODE_BACK, &stamp, 0) != 0)
+        g_return_if_reached ();
+      rc = pmFetchArchive (&result);
+      if (rc < 0)
+        {
+          g_message ("%s: couldn't read from archive: %s", self->name, pmErrStr (self->context));
+          cockpit_channel_close (COCKPIT_CHANNEL (self), "internal-error");
+          return;
+        }
+      memcpy (&stamp, &result->timestamp, sizeof (stamp));
+      pmFreeResult (result);
+    }
+  else
+    {
+      stamp.tv_sec = (timestamp / 1000);
+      stamp.tv_usec = (timestamp % 1000) * 1000;
+    }
+
+  if (pmSetMode (PM_MODE_INTERP | PM_XTB_SET(PM_TIME_MSEC), &stamp, self->interval) != 0)
+    g_return_if_reached ();
+
+  if (on_idle_batch (self))
+    self->idler = g_idle_add (on_idle_batch, self);
 }
 
 static void
@@ -367,11 +509,11 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
   const gchar *problem = "protocol-error";
   const gchar *source;
   JsonObject *options;
-  gboolean ret = FALSE;
   const char *name;
-  gint64 value;
+  gint64 timestamp;
   int type;
   int rc;
+  int i;
 
   COCKPIT_CHANNEL_CLASS (cockpit_pcp_metrics_parent_class)->prepare (channel);
 
@@ -441,24 +583,33 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       goto out;
     }
 
-  xxxx lookupDesc xxxx
+  self->pmdescs = g_new0 (pmDesc, self->numpmid);
+  for (i = 0; i < self->numpmid; i++)
+    {
+      rc = pmLookupDesc (self->pmidlist[i], self->pmdescs + i);
+      if (rc < 0)
+        {
+          g_warning ("%s: failed to lookup metric: %s: %s", self->name, self->metrics[i], pmErrStr (self->context));
+          goto out;
+        }
+    }
 
   /* "interval" option */
-  if (!cockpit_json_get_int (options, "interval", 1000, &interval))
+  if (!cockpit_json_get_int (options, "interval", 1000, &self->interval))
     {
       g_warning ("%s: invalid \"interval\" option", self->name);
       goto out;
     }
-  else if (interval <= 0 || interval > G_MAXINT)
+  else if (self->interval <= 0 || self->interval > G_MAXINT)
     {
-      g_warning ("%s: invalid \"interval\" value: %" G_GINT64_FORMAT, self->name, interval);
+      g_warning ("%s: invalid \"interval\" value: %" G_GINT64_FORMAT, self->name, self->interval);
       goto out;
     }
 
   /* "timestamp" option */
   if (!cockpit_json_get_int (options, "timestamp", 0, &timestamp))
     {
-      g_warning ("%s: invalid \"timestamp\" option");
+      g_warning ("%s: invalid \"timestamp\" option", self->name);
       goto out;
     }
   if (timestamp < 0 || timestamp / 1000 > G_MAXLONG)
@@ -470,31 +621,30 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
   /* "instances" option */
   if (!cockpit_json_get_strv (options, "instances", NULL, &self->instances))
     {
-      g_warning ("%s: invalid \"instances\" option");
+      g_warning ("%s: invalid \"instances\" option", self->name);
       goto out;
     }
   if (self->instances)
     self->filter = g_hash_table_new_full (filter_pair_hash, filter_pair_equal, g_free, NULL);
 
-
   /* "limit" option */
-  if (!cockpit_json_get_int (options, "instances", -1, &self->limit))
+  if (!cockpit_json_get_int (options, "instances", G_MAXINT64, &self->limit))
     {
-      g_warning ("%s: invalid \"instances\" option");
+      g_warning ("%s: invalid \"instances\" option", self->name);
       goto out;
     }
-  else if (self->limit < -1)
+  else if (self->limit <= 0)
     {
-      g_warning ("%s: invalid \"limit\" option value");
+      g_warning ("%s: invalid \"limit\" option value: %" G_GINT64_FORMAT, self->name, self->limit);
       goto out;
     }
 
   problem = NULL;
   if (type == PM_CONTEXT_ARCHIVE)
-    perform_load (self, timestamp, interval);
+    perform_load (self, timestamp);
 
   else
-    cockpit_metrics_metronome (COCKPIT_METRICS (self), timestamp, interval);
+    cockpit_metrics_metronome (COCKPIT_METRICS (self), timestamp, self->interval);
   cockpit_channel_ready (channel);
 
 out:
@@ -503,12 +653,47 @@ out:
 }
 
 static void
+cockpit_pcp_metrics_close (CockpitChannel *channel,
+                           const gchar *problem)
+{
+  CockpitPcpMetrics *self = COCKPIT_PCP_METRICS (channel);
+
+  if (self->idler)
+    {
+      g_source_remove (self->idler);
+      self->idler = 0;
+    }
+
+  COCKPIT_CHANNEL_CLASS (cockpit_pcp_metrics_parent_class)->close (channel, problem);
+}
+
+static void
+cockpit_pcp_metrics_dispose (GObject *object)
+{
+  CockpitPcpMetrics *self = COCKPIT_PCP_METRICS (object);
+
+  if (self->idler)
+    {
+      g_source_remove (self->idler);
+      self->idler = 0;
+    }
+
+  if (self->context >= 0)
+    {
+      pmDestroyContext (self->context);
+      self->context = -1;
+    }
+
+  G_OBJECT_CLASS (cockpit_pcp_metrics_parent_class)->dispose (object);
+}
+
+static void
 cockpit_pcp_metrics_finalize (GObject *object)
 {
   CockpitPcpMetrics *self = COCKPIT_PCP_METRICS (object);
 
-  if (self->context >= 0)
-    pmDestroyContext (self->context);
+  if (self->idler)
+    g_source_remove (self->idler);
   g_strfreev (self->metrics);
   g_strfreev (self->instances);
   g_free (self->pmidlist);
@@ -523,9 +708,10 @@ cockpit_pcp_metrics_class_init (CockpitPcpMetricsClass *klass)
   CockpitMetricsClass *metrics_class = COCKPIT_METRICS_CLASS (klass);
   CockpitChannelClass *channel_class = COCKPIT_CHANNEL_CLASS (klass);
 
+  gobject_class->dispose = cockpit_pcp_metrics_dispose;
   gobject_class->finalize = cockpit_pcp_metrics_finalize;
 
   channel_class->prepare = cockpit_pcp_metrics_prepare;
-
+  channel_class->close = cockpit_pcp_metrics_close;
   metrics_class->tick = cockpit_pcp_metrics_tick;
 }

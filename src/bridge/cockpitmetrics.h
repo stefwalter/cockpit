@@ -24,8 +24,11 @@
 
 G_BEGIN_DECLS
 
-#define COCKPIT_TYPE_METRICS      (cockpit_metrics_get_type ())
-#define COCKPIT_METRICS(o)        (G_TYPE_CHECK_INSTANCE_CAST ((o), COCKPIT_TYPE_METRICS, CockpitMetrics))
+#define COCKPIT_TYPE_METRICS         (cockpit_metrics_get_type ())
+#define COCKPIT_METRICS(o)           (G_TYPE_CHECK_INSTANCE_CAST ((o), COCKPIT_TYPE_METRICS, CockpitMetrics))
+#define COCKPIT_IS_METRICS(o)        (G_TYPE_CHECK_INSTANCE_TYPE ((o), COCKPIT_TYPE_METRICS))
+#define COCKPIT_METRICS_CLASS(k)     (G_TYPE_CHECK_CLASS_CAST((k), COCKPIT_TYPE_METRICS, CockpitMetricsClass))
+#define COCKPIT_METRICS_GET_CLASS(o) (G_TYPE_INSTANCE_GET_CLASS ((o), COCKPIT_TYPE_METRICS, CockpitMetricsClass))
 
 typedef struct _CockpitMetricsPrivate CockpitMetricsPrivate;
 
@@ -47,5 +50,9 @@ GType              cockpit_metrics_get_type     (void) G_GNUC_CONST;
 CockpitChannel *   cockpit_metrics_open         (CockpitTransport *transport,
                                                  const gchar *id,
                                                  JsonObject *options);
+
+void               cockpit_metrics_metronome    (CockpitMetrics *self,
+                                                 gint64 timestamp,
+                                                 gint64 interval);
 
 #endif /* COCKPIT_METRICS_H__ */

@@ -20,9 +20,14 @@
 #include "config.h"
 
 #include "cockpitmetrics.h"
+#include "cockpitpcpmetrics.h"
+
+#include "common/cockpitjson.h"
 
 struct _CockpitMetricsPrivate {
   guint timeout;
+  gint64 next;
+  gint64 interval;
 };
 
 G_DEFINE_ABSTRACT_TYPE (CockpitMetrics, cockpit_metrics, COCKPIT_TYPE_CHANNEL);
@@ -34,11 +39,26 @@ cockpit_metrics_init (CockpitMetrics *self)
 }
 
 static void
-cockpit_pcp_metrics_recv (CockpitChannel *channel,
-                          GBytes *message)
+cockpit_metrics_recv (CockpitChannel *channel,
+                      GBytes *message)
 {
   g_warning ("received unexpected metrics1 payload");
   cockpit_channel_close (channel, "protocol-error");
+}
+
+static void
+cockpit_metrics_close (CockpitChannel *channel,
+                       const gchar *problem)
+{
+  CockpitMetrics *self = COCKPIT_METRICS (channel);
+
+  if (self->priv->timeout)
+    {
+      g_source_remove (self->priv->timeout);
+      self->priv->timeout = 0;
+    }
+
+  COCKPIT_CHANNEL_CLASS (cockpit_metrics_parent_class)->close (channel, problem);
 }
 
 static void
@@ -63,20 +83,21 @@ cockpit_metrics_class_init (CockpitMetricsClass *klass)
 
   object_class->dispose = cockpit_metrics_dispose;
 
-  channel_class->prepare = cockpit_echo_channel_prepare;
-  channel_class->recv = cockpit_echo_channel_recv;
+  channel_class->recv = cockpit_metrics_recv;
+  channel_class->close = cockpit_metrics_close;
 }
 
 static gboolean
 on_timeout_tick (gpointer data)
 {
   CockpitMetrics *self = data;
+  CockpitMetricsClass *klass;
   gint64 current;
 
   g_source_remove (self->priv->timeout);
   self->priv->timeout = 0;
 
-  klass = COCKPIT_CHANNEL_GET_CLASS (self);
+  klass = COCKPIT_METRICS_GET_CLASS (self);
 
   /*
    * TODO: It would be nice to only get the system time once.
@@ -100,11 +121,11 @@ on_timeout_tick (gpointer data)
       current = g_get_monotonic_time() / 1000;
     }
 
-  self->timeout = g_timeout_add (self->priv->next - current, on_timeout_tick, self);
+  self->priv->timeout = g_timeout_add (self->priv->next - current, on_timeout_tick, self);
   return FALSE;
 }
 
-static void
+void
 cockpit_metrics_metronome (CockpitMetrics *self,
                            gint64 timestamp,
                            gint64 interval)
