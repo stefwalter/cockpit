@@ -535,7 +535,7 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       type = PM_CONTEXT_ARCHIVE;
       name = source;
     }
-  else if (g_str_equal (source, "system"))
+  else if (g_str_equal (source, "system")) // NB: this is for pure shared-library PMDAs; limited
     {
       type = PM_CONTEXT_LOCAL;
       name = NULL;
@@ -543,7 +543,7 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
   else if (g_str_equal (source, "pmcd"))
     {
       type = PM_CONTEXT_HOST;
-      name = "127.0.0.1:44321";
+      name = "local:"; // prefer AF_UNIX, falls back to localhost
     }
   else
     {
