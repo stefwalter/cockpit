@@ -40,10 +40,14 @@ typedef struct {
   int context;
   int numpmid;
   pmID *pmidlist;
+  pmDesc *pmdescs;
   gchar **metrics;
   gchar **instances;
-  gint64 timestamp;
-  int delta;
+
+  GHashTable *filter;
+
+  /* The previous samples sent */
+  pmResult *last;
 } CockpitPcpMetrics;
 
 typedef struct {
@@ -58,79 +62,261 @@ cockpit_pcp_metrics_init (CockpitPcpMetrics *self)
   self->context = -1;
 }
 
-#if 0
 static gboolean
-parse_options (CockpitChannel *channel,
-               int *context_type,
-               const char **context_name,
-               const gchar ***metrics,
-               int *numpmid,
-               pmID **pmidlist,
-               int *interval,
-               struct timeval *start,
-               struct timeval *end,
-               const gchar ***instances)
+result_meta_equal (pmResult *r1,
+                   pmResult *r2)
 {
+  pmValueSet *vs1;
+  pmValueSet *vs2;
+  int i, j;
 
-  *metrics = 
+  /* PCP guarantees that the result ids are same as requested */
+  for (i = 0; i < r1->numpmid; i++)
+    {
+      vs1 = r1->vset + i;
+      vs2 = r2->vset + i;
+
+      if (vs1->numval != vs2->numval ||
+          vs1->valfmt != vs2->numfmt)
+        return FALSE;
+
+      for (j = 0; j < vs1->numval; j++)
+        {
+          v1 = vs1->vlist + i;
+          v2 = vs2->vlist + i;
+
+          if (v1->inst != v2->inst)
+            return FALSE;
+        }
+    }
+
+  return TRUE;
 }
 
-static gboolean
-on_timeout_fetch (gpointer data)
+static void
+send_json (CockpitPcpMetrics *self,
+           JsonObject *object)
 {
-  CockpitPcpMetrics *self = data;
-  pmResult *result;
+  CockpitChannel *channel = (CockpitChannel *)self;
+  GBytes *bytes;
 
-  /* Always schedule a new wait */
-  self->wait = 0;
+  bytes = cockpit_json_write_bytes (object);
+  cockpit_channel_send (channel, bytes, TRUE);
+  g_bytes_unref (bytes);
+}
+
+static void
+send_meta (CockpitPcpMetrics *self,
+           gint64 timestamp,
+           pmResult *result)
+{
+  JsonObject *metrics;
+  JsonObject *root;
+  pmValueSet *vs;
+
+  root = json_object_new ();
+  json_object_set_int_member (root, "timestamp", timestamp);
+  json_object_set_int_member (root, "interval", self->interval);
+
+  int i;
+
+  xxxx filter is across all metrics xxxx
+      if (self->filter)
+        g_hash_table_remove_all (self->filter);
+
+  instances = json_object_new ();
+  for (i = 0; i < result->numpmid; i++)
+    {
+      vs = result->vset + i;
+
+      /* PCP guarantees that the result is in the same order as requested */
+      name = self->metrics[i];
+
+      /* TODO: Figure out how instanced values with one instance differ
+       * from non-instanced values. Is there a meaningful difference? */
+
+      /* When negative numval is an error code ... we don't care */
+      if (vs->numval <= 0)
+        {
+          json_array_add_null_element (instances);
+        }
+      else
+        {
+          array = json_array_new ();
+
+          for (j = 0; j < ws->numval; j++)
+            {
+              rc = pmNameInDom(xxxx, ws->xaaaa, &instance);
+              if (rc != 0)
+                {
+                  g_warning ("%s: instance name lookup failed: %s", self->name, pmStrErr (rc));
+                  instance = "";
+                }
+
+              json_array_add_string_element (array, instance);
+
+              /* Let the filtering know about the instance id */
+              if (self->filter)
+                {
+                  for (k = 0; self->instances[k] != NULL; k++)
+                    {
+                      if (g_str_equal (self->instances[k], instance))
+                        g_hash_table_add (self->filter, GINT_TO_POINTER (inst));
+                    }
+                }
+              free (instance);
+            }
+          json_array_add_array_element (instances, array);
+        }
+    }
+
+  json_object_set_object_member (root, "instances", instances);
+  send_json_object (self, root);
+  json_object_unref (root);
+}
+
+static void
+send_meta_if_necessary (CockpitPcpMetrics *self,
+                        gint64 timestamp,
+                        pmResult *result)
+{
+  gboolean send_meta = TRUE;
+
+  if (self->last)
+    {
+      /*
+       * If we've already sent the first meta message, then only send
+       * another when the set of instances in the results change.
+       */
+
+      if (result_meta_equal (self->last, result))
+        send_meta = FALSE;
+    }
+
+  if (send_meta)
+    send_meta_message (self, timestamp, result);
+}
+
+static JsonNode *
+build_sample (int valfmt,
+              pmDesc *desc,
+              pmValue *value)
+{
+  pmAtomValue atom;
+  JsonNode *node;
+
+  if (desc->type == PM_TYPE_AGGREGATE || desc->type == PM_TYPE_EVENT)
+    return json_node_new (JSON_NODE_NULL);
+
+  pmExtracValue (valfmt, value, desc->type, &atom, desc->type);
+
+  node = json_node_new (JSON_NODE_VALUE);
+  switch (desc->type) {
+    case PM_TYPE_32:
+      json_node_set_int (node, atom.l);
+      break;
+    case PM_TYPE_U32:
+      json_node_set_int (node, atom.ul);
+      break;
+    case PM_TYPE_64:
+      json_node_set_int (node, atom.ll);
+      break;
+    case PM_TYPE_U64:
+      json_node_set_int (node, atom.ull);
+      break;
+    case PM_TYPE_FLOAT:
+      json_node_set_double (node, atom.f);
+      break;
+    case PM_TYPE_DOUBLE:
+      json_node_set_double (node, atom.d);
+      break;
+    case PM_TYPE_STRING:
+      json_node_set_string (node, atom.cp);
+      break;
+    case PM_TYPE_AGGREGATE:
+    case PM_TYPE_EVENT:
+      g_assert_not_reached ();
+      break;
+  };
+
+  return node;
+}
+
+static JsonArray *
+build_samples (CockpitPcpMetrics *self,
+               pmResult *result)
+{
+  pmValueSet *vs;
+  int i;
+
+  samples = json_array_new ();
+
+  /* TODO: Implement interframe compression, both of nulls and
+   * trailing values. */
+
+  for (i = 0; i < result->numpmid; i++)
+    {
+      vs = result->vset + i;
+
+      /* TODO: Figure out how instanced values with one instance differ
+       * from non-instanced values. Is there a meaningful difference? */
+
+      /* When negative numval is an error code ... we don't care */
+      if (vs->numval <= 0)
+        {
+          json_array_add_null_element (samples);
+        }
+      else if (vs->numval == 1)
+        {
+          /* TODO: This code path should only be taken for non-instanced values */
+          json_array_add_element (samples, build_sample (self, vs->vslist));
+        }
+      else
+        {
+          array = json_array_new ();
+
+          for (j = 0; j < ws->numval; j++)
+            {
+              /* XXXX filter pairs */
+              if (!self->filter || g_hash_table_lookup (self->filter, &pair))
+                json_array_add_element (samples, build_sample (self, vs->vslist + j));
+            }
+
+          json_array_add_array_element (samples, array);
+        }
+    }
+
+  return samples;
+}
+
+static void
+cockpit_pcp_metrics_tick (CockpitMetrics *metrics,
+                          gint64 timestamp)
+{
+  CockpitPcpMetrics *self = (CockpitPcpMetrics *)metrics;
+  pmResult *result;
+  int rc;
 
   if (pumUseContext (self->context) < 0)
-    g_return_val_if_reached (FALSE);
+    g_return_if_reached ();
 
   rc = pmFetch (self->numpmid, self->pmidlist, &result);
   if (rc < 0)
     {
       g_warning ("%s: couldn't fetch metrics: %s", self->name, pmStrErr (rc));
-      return FALSE;
+      cockpit_channel_close (COCKPIT_CHANNEL (self), "internal-error");
+      return;
     }
 
   send_meta_if_necessary (self, result);
+  send_samples (self, result);
 
-  when = from_timeval (&result->timestamp);
-
-  if (self->count == 0)
-    self->epoch = when;
-
-  do
+  if (self->last)
     {
-      send_result_metrics (self, result);
-
-      if (self->last && self->last != result)
-        {
-          pmFreeResult (self->last);
-          self->last = result;
-        }
+      pmFreeResult (self->last);
+      self->last = result;
     }
-  
-    {
-      
-  if ()
-    {
-      
-    }
-  
-
-
-  /* First time we're called? */
-  if (self->epoch == 0)
-    {
-      
-    
-
-
-  return FALSE;
 }
-#endif
 
 static void
 cockpit_pcp_metrics_prepare (CockpitChannel *channel)
@@ -288,8 +474,12 @@ static void
 cockpit_pcp_metrics_class_init (CockpitPcpMetricsClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  CockpitMetricsClass *metrics_class = COCKPIT_METRICS_CLASS (klass);
   CockpitChannelClass *channel_class = COCKPIT_CHANNEL_CLASS (klass);
 
   gobject_class->finalize = cockpit_pcp_metrics_finalize;
+
   channel_class->prepare = cockpit_pcp_metrics_prepare;
+
+  metrics_class->tick = cockpit_pcp_metrics_tick;
 }

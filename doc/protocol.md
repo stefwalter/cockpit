@@ -756,10 +756,10 @@ be combined into one, or sent separately.
 
 {
   /* following samples will contain following metrics and instances, in this order */
-  "metrics": {
-      "the.metric": [ "eth0", "eth1" ],
-      "oooo": null, /* not instanced */
-  },
+  "instances": [
+      [ "eth0", "eth1" ],
+      null, /* not instanced */
+  ],
   /* following data messages start at timestamp, at N interval */
   "timestamp": 2929292929,
   "interval": 1000
@@ -780,6 +780,9 @@ Samples messages look like this:
 ]
 
 XXX: Complete documentation
+
+TODO: Do we care about scaling the return values (eg: convert to kbyte)
+before sending back? PCP has pmConvScale to help with this if we choose to.
 
 Problem codes
 -------------

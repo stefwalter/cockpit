@@ -21,6 +21,10 @@
 
 #include "cockpitmetrics.h"
 
+struct _CockpitMetricsPrivate {
+  guint timeout;
+};
+
 G_DEFINE_ABSTRACT_TYPE (CockpitMetrics, cockpit_metrics, COCKPIT_TYPE_CHANNEL);
 
 static void

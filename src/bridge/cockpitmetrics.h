@@ -38,6 +38,10 @@ typedef struct {
 
 typedef struct {
   CockpitChannelClass parent_class;
+
+  void        (* tick)         (CockpitMetrics *metrics,
+                                gint64 current);
+
 } CockpitMetricsClass;
 
 GType              cockpit_metrics_get_type     (void) G_GNUC_CONST;
