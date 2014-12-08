@@ -787,6 +787,107 @@ function Channel(options) {
 }
 
 /* ----------------------------------------------------------------------------------
+ * Cache Support
+ */
+
+function JsonCache(key, input, output) {
+    var self = this;
+
+    var storage = window.sessionStorage;
+    var constant = false;
+    var claimed = false;
+    var current;
+    var source;
+
+    function callback() {
+        if (output(JSON.parse(current), key) === false)
+            self.close();
+    }
+
+    function change(value, forever) {
+        if (source && !claimed)
+            claimed = true;
+        if (!claimed)
+            return;
+
+        value = JSON.stringify(value);
+
+        /* Event for the local window */
+        var ev = document.createEvent("StorageEvent");
+        ev.initStorageEvent("storage", false, false, key, current,
+                            value, window.location, storage);
+
+        constant = !!forever;
+        storage.setItem(key, value);
+        window.dispatchEvent(ev);
+
+        /* Never need to update again */
+        if (constant)
+            self.close();
+    }
+
+    function claim() {
+        if (!source)
+            source = input(change, key);
+    }
+
+    function changed(event) {
+        if (event.key !== key || current === event.newValue)
+            return;
+
+        /* The one responsible for updating went away */
+        if (!event.newValue) {
+            claim();
+            return;
+        }
+
+        if (source && !claimed) {
+            if (source && source.close)
+                source.close();
+            source = null;
+        }
+
+        current = event.newValue;
+        callback();
+    }
+
+    self.close = function() {
+        window.removeEventListener("storage", changed, true);
+
+        if (source && source.close)
+            source.close();
+        source = null;
+
+        if (claimed && !constant) {
+            var ev = document.createEvent("StorageEvent");
+            ev.initStorageEvent("storage", false, false, key, current,
+                                null, window.location, storage);
+
+            storage.removeItem(key);
+            window.dispatchEvent(ev);
+        }
+
+        claimed = false;
+    };
+
+    window.addEventListener("storage", changed, true);
+
+    /* Always clear this data on unload */
+    window.addEventListener("beforeunload", function() {
+        self.close();
+    });
+    window.addEventListener("unload", function() {
+        self.close();
+    });
+
+    current = storage.getItem(key);
+    if (current)
+        callback();
+    else
+        claim();
+}
+
+/* ----------------------------------------------------------------------------------
  * Package Lookup
  */
 
@@ -827,23 +928,37 @@ function build_packages(packages) {
 }
 
 function package_table(host, callback) {
+    var cache;
+
     if (!host)
         host = default_host;
-    var table = host_packages[host];
-    if (table) {
-        callback(table, null);
-        return;
+
+    function input(cacher) {
+        var channel = new Channel({ "host": host, "payload": "resource2" });
+        channel.onclose = function(event, options) {
+            channel.onclose = null;
+            if (options.problem) {
+                package_debug("package listing failed: " + options.problem);
+                cacher(options.problem, false);
+            } else {
+                cacher(build_packages(options.packages || []), true);
+            }
+        };
+        return channel;
     }
-    var channel = new Channel({ "host": host, "payload": "resource2" });
-    channel.onclose = function(event, options) {
-        if (options.problem) {
-            package_debug("package listing failed: " + options.problem);
-            callback(null, options.problem);
-        } else {
-            host_packages[host] = table = build_packages(options.packages || []);
-            callback(table, null);
+
+    function output(value) {
+        if (callback) {
+            if (typeof value === "string")
+                callback(null, value);
+            else
+                callback(value, null);
         }
-    };
+        return false;
+    }
+
+    /* Don't close(), so the data stays around */
+    new JsonCache("packages1:" + host, input, output);
 }
 
 function package_info(name, callback) {
@@ -881,6 +996,10 @@ function resolve_path_dots(parts) {
 function basic_scope(cockpit) {
     cockpit.channel = function channel(options) {
         return new Channel(options);
+    };
+
+    cockpit.cache = function cache(key, input, output) {
+        return new JsonCache(key, input, output);
     };
 
     function Utf8TextEncoder(constructor) {
