@@ -3,6 +3,7 @@ dockerdir = $(pkgdatadir)/docker
 docker_DATA = \
 	pkg/docker/docker.js \
 	pkg/docker/docker.min.js \
+	pkg/docker/mustache.js \
 	pkg/docker/console.html \
 	pkg/docker/console.min.html \
 	pkg/docker/manifest.json \
