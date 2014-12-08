@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title translatable="yes">Docker Containers</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="../@@latest@@/cockpit.css" type="text/css" rel="stylesheet">
+<style>
+.container-col-name {
+    width: 20%;
+}
+
+.container-col-image {
+    width: 20%;
+}
+
+.container-col-command {
+    width: 15%;
+}
+
+.container-col-cpu {
+    width: 10%;
+    text-align: right;
+}
+
+.container-col-memory-graph {
+    width: 15%;
+}
+
+.container-col-memory-text {
+    width: 10%;
+}
+
+#containers .cell-buttons,
+#containers .table > tbody > tr > .cell-buttons {
+    width: auto;
+}
+
+#containers .cell-buttons button,
+#containers .table > tbody > tr > .cell-buttons button {
+    position: absolute;
+    right: 30px;
+}
+
+#containers-images  {
+    margin-top: 19px;
+}
+
+#containers-search-image-dialog .modal-body {
+    height: 340px;
+}
+
+#containers-search-image-results {
+    height: 300px;
+    overflow-y: scroll;
+    border: 1px solid #BABABA;
+    margin-top: 10px;
+}
+
+#containers-search-image-results tr.active td {
+    background-color: #f5f9fc;
+}
+
+#containers-search-image-search {
+    background: url("images/search-icon.png") no-repeat 3px;
+    padding-left: 20px;
+}
+
+#containers-search-image-waiting.waiting {
+    margin: auto;
+    margin-top: 150px;
+}
+
+#containers-search-image-no-results {
+    margin: auto;
+    margin-top: 100px;
+    text-align: center;
+}
+
+#containers-search-tag {
+    width: 200px;
+    float: left;
+}
+
+#containers #containers-containers .table,
+#containers #containers-images .table {
+    table-layout: fixed;
+}
+
+#containers #containers-containers .table th,
+#containers #containers-containers .table td,
+#containers #containers-images .table th,
+#containers #containers-images .table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.image-col-tags {
+    width: 40%;
+}
+
+.image-col-created {
+    width: 30%;
+}
+
+.image-col-size-text {
+    width: 15%;
+}
+
+/* Hack to remove size column */
+.image-col-size-graph {
+    display: none !important;
+}
+</style>
+
+<script src="../@@latest@@/cockpit.js"></script>
+<script>
+require([
+    "jquery",
+    "latest/cockpit",
+    "docker/docker",
+    "docker/mustache"
+], function($, cockpit, docker, Mustache) {
+    var client = new docker.DockerContainers();
+
+    function quote_cmdline(parts) {
+        /* TODO: Needs fix */
+        return parts.join(" ");
+    }
+
+    function container_renderer(client) {
+        var strip_slash = /^\//;
+
+        var context = {
+            render_names: function() {
+                var names = this.Names || [];
+                return names.map(function(v) {
+                    return v.replace(strip_slash, '');
+                }).join(", ");
+            },
+            render_container_cmdline: function() {
+                if (this.Config)
+                    return quote_cmdline((this.Config.Entrypoint || []).concat(this.Config.Cmd || []));
+                else
+                    return this.Command;
+            }
+        };
+
+        var template = $('#container-template').html();
+        Mustache.parse(template);
+
+        var div = $("#containers-table")[0];
+
+        function render() {
+            context["containers"] = client.containers;
+            var text = Mustache.render(template, context);
+            var input = document.createElement("div");
+            input.innerHTML = text;
+            docker.sync_html(div, input);
+        }
+
+        return render;
+    }
+
+    var renderer = container_renderer(client);
+    $(client).on("changed", renderer);
+    renderer();
+
+    $("body").show();
+});
+</script>
+
+</head>
+<body hidden>
+
+  <!-- Main page layout -->
+  <div id="containers" class="container-fluid">
+    <div class="col-md-12 col-lg-8">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <span style="float:right"></span>
+          <span translatable="yes">Containers</span>
+        </div>
+        <div id="containers-table">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Containers table template -->
+  <script id="container-template" type="x-tmpl-mustache">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th class="container-col-name">Name</th>
+          <th class="container-col-image">Image</th>
+          <th class="container-col-command">Command</th>
+          <th class="container-col-cpu">CPU</th>
+          <th class="container-col-memory-graph">Memory</th>
+          <th class="container-col-memory-text"></th>
+          <th class="cell-buttons"></th>
+        </tr>
+      </thead>
+      <tbody>
+      {{#containers}}
+        <tr {{#State.Running}}class="unimportant"{{/State.Running}} id="{{Id}}">
+          <td class="container-col-name">{{render_names}}</td>
+          <td class="container-col-image">{{Image}}</td>
+          <td class="container-col-command">{{render_container_cmdline}}</td>
+          <td class="container-col-cpu">TODO {{format_cpu_usage}}</td>
+          <td class="container-col-memory-graph">
+            <div value="" graph="containers-containers" class="bar-row"></div>
+          </td>
+          {{#State.Running}}
+            <td>TODO</td>
+          {{/State.Running}}
+          {{^State.Running}}
+            <td style="color: grey; text-align: right;" class="container-col-memory-text">Stopped</td>
+          {{/State.Running}}
+          <td class="cell-buttons">
+             <button style="display: inline-block;" class="btn btn-default btn-control btn-play"></button>
+             <button style="display: none;" class="btn btn-default btn-control btn-stop"></button>
+             <div style="display: none;" class="waiting"></div>
+          </td>
+        </tr>
+      {{/containers}}
+      </tbody>
+    </table>
+  </script>
+
+</body>
+</html>

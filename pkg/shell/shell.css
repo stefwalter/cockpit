@@ -339,6 +339,7 @@ ul.available-interfaces-group {
     cursor: pointer;
 }
 
+/* Moved to docker component */
 .container-col-name {
     width: 20%;
 }
@@ -486,6 +487,7 @@ ul.available-interfaces-group {
 }
 
 /* Align with the top of the graphs */
+/* TODO: Move to docker component */
 
 #containers-images  {
     margin-top: 19px;

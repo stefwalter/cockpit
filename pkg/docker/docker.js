@@ -31,6 +31,283 @@ define([
             console.debug.apply(console, arguments);
     }
 
+    function docker_http(host) {
+        return cockpit.http("/var/run/docker.sock", { host: host });
+    }
+
+    /* This could move somewhere else when it's useful there */
+    function sync_html(output, input) {
+        var na, nb, a, b, i;
+        var attrs, attr, seen;
+
+        if (output.nodeType != input.nodeType ||
+            (output.nodeType != 1 && output.nodeType != 3)) {
+            output.parentNode.replaceChild(input.parentNode.removeChild(input));
+
+        } else if (output.nodeType == 3) {
+            if (output.nodeValue != input.nodeValue)
+                output.nodeValue = input.nodeValue;
+
+        } else if (output.nodeType == 1) {
+            /* Sync attributes */
+            seen = { };
+            attrs = output.attributes;
+            for (i = attrs.length - 1; i >= 0; i--)
+                seen[attrs[i].name] = attrs[i].value;
+            for (i = input.attributes.length - 1; i >= 0; i--) {
+                attr = input.attributes[i];
+                if (seen[attr.name] !== attr.value)
+                    output.setAttribute(attr.name, attr.value);
+                delete seen[attr.name];
+            }
+            for (i in seen)
+                output.removeAttribute(i);
+
+            /* Sync children */
+            na = output.firstChild;
+            nb = input.firstChild;
+            for(;;) {
+                a = na;
+                b = nb;
+                while (a && a.nodeType != 1 && a.nodeType != 3)
+                    a = a.nextSibling;
+                while (b && b.nodeType != 1 && b.nodeType != 3)
+                    b = b.nextSibling;
+                if (!a && !b) {
+                    break;
+                } else if (!a) {
+                    na = null;
+                    nb = b.nextSibling;
+                    output.appendChild(input.removeChild(b));
+                } else if (!b) {
+                    na = a.nextSibling;
+                    nb = null;
+                    output.removeChild(a);
+                } else {
+                    na = a.nextSibling;
+                    nb = b.nextSibling;
+                    sync_html(a, b);
+                }
+            }
+        }
+    }
+
+    /* TODO: This should go elsewhere */
+    docker.sync_html = sync_html;
+
+    function DockerEvents(host) {
+        var self = this;
+
+        var events;
+        var monitor;
+        var alive = true;
+        var started = 0;
+
+        var later;
+        function trigger() {
+            if (!later) {
+                later = window.setTimeout(function() {
+                    later = null;
+                    $(self).trigger("event");
+                }, 300);
+            }
+        }
+
+        function connect() {
+            events = docker_http(host).get("/v1.14/events");
+            events.stream(function(resp) {
+                alive = true;
+                docker_debug("event:", resp);
+                trigger();
+            }).
+
+            /* Reconnect to /events when it disconnects/fails */
+            always(function() {
+                window.setTimeout(function() {
+                    if (alive && events) {
+                        connect();
+                        alive = false;
+                    }
+                }, 1000);
+            });
+        }
+
+        self.start = function() {
+            started += 1;
+
+            if (started === 1) {
+                alive = true;
+                monitor = cockpit.channel({ payload: "fsdir1", path: "/var/lib/docker", host: host });
+                $(monitor).on("message", trigger);
+                $(monitor).on("close", function(event, options) {
+                    if (options.problem)
+                        console.warn("monitor for docker directory failed: " + options.problem);
+                });
+
+                connect();
+            }
+        };
+
+        self.stop = function() {
+            started -= 1;
+            if (started <= 0) {
+                alive = false;
+                started = 0;
+                if (events)
+                    events.close();
+                events = null;
+                if (monitor)
+                    monitor.close();
+                monitor = null;
+            }
+        };
+    }
+
+    function container_generator(host, events, callback) {
+        var containers = { };
+
+        var http = docker_http(host);
+        var containers_meta = { };
+        var containers_by_name = { };
+
+        function container_to_name(container) {
+            if (!container.Name)
+                return null;
+            var name = container.Name;
+            if (name[0] === '/')
+                name = name.substring(1);
+            return name;
+        }
+
+        function populate_container(id, container) {
+            if (container.State === undefined)
+                container.State = { };
+            if (container.Config === undefined)
+                container.Config = { };
+            $.extend(container, containers_meta[id]);
+            var name = container_to_name(container);
+            if (name)
+               containers_by_name[name] = id;
+        }
+
+        function remove_container(id) {
+            var container = containers[id];
+            if (container) {
+                var name = container_to_name(container);
+                if (name && containers_by_name[name] == id)
+                    delete containers_by_name[name];
+                delete containers[id];
+            }
+        }
+
+        function fetch_containers() {
+            http.get("/v1.14/containers/json", { all: 1 })
+                .done(function(data) {
+                    var containers = JSON.parse(data);
+
+                    /*
+                     * The output we get from /containers/json is mostly useless
+                     * conflicting with the information that we get about specific
+                     * containers. So just use it to get a list of containers.
+                     */
+
+                    var seen = {};
+                    $(containers).each(function(i, item) {
+                        var id = item.Id;
+                        if (!id)
+                            return;
+
+                        seen[id] = id;
+                        containers_meta[id] = item;
+                        http.get("/v1.14/containers/" + encodeURIComponent(id) + "/json")
+                            .done(function(data) {
+                                var container = JSON.parse(data);
+                                populate_container(id, container);
+                                containers[id] = container;
+                                callback(containers, false);
+                            });
+                    });
+
+                    var removed = [];
+                    $.each(containers, function(id) {
+                        if (!seen[id])
+                            removed.push(id);
+                    });
+
+                    $.each(removed, function(i, id) {
+                        remove_container(id);
+                    });
+
+                    callback(containers);
+                })
+                .fail(function(ex) {
+                    console.warn("couldn't load docker container info: " + ex.message);
+                    callback(containers, false);
+                });
+        }
+
+console.log(events);
+        events.start();
+        fetch_containers();
+        $(events).on("event", fetch_containers);
+
+        return {
+            close: function() {
+                $(events).off("event", fetch_containers);
+                events.stop();
+            }
+        };
+    }
+
+    function DockerContainers(host, events) {
+        var self = this;
+
+        self.containers = { };
+
+        if (!events)
+            events = new DockerEvents(host);
+
+        function updated(value) {
+            self.containers = value;
+            $(self).trigger("changed");
+        }
+
+        /* TODO: Host name needs consideration */
+        var cache = cockpit.cache("docker/v1/containers", function(callback) {
+            return container_generator(host, events, callback);
+        }, updated);
+
+        self.close = function() {
+            cache.close();
+        };
+    }
+
+    docker.DockerContainers = DockerContainers;
+
+/*
+    function DockerImages(host, events) {
+        var self = this;
+
+        self.images = { };
+
+        if (!events)
+            events = new DockerEvents(host);
+
+        function update(value) {
+            self.images = value;
+            $(self).trigger("changed");
+        }
+
+        var cache = cockpit.cache("docker/v1/images", function(callback) {
+            return image_generator(host, events, callback);
+        }, update);
+
+        self.close = function() {
+            cache.close();
+        };
+    }
+*/
+
     function DockerTerminal(parent, channel) {
         var self = this;
 

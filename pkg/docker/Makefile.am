@@ -6,6 +6,8 @@ docker_DATA = \
 	pkg/docker/mustache.js \
 	pkg/docker/console.html \
 	pkg/docker/console.min.html \
+	pkg/docker/manager.html \
+	pkg/docker/manager.min.html \
 	pkg/docker/manifest.json \
 	$(NULL)
 
