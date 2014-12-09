@@ -37,7 +37,7 @@ def wait_for_port (addr, port):
 def inject_extras(browser):
     browser.eval_js("""
     dashboard_addresses = function () {
-       var addresses = $('#dashboard-hosts .list-group-item').map(function(i,e) { return $(e).data("address"); }).get();
+       var addresses = $('#dashboard-hosts .list-group-item').map(function(i,e) { return $(e).attr("data-address"); }).get();
        addresses.sort(function (a1, a2) { return shell.hosts[a1].compare(shell.hosts[a2]); });
        return addresses;
     }

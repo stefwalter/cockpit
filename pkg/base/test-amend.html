@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<!--
+  This file is part of Cockpit.
+
+  Copyright (C) 2014 Red Hat, Inc.
+
+  Cockpit is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  Cockpit is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
+-->
+<html>
+<head>
+  <title>HTML Amend Tests</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../../lib/qunit-1.14.0.css" type="text/css" media="screen" />
+  <script type="text/javascript" src="../../lib/jquery.v2.1.0.js"></script>
+  <script type="text/javascript" src="../../lib/qunit-1.14.0.js"></script>
+  <script type="text/javascript" src="../../lib/qunit-tap.js"></script>
+  <script type="text/javascript" src="../../tools/qunit-config.js"></script>
+
+  <script type="text/javascript" src="jquery-amend.js"></script>
+</head>
+<body>
+  <h1 id="qunit-header">HTML Amend Tests</h1>
+  <h2 id="qunit-banner"></h2><div id="qunit-testrunner-toolbar"></div>
+  <h2 id="qunit-userAgent"></h2><ol id="qunit-tests"></ol>
+  <div id="qunit-fixture">test markup, will be hidden</div>
+  <div id="done-flag" style="display:none">Done</div>
+</body>
+<script type="text/javascript">
+
+test("amend basic", function() {
+    expect (2);
+
+    var $div = $("<div><span>Hello</span><span>World</span></div>");
+    var div = $div[0];
+    var first_child = div.firstChild;
+
+    $div.amend("<span>Good bye</span><span>World</span>");
+    equal (div.outerHTML, "<div><span>Good bye</span><span>World</span></div>")
+    strictEqual (div.firstChild, first_child, "first child is the same");
+});
+
+test("amend append", function() {
+    expect (2);
+
+    var $div = $("<div><span>Hello</span></div>");
+    var div = $div[0];
+    var first_child = div.firstChild;
+
+    $div.amend("<span>Hello</span><span>World</span>");
+    equal (div.outerHTML, "<div><span>Hello</span><span>World</span></div>")
+    strictEqual (div.firstChild, first_child, "first child is the same");
+});
+
+test("amend remove", function() {
+    expect (2);
+
+    var $div = $("<div><span>A</span><span>B</span><span>C</span></div>");
+    var div = $div[0];
+    var first_child = div.firstChild;
+
+    $div.amend("<span>A</span><span>C</span>");
+    equal (div.outerHTML, "<div><span>A</span><span>C</span></div>")
+    strictEqual (div.firstChild, first_child, "first child is the same");
+});
+
+test("amend attributes", function() {
+    expect (3);
+
+    var $div = $('<div><span>A</span><span data-foo="bar">B</span></div>');
+    var div = $div[0];
+    var first_child = div.firstChild;
+    var second_child = div.firstChild.nextSibling;
+
+    $div.amend('<span data-foo="bar">A</span><span>B</span>');
+    equal (div.outerHTML, '<div><span data-foo="bar">A</span><span>B</span></div>')
+    strictEqual (div.firstChild, first_child, "first child is the same");
+    strictEqual (div.firstChild.nextSibling, second_child, "second child is the same");
+});
+
+QUnit.start();
+
+</script>
+</html>
