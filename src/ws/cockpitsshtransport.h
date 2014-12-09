@@ -43,6 +43,9 @@ const gchar *       cockpit_ssh_transport_get_host_key          (CockpitSshTrans
 
 const gchar *       cockpit_ssh_transport_get_host_fingerprint  (CockpitSshTransport *self);
 
+const gchar *       cockpit_ssh_transport_precheck_host         (const gchar *known_hosts,
+                                                                 const gchar *host);
+
 G_END_DECLS
 
 #endif /* __COCKPIT_SSH_TRANSPORT_H__ */
