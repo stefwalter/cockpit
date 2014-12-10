@@ -159,6 +159,7 @@ code, kbd, pre, samp {
     border-right: 1px solid #ddd;
     border-bottom: 1px transparent none;
     padding: 10px;
+    font-family: Menlo, Monaco, Consolas, monospace;
 }
 
 .cockpit-logident {
@@ -242,6 +243,7 @@ code, kbd, pre, samp {
 .cockpit-log-panel .panel-body {
     padding: 0;
     border-bottom: 1px #ddd solid;
+    font-family: Menlo, Monaco, Consolas, monospace;
 }
 
 .cockpit-log-panel .cockpit-loghead {
