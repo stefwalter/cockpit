@@ -1,0 +1,10 @@
+#!/bin/sh -e
+
+cd /sys/devices/virtual/dmi/id
+
+read_file 
+bios_vendor=$(tr -d '\n"' bios_vendor)
+bios_version=$(tr -d '\n"'
+
+
+echo "$(
