@@ -41,8 +41,10 @@
    of the user that is logged into the Server Console.
 */
 
+static CockpitPipe *iopipe;
 static GHashTable *channels;
 static gboolean init_received;
+static gboolean eof_received;
 
 static void
 on_channel_closed (CockpitChannel *channel,
@@ -50,6 +52,13 @@ on_channel_closed (CockpitChannel *channel,
                    gpointer user_data)
 {
   g_hash_table_remove (channels, cockpit_channel_get_id (channel));
+
+  if (eof_received)
+    {
+g_printerr ("%d channels closed\n", (int)g_hash_table_size(channels));
+      if (g_hash_table_size (channels) == 0)
+        cockpit_pipe_eof (iopipe);
+    }
 }
 
 static void
@@ -99,36 +108,16 @@ process_open (CockpitTransport *transport,
 }
 
 static void
-process_close (CockpitTransport *transport,
-               const gchar *channel_id,
-               JsonObject *options)
+process_eof (CockpitTransport *transport,
+             const gchar *channel_id)
 {
-  CockpitChannel *channel;
-  const gchar *problem;
-
-  /*
-   * The channel may no longer exist due to a race of the bridge closing
-   * a channel and the web closing it at the same time.
-   */
-
+  /* Entire transport will have no more input? */
   if (!channel_id)
     {
-      g_warning ("Caller tried to close channel without an id");
-      cockpit_transport_close (transport, "protocol-error");
-      return;
-    }
-
-  channel = g_hash_table_lookup (channels, channel_id);
-  if (channel)
-    {
-      g_debug ("close channel %s", channel_id);
-      if (!cockpit_json_get_string (options, "problem", NULL, &problem))
-        problem = NULL;
-      cockpit_channel_close (channel, problem);
-    }
-  else
-    {
-      g_debug ("already closed channel %s", channel_id);
+g_printerr ("got global eof %d\n", (gint)g_hash_table_size (channels));
+      eof_received = TRUE;
+      if (g_hash_table_size (channels) == 0)
+        cockpit_pipe_eof (iopipe);
     }
 }
 
@@ -154,12 +143,19 @@ on_transport_control (CockpitTransport *transport,
     }
 
   if (g_str_equal (command, "open"))
-    process_open (transport, channel_id, options);
-  else if (g_str_equal (command, "close"))
-    process_close (transport, channel_id, options);
+    {
+      process_open (transport, channel_id, options);
+      return TRUE;
+    }
+  else if (g_str_equal (command, "eof"))
+    {
+      process_eof (transport, channel_id);
+      return FALSE;
+    }
   else
-    return FALSE;
-  return TRUE; /* handled */
+    {
+      return FALSE;
+    }
 }
 
 static void
@@ -168,6 +164,7 @@ on_closed_set_flag (CockpitTransport *transport,
                     gpointer user_data)
 {
   gboolean *flag = user_data;
+g_printerr ("closed, set flag\n");
   *flag = TRUE;
 }
 
@@ -304,17 +301,17 @@ on_signal_done (gpointer data)
 }
 
 static int
-run_bridge (void)
+run_bridge (const gchar *interactive)
 {
   CockpitTransport *transport;
-  GDBusConnection *connection;
+  GDBusConnection *connection = NULL;
   gboolean terminated = FALSE;
   gboolean interupted = FALSE;
   gboolean closed = FALSE;
   CockpitSuperChannels *super = NULL;
   GError *error = NULL;
   gpointer polkit_agent = NULL;
-  GPid daemon_pid;
+  GPid daemon_pid = 0;
   guint sig_term;
   guint sig_int;
   int outfd;
@@ -337,27 +334,37 @@ run_bridge (void)
   sig_term = g_unix_signal_add (SIGTERM, on_signal_done, &terminated);
   sig_int = g_unix_signal_add (SIGINT, on_signal_done, &interupted);
 
-  /* Start a session daemon if necessary */
-  daemon_pid = start_dbus_daemon ();
-
   g_type_init ();
 
-  connection = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, &error);
-  if (connection == NULL)
+  /* Start a session daemon if necessary */
+  if (!interactive)
     {
-      g_message ("couldn't connect to session bus: %s", error->message);
-      g_clear_error (&error);
-    }
-  else
-    {
-      g_dbus_connection_set_exit_on_close (connection, FALSE);
+      daemon_pid = start_dbus_daemon ();
+
+      connection = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, &error);
+      if (connection == NULL)
+        {
+          g_message ("couldn't connect to session bus: %s", error->message);
+          g_clear_error (&error);
+        }
+      else
+        {
+          g_dbus_connection_set_exit_on_close (connection, FALSE);
+        }
     }
 
-  transport = cockpit_pipe_transport_new_fds ("stdio", 0, outfd);
+  iopipe = cockpit_pipe_new ("stdio", 0, outfd);
+  transport = cockpit_pipe_transport_new (iopipe);
+  if (interactive)
+    {
+      cockpit_pipe_transport_set_interactive (COCKPIT_PIPE_TRANSPORT (transport),
+                                              isatty (outfd), interactive);
+    }
 
   if (geteuid () != 0)
     {
-      polkit_agent = cockpit_polkit_agent_register (transport, NULL);
+      if (!interactive)
+        polkit_agent = cockpit_polkit_agent_register (transport, NULL);
       super = cockpit_super_channels_new (transport);
     }
 
@@ -368,7 +375,7 @@ run_bridge (void)
   /* Owns the channels */
   channels = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
 
-  while (!terminated && !closed)
+  while (!terminated && !closed && !interupted)
     g_main_context_iteration (NULL, TRUE);
 
   if (polkit_agent)
@@ -378,6 +385,8 @@ run_bridge (void)
   if (connection)
     g_object_unref (connection);
   g_object_unref (transport);
+  g_object_unref (iopipe);
+  iopipe = NULL;
   g_hash_table_destroy (channels);
 
   if (daemon_pid)
@@ -399,10 +408,14 @@ main (int argc,
 {
   GOptionContext *context;
   GError *error = NULL;
+  int ret;
 
   static gboolean opt_packages = FALSE;
+  static gchar *opt_interactive = NULL;
+
   static GOptionEntry entries[] = {
     { "packages", 0, 0, G_OPTION_ARG_NONE, &opt_packages, "Show Cockpit package information", NULL },
+    { "interactive", 'i', 0, G_OPTION_ARG_STRING, &opt_interactive, "Interact with the raw protocol", NULL },
     { NULL }
   };
 
@@ -442,11 +455,14 @@ main (int argc,
       return 0;
     }
 
-  if (isatty (1))
+  if (!opt_interactive && isatty (1))
     {
       g_printerr ("cockpit-bridge: no option specified\n");
       return 2;
     }
 
-  return run_bridge ();
+  ret = run_bridge (opt_interactive);
+
+  g_free (opt_interactive);
+  return ret;
 }

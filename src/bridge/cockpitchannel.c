@@ -218,19 +218,28 @@ on_transport_control (CockpitTransport *transport,
 {
   CockpitChannel *self = user_data;
   CockpitChannelClass *klass;
+  const gchar *problem;
 
-  if (g_strcmp0 (channel_id, self->priv->id) != 0)
+  if (channel_id && !g_str_equal (channel_id, self->priv->id))
     return FALSE;
 
   klass = COCKPIT_CHANNEL_GET_CLASS (self);
-  if (g_str_equal (command, "options"))
+  if (channel_id && g_str_equal (command, "options"))
     {
       if (klass->options)
         (klass->options) (self, options);
       return TRUE;
     }
+  else if (g_str_equal (command, "close"))
+    {
+      g_debug ("close channel %s", self->priv->id);
+      if (!cockpit_json_get_string (options, "problem", NULL, &problem))
+        problem = NULL;
+      cockpit_channel_close (self, problem);
+    }
   else if (g_str_equal (command, "eof"))
     {
+g_message ("channel %s got eof\n", channel_id);
       if (self->priv->received_eof)
         {
           g_warning ("%s: channel received second eof", self->priv->id);
@@ -241,8 +250,8 @@ on_transport_control (CockpitTransport *transport,
           self->priv->received_eof = TRUE;
           if (self->priv->ready)
             {
-              if (klass->eof)
-                (klass->eof) (self);
+              g_assert (klass->eof);
+              (klass->eof) (self);
             }
         }
       return TRUE;
@@ -408,6 +417,12 @@ cockpit_channel_finalize (GObject *object)
 }
 
 static void
+cockpit_channel_real_eof (CockpitChannel *self)
+{
+  cockpit_channel_close (self, NULL);
+}
+
+static void
 cockpit_channel_real_close (CockpitChannel *self,
                             const gchar *problem)
 {
@@ -461,6 +476,7 @@ cockpit_channel_class_init (CockpitChannelClass *klass)
   gobject_class->finalize = cockpit_channel_finalize;
 
   klass->prepare = cockpit_channel_real_prepare;
+  klass->eof = cockpit_channel_real_eof;
   klass->close = cockpit_channel_real_close;
 
   /**
@@ -694,8 +710,8 @@ cockpit_channel_ready (CockpitChannel *self)
   /* No more data coming? */
   if (self->priv->received_eof)
     {
-      if (klass->eof)
-        (klass->eof) (self);
+      g_assert (klass->eof);
+      (klass->eof) (self);
     }
 
   g_object_unref (self);

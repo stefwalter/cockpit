@@ -100,6 +100,10 @@ GSocketAddress *    cockpit_channel_parse_address     (CockpitChannel *self,
 
 void                cockpit_channel_internal_address  (const gchar *name,
                                                        GSocketAddress *address);
+
+void                cockpit_channel_set_outstanding   (CockpitChannel *self,
+                                                       gboolean outstanding);
+
 G_END_DECLS
 
 #endif /* __COCKPIT_CHANNEL_H__ */

@@ -46,6 +46,10 @@ CockpitTransport * cockpit_pipe_transport_new_fds    (const gchar *name,
 
 CockpitPipe *      cockpit_pipe_transport_get_pipe   (CockpitPipeTransport *self);
 
+void               cockpit_pipe_transport_set_interactive (CockpitPipeTransport *self,
+                                                           gboolean colored,
+                                                           const gchar *boundary);
+
 G_END_DECLS
 
 #endif /* __COCKPIT_PIPE_TRANSPORT_H__ */

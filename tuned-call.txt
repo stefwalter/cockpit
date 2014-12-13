@@ -1,0 +1,18 @@
+
+{ "command": "init", "version": 0 }
+----
+
+{
+  "command": "open",
+  "channel": "mychannel",
+  "payload": "dbus-json3",
+  "name": "com.redhat.tuned"
+}
+----
+mychannel
+{
+  "call": [ "/Tuned", "com.redhat.tuned.control", "switch_profile", [ "powersave" ] ],
+  "id": "mycall"
+}
+----
+

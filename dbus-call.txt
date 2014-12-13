@@ -1,0 +1,10 @@
+
+{ "command": "init", "version": 0 }
+----
+
+{ "command": "open", "channel": "test", "payload": "dbus-json3", "name": "org.freedesktop.timedate1" }
+----
+test
+{ "call": [ "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "SetNTP", [ true, true ] ], "id": "cookie" }
+----
+

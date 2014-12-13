@@ -79,6 +79,8 @@ CockpitPipe *      cockpit_pipe_connect      (const gchar *name,
 void               cockpit_pipe_write        (CockpitPipe *self,
                                               GBytes *data);
 
+void               cockpit_pipe_eof          (CockpitPipe *self);
+
 void               cockpit_pipe_close        (CockpitPipe *self,
                                               const gchar *problem);
 

@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include "cockpitbridgetransport.h"
 #include "cockpitpipetransport.h"
 
 #include "cockpitpipe.h"
@@ -78,7 +79,6 @@ on_pipe_read (CockpitPipe *pipe,
               gpointer user_data)
 {
   CockpitPipeTransport *self = COCKPIT_PIPE_TRANSPORT (user_data);
-  const gchar *str;
   GBytes *message;
   GBytes *payload;
   gchar *channel;
@@ -143,7 +143,6 @@ on_pipe_read (CockpitPipe *pipe,
         }
 
       /* Simulate an EOF for channels etc. */
-g_printerr ("simulating eof\n");
       str = "{ \"command\": \"eof\" }";
       payload = g_bytes_new_static (str, strlen (str));
       cockpit_transport_emit_recv ((CockpitTransport *)self, NULL, payload);

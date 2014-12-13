@@ -55,6 +55,7 @@ cockpit_echo_channel_eof (CockpitChannel *channel)
 {
   g_debug ("received echo channel eof");
   cockpit_channel_eof (channel);
+  cockpit_channel_close (channel, NULL);
 }
 
 static void

@@ -44,6 +44,7 @@ typedef struct {
   CockpitChannel parent;
   GDBusConnection *connection;
   gboolean subscribed;
+  gboolean complete;
   guint subscribe_id;
   guint ping_id;
 
@@ -1085,8 +1086,16 @@ calculate_param_type (GDBusInterfaceInfo *info,
 static void
 call_data_free (CallData *call)
 {
-  if (call->dbus_json)
-    call->dbus_json->active_calls = g_list_delete_link (call->dbus_json->active_calls, call->link);
+  CockpitDBusJson *self = call->dbus_json;
+  if (self)
+    {
+      self->active_calls = g_list_delete_link (self->active_calls, call->link);
+      if (self->complete && !self->active_calls)
+        {
+g_printerr ("closing after call\n");
+        cockpit_channel_close (COCKPIT_CHANNEL (self), NULL);
+      }
+    }
   if (call->request)
     json_object_unref (call->request);
   if (call->param_type)
@@ -1730,6 +1739,19 @@ cockpit_dbus_json_recv (CockpitChannel *channel,
 }
 
 static void
+cockpit_dbus_json_eof (CockpitChannel *channel)
+{
+  CockpitDBusJson *self = COCKPIT_DBUS_JSON (channel);
+g_printerr ("dbus json eof\n");
+  self->complete = TRUE;
+  if (!self->active_calls)
+    {
+g_printerr ("dbus json closing during eof\n");
+    cockpit_channel_close (channel, NULL);
+  }
+}
+
+static void
 on_signal_message (GDBusConnection *connection,
                    const gchar *sender,
                    const gchar *path,
@@ -2041,6 +2063,7 @@ cockpit_dbus_json_class_init (CockpitDBusJsonClass *klass)
 
   channel_class->prepare = cockpit_dbus_json_prepare;
   channel_class->recv = cockpit_dbus_json_recv;
+  channel_class->eof = cockpit_dbus_json_eof;
   channel_class->closed = cockpit_dbus_json_closed;
 }
 

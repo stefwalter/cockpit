@@ -76,6 +76,7 @@ struct _CockpitPipePrivate {
   GSource *in_source;
   GQueue *out_queue;
   gsize out_partial;
+  gboolean out_complete;
 
   int in_fd;
   GSource *out_source;
@@ -179,7 +180,7 @@ close_maybe (CockpitPipe *self)
 {
   if (!self->priv->closed)
     {
-      if (!self->priv->in_source && !self->priv->out_source)
+      if (!self->priv->in_source && self->priv->out_complete)
         {
           g_debug ("%s: input and output done", self->priv->name);
           close_immediately (self, NULL);
@@ -756,6 +757,7 @@ cockpit_pipe_write (CockpitPipe *self,
 {
   g_return_if_fail (COCKPIT_IS_PIPE (self));
   g_return_if_fail (!self->priv->closing);
+  g_return_if_fail (!self->priv->out_complete);
 
   /* If self->priv->io is already gone but we are still waiting for the
      child to exit, then we haven't emitted the "close" signal yet
@@ -790,17 +792,30 @@ cockpit_pipe_write (CockpitPipe *self,
 }
 
 /**
+ * cockpit_pipe_eof:
+ * @self: the pipe
+ *
+ * Tells the pipe that no more data will be written. The pipe
+ * will close when all data is written, and no more input is
+ * available.
+ */
+void
+cockpit_pipe_eof (CockpitPipe *self)
+{
+  g_return_if_fail (COCKPIT_IS_PIPE (self));
+  g_return_if_fail (!self->priv->out_complete);
+  self->priv->out_complete = TRUE;
+  close_maybe (self);
+}
+
+/**
  * cockpit_pipe_close:
  * @self: a pipe
  * @problem: a problem or NULL
  *
- * Close the pipe. If @problem is non NULL, then it's treated
- * as if an error occurred, and the pipe is closed immediately.
- * Otherwise the pipe output is closed when all data has been sent.
+ * Close the pipe.
  *
  * The 'close' signal will be fired when the pipe actually closes.
- * This may be during this function call (esp. in the case of a
- * non-NULL @problem) or later.
  */
 void
 cockpit_pipe_close (CockpitPipe *self,
@@ -809,11 +824,7 @@ cockpit_pipe_close (CockpitPipe *self,
   g_return_if_fail (COCKPIT_IS_PIPE (self));
 
   self->priv->closing = TRUE;
-
-  if (problem)
-      close_immediately (self, problem);
-  else if (g_queue_is_empty (self->priv->out_queue))
-    close_output (self);
+  close_immediately (self, problem);
 }
 
 static gboolean

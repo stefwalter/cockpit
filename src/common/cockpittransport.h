@@ -90,6 +90,10 @@ void        cockpit_transport_emit_recv      (CockpitTransport *transport,
 void        cockpit_transport_emit_closed    (CockpitTransport *transport,
                                               const gchar *problem);
 
+void        cockpit_transport_set_backlog    (CockpitTransport *transport,
+                                              gpointer tag,
+                                              gboolean backlog);
+
 GBytes *    cockpit_transport_parse_frame    (GBytes *message,
                                               gchar **channel);
 
