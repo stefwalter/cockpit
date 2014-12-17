@@ -72,10 +72,12 @@ function maybe_init() {
 /* HACK: Until all of the shell is loaded via AMD */
 require([
     "server/server",
-    "docker/docker"
-], function(server, docker) {
+    "docker/docker",
+    "shell/disco",
+], function(server, docker, Disco) {
     modules.server = server;
     modules.docker = docker;
+    shell.disco = new Disco();
     modules.loaded = true;
     maybe_init();
 });
