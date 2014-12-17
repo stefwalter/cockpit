@@ -454,6 +454,22 @@ PageDashboard.prototype = {
 
         set_monitor(current_monitor);
 
+        function diagnose(machine) {
+            var shown = true;
+            $.each(machine.problems, function(i, problem) {
+                var sel = $("#diagnose-" + problem);
+                if (sel.length) {
+                    sel.data("machine", machine);
+                    sel.modal('show');
+                    shown = true;
+                    return false;
+                }
+            });
+
+            if (!shown)
+                $("#diagnose").data("machine", machine).modal('show');
+        }
+
         $("#dashboard")
             .on("mouseenter", "[data-key]", function() {
                 highlight($(this).attr("data-key"), true);
@@ -738,5 +754,14 @@ function PageDashboard() {
 }
 
 shell.pages.push(new PageDashboard());
+
+$("#diagnose-no-cockpit").on('show.bs.modal', function() {
+    var dialog = $(this);
+    var machine = dialog.data("machine");
+    console.log(machine);
+
+    var message = cockpit.format(_("An appropriate version of cockpit-bridge is not installed on the machine $address. If you wish to connect to this machine, please install Cockpit."), machine);
+    dialog.children(".diagnose-details").text(message);
+});
 
 })(jQuery, cockpit, shell);
