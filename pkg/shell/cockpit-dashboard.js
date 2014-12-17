@@ -25,6 +25,249 @@
 
 var shell = shell || { };
 (function($, cockpit, shell) {
+    "use strict";
+
+    function Disco() {
+        var self = this;
+
+        var store = { };
+        var keys = { };
+        var happened = { };
+        var seed = 0;
+
+        self.machines = [ ];
+        self.events = [ ];
+
+        self.lookup = function lookup(key) {
+            return keys[key];
+        };
+
+        function top() {
+            var i, j, data, layers = [];
+            for (i in store) {
+                data = store[i];
+                for (j in data)
+                    layers.push(data[j]);
+            }
+            return layers;
+        }
+
+        function event_sink(key, events) {
+            var now = new Date().getTime();
+            var count = 0;
+
+            $.each(events, function(x, ev) {
+                if (!ev.id) {
+                    ev.id = now + ":" + seed;
+                    seed++;
+                }
+                if (happened[ev.id]) {
+                    ev = happened[ev.id];
+                } else {
+                    self.events.push(ev);
+                    happened[ev.id] = true;
+                    count += 1;
+                }
+                if (ev.key != key) {
+                    ev.key = key;
+                    count += 1;
+                }
+            });
+
+            return count;
+        }
+
+        function disco(layers, machines, parent) {
+            var seen = { };
+            var added = { };
+            var combine = { };
+            var stage = { };
+
+            machines.length = 0;
+
+            var evented = 0;
+
+            if (!parent)
+                keys = { };
+
+            /* Group everything by address or machine id */
+            $.each(layers, function(i, layer) {
+                var key = layer.id || layer.address;
+                if (key) {
+                    if (!stage[key])
+                        stage[key] = [];
+                    stage[key].push(layer);
+                }
+                if (layer.id && layer.address)
+                    combine[layer.address] = layer.id;
+            });
+
+            /* Combine address and machine id if possible */
+            $.each(combine, function(one, two) {
+                if (stage[one] && stage[two]) {
+                    stage[two].push.apply(stage[two], stage[one]);
+                    delete stage[one];
+                }
+            });
+
+            $.each(stage, function(key, staged) {
+                var machine = { key: "m:" + key, machines: { }, objects: [ ], problems: [ ] };
+                machines.push(machine);
+                keys[machine.key] = machine;
+
+                $.each(staged, function(x, layer) {
+                    if (layer.address)
+                        keys["m:" + layer.address] = machine;
+                });
+
+                /*
+                 * TODO: A custom extend method could tell us if something actually
+                 * changed, and avoid copying objects which should be unique already
+                 */
+                staged.unshift(true, machine);
+                $.extend.apply($, staged);
+
+                /*
+                 * Squash any child machines recursively. This is already a copy
+                 * due to the deep extend above, so no worries about messing with the
+                 * data
+                 */
+                if (machine.machines) {
+                    var values = Object.keys(machine.machines).map(function(i) { return machine.machines[i]; });
+                    var children = [ ];
+                    disco(values, children, machine);
+                    machine.machines = children;
+                }
+
+                /* Normalize the machine a bit */
+                if (machine.problems && machine.problems.length)
+                    machine.state = "failed";
+                if (!machine.label)
+                    machine.label = machine.address || "";
+                if (machine.problems.length && !machine.message)
+                    machine.message = machine.problems.map(shell.client_error_description);
+                if (machine.state && !machine.message)
+                    machine.message = machine.state;
+
+                /* Bring in events */
+                if (machine.events)
+                    evented += event_sink(machine.key, machine.events);
+
+                /* Squash and sort the machine's objects */
+                machine.objects = Object.keys(machine.objects).map(function(i) { return machine.objects[i]; });
+                machine.objects.sort(function(a1, a2) {
+                    return (a1.label || "").localeCompare(a2.label || "");
+                });
+                $.each(machine.objects, function(i, object) {
+                    object.key = "o:" + object.location;
+                    object.machine = machine;
+                    keys[object.key] = object;
+                    if (object.events)
+                        evented += event_sink(object.key, object.events);
+                });
+            });
+
+            /* Sort any machines */
+            machines.sort(function(a1, a2) {
+                return (a1.label || "").localeCompare(a2.label || "");
+            });
+
+            if (!parent)
+                $(self).triggerHandler("changed");
+            if (evented > 0)
+                $(self).triggerHandler("events");
+        }
+
+        /* Discover for all plugins */
+        function disco_plugins(host) {
+            cockpit.packages.all(false).
+                done(function(packages) {
+                    $.each(packages, function(i, pkg) {
+                        if (pkg.manifest.discovery) {
+                            $.each(pkg.manifest.discovery, function(i, module) {
+                                var module_id = pkg.name + "/" + module;
+
+                                /*
+                                 * The interface with the discovery module is very sparse and needs
+                                 * to be backwards compatible. It is documented in doc/discovery.md
+                                 */
+
+                                /* TODO: No way to do this for other hosts yet */
+                                require([module_id], function(module) {
+                                    module.discover(host, function(data) {
+                                        store[host + "/" + module_id] = data;
+                                        disco(top(), self.machines);
+                                    });
+                                });
+                            });
+                        }
+                    });
+                });
+        }
+
+        disco_plugins("localhost");
+        disco_plugins("192.168.11.100");
+
+        /*
+         * Now discover shell hosts and overlay those.
+         *
+         * TODO: Once the shell is an AMD loaded module, we can use the same
+         * mechanism above. But for now hard code this.
+         */
+        shell.discover(function(data) {
+            store["shell-hosts"] = data;
+            disco(top(), self.machines);
+        });
+
+        /*
+         * And lastly (re)discover any machines for which we don't have a
+         * machine-id. We load them after the fact and overlay this info.
+         */
+        store["machine-ids"] = { };
+        $(self).on("changed", function() {
+            $.each(self.machines, function(i, machine) {
+                if (machine.id || !machine.address || machine.masked)
+                    return;
+
+                var addr = machine.address;
+                if (addr in store["machine-ids"])
+                    return;
+
+                store["machine-ids"][addr] = { address: addr, problems: [] };
+
+                /*
+                 * TODO: Migrate this to cockpit.file() once that lands. In addition
+                 * using the cockpit.file() machinery and superuser channels we can
+                 * actually write a file here atomically if it doesn't already exist.
+                 */
+
+                var channel = cockpit.channel({ payload: "fsread1",
+                                                host: addr,
+                                                path: "/etc/machine-id" });
+                var data = channel.buffer(null);
+                $(channel).on("close", function(event, options) {
+                    if (options.problem == "not-found") {
+                        console.warn("no /etc/machine-id in host");
+                    } else if (options.problem) {
+                        console.warn(addr + ": couldn't get machine uuid: " + options.problem);
+                        store["machine-ids"][addr].problems.push(options.problem);
+                    } else {
+                        store["machine-ids"][addr].id = $.trim(data.squash());
+                    }
+
+                    disco(top(), self.machines);
+                });
+            });
+        });
+    }
+
+    function replacer(key, value) {
+        if (key === "avatar")
+            return "XXXX";
+        return value;
+    }
+
+    shell.disco = new Disco();
 
 var common_plot_options = {
     legend: { show: false },
