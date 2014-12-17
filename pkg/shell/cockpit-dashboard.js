@@ -36,7 +36,7 @@ var shell = shell || { };
         var seed = 0;
 
         self.machines = [ ];
-        self.events = [ ];
+        self.alerts = [ ];
 
         self.lookup = function lookup(key) {
             return keys[key];
@@ -52,11 +52,11 @@ var shell = shell || { };
             return layers;
         }
 
-        function event_sink(key, events) {
+        function alert_sink(key, alerts) {
             var now = new Date().getTime();
             var count = 0;
 
-            $.each(events, function(x, ev) {
+            $.each(alerts, function(x, ev) {
                 if (!ev.id) {
                     ev.id = now + ":" + seed;
                     seed++;
@@ -64,7 +64,7 @@ var shell = shell || { };
                 if (happened[ev.id]) {
                     ev = happened[ev.id];
                 } else {
-                    self.events.push(ev);
+                    self.alerts.push(ev);
                     happened[ev.id] = true;
                     count += 1;
                 }
@@ -85,7 +85,7 @@ var shell = shell || { };
 
             machines.length = 0;
 
-            var evented = 0;
+            var alerted = 0;
 
             if (!parent)
                 keys = { };
@@ -149,9 +149,9 @@ var shell = shell || { };
                 if (machine.state && !machine.message)
                     machine.message = machine.state;
 
-                /* Bring in events */
-                if (machine.events)
-                    evented += event_sink(machine.key, machine.events);
+                /* Bring in alerts */
+                if (machine.alerts)
+                    alerted += alert_sink(machine.key, machine.alerts);
 
                 /* Squash and sort the machine's objects */
                 machine.objects = Object.keys(machine.objects).map(function(i) { return machine.objects[i]; });
@@ -162,8 +162,8 @@ var shell = shell || { };
                     object.key = "o:" + object.location;
                     object.machine = machine;
                     keys[object.key] = object;
-                    if (object.events)
-                        evented += event_sink(object.key, object.events);
+                    if (object.alerts)
+                        alerted += alert_sink(object.key, object.alerts);
                 });
             });
 
@@ -174,8 +174,8 @@ var shell = shell || { };
 
             if (!parent)
                 $(self).triggerHandler("changed");
-            if (evented > 0)
-                $(self).triggerHandler("events");
+            if (alerted > 0)
+                $(self).triggerHandler("alerts");
         }
 
         /* Discover for all plugins */

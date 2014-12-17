@@ -5,15 +5,16 @@ Cockpit Discovery
 The Cockpit dashboard wants to know about:
 
  * Machines: Various hosts to display, including virtual/container machines
- * Objects: Services or applications or service containers running on those machines
- * Events: That happen to either machines or objects
+ * Objects: Services, applications or service containers running on machines
+ * Alerts: That happen to either machines or objects
 
-'Machines' are things that (can/should/do) run a cockpit-bridge and are controlled
-independently. 'Objects' run on those hosts. 'Machines' can run on other machines
-(think virtual machines). Containers are worth calling out explicitly, some containers
-are service containers, and show up as 'objects'. Other containers are full blown
-machines (eg: running systemd inside them) and show up as 'machines'. See below for
-more examples. 'Events' are things worth drawing the admins attention to. Generally
+'Machines' are things that (can/should/do) run a cockpit-bridge and are
+controlled independently. 'Objects' run on those hosts. 'Machines' can run
+on other machines (think virtual machines). Containers are worth calling
+out explicitly, some containers are service containers, and show up as
+'objects'. Other containers are full blown machines (eg: running systemd
+inside them) and show up as 'machines'. See below for more examples.
+'Alerts' are things worth drawing the admins attention to. Generally
 high priority items, always related to a 'machine' or an 'object'.
 
 Each machine has the following properties. All are optional, although without
@@ -24,7 +25,12 @@ sufficient information the dasboard will not display the machine.
  * label: A displayable label of the machine
  * state: One of 'running', 'waiting', 'failed', 'stopped'
  * problems: An array of Cockpit problem codes
- * masked: If set to true, hide the object
+ * present: Set to true if the machine has been explicitly added
+ * masked: If set to true, hide the machine
+
+ * machines: An array/object with nested machines
+ * objects: An array/object with objects running on this machine (below)
+ * alerts: An array/object with alerts as values (see below)
 
 Each object has the following properties:
 
@@ -32,33 +38,34 @@ Each object has the following properties:
  * label: A displayable label
  * state: One of 'running', 'waiting', 'failed', 'stopped'
  * masked: If set to true, hide the object
+ * alerts: An array/object with alerts as values (see below)
 
-Each event has the following properties:
- * timestamp: Optionally the timestamp in milliseconds since epoch when this occured
+Each alert has the following properties:
+ * timestamp: Optionally the timestamp (ms since epoch) when it occured
  * id: Optionally a unique identifier
  * message: Required, a message to display
  * priority: Textual priority indicator eg: "warn", "crit", "emerg", "alert"
 
-The above hosts and things know how to render themselves to an HTML string.
-more on that below.
 
 Discovery Modules
 -----------------
 
-In the package manifest there is an optional 'discover' section listing the
+In the package manifest there is an optional 'disco' section listing the
 modules that implement discovery.
 
-   "discovery": [ "module" ]
+   "disco": [ "module" ]
 
-Each module implements a 'discover(address, callback)' function, which starts
-discovery. It invokes callback(data) with discovered data, multiple times.
-The discover() function returns an object that has a close() method that
+Each module implements a 'disco(address, callback)' function, which starts
+discovery. It invokes callback(data) with discovered data, multiple times with
+an array or dict that have machines as values.
+
+The disco() function returns an object that has a close() method that
 can be used to stop the discovery.
 
 The address is a normal Cockpit host option address to run the discovery
-against. The data is in the following form. Note that each discovery module
-may only provide part of this info. The dashboard correlates things up based
-on machine addresses and ids, and combines data as needed.
+against.  data is in the following form. Note that each discovery module
+may only provide partial. The shell correlates things up based on machine
+addresses and ids, and combines data as needed.
 
     {
         "module-specific-machine-handle": {
@@ -124,13 +131,6 @@ Examples implementations
 
  * Rolekit: Returns any enabled roles as things. Roles mask Systemd services and
    containers that they include.
-
-Details view
-------------
-
-Each thing becomes a full Cockpit task, with a custom view. These views are registered
-in the manifest separately from the above discovery. Needs work. They are loaded and
-identified by the shell using the first part of their location path.
 
 Dashboard Considerations
 ------------------------
