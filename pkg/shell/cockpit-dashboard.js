@@ -433,10 +433,11 @@ PageDashboard.prototype = {
         });
         this.plot = shell.plot($('#dashboard-plot'), 300, 1);
 
-        var renderer = host_renderer($("#dashboard-hosts .list-group"));
-        $(shell.hosts).on("added.dashboard", renderer);
-        $(shell.hosts).on("removed.dashboard", renderer);
-        $(shell.hosts).on("changed.dashboard", renderer);
+        var renderer = server_renderer($("#dashboard-hosts .list-group"));
+        $(shell.disco).on("changed events", renderer);
+
+        renderer = event_renderer($("#dashboard-events table"));
+        $(shell.disco).on("changed events", renderer);
 
         var current_monitor = 0;
 
@@ -453,20 +454,26 @@ PageDashboard.prototype = {
 
         set_monitor(current_monitor);
 
+        $("#dashboard")
+            .on("mouseenter", "[data-key]", function() {
+                highlight($(this).attr("data-key"), true);
+            })
+            .on("mouseleave", "[data-key]", function() {
+                highlight($(this).attr("data-key"), false);
+            });
+
         $("#dashboard-hosts")
             .on("click", "a.list-group-item", function() {
                 if (self.edit_enabled)
                     return false;
-                var addr = $(this).attr("data-address");
-                var h = shell.hosts[addr];
-                if (h.state == "failed") {
-                    h.show_problem_dialog();
+                var machine = shell.disco.lookup($(this).attr("data-key"));
+                if (machine.state == "failed")
                     return false;
-                }
             })
             .on("click", "button.pficon-close", function() {
                 var item = $(this).parent(".list-group-item");
                 self.toggle_edit(false);
+                /* TODO: This needs porting */
                 var h = shell.hosts[item.attr("data-address")];
                 if (h)
                     h.remove();
@@ -475,14 +482,9 @@ PageDashboard.prototype = {
             .on("click", "button.pficon-edit", function() {
                 var item = $(this).parent(".list-group-item");
                 self.toggle_edit(false);
+                /* TODO: This needs porting */
                 host_edit_dialog(item.attr("data-address"));
                 return false;
-            })
-            .on("mouseenter", "a.list-group-item", function() {
-                highlight($(this), true);
-            })
-            .on("mouseleave", "a.list-group-item", function() {
-                highlight($(this), false);
             });
 
         var series = { };
@@ -491,43 +493,45 @@ PageDashboard.prototype = {
             var refresh = false;
 
             var seen = { };
-            $.each(series, function(addr) {
-                seen[addr] = true;
+            $.each(series, function(key) {
+                seen[key] = true;
             });
 
             $("#dashboard-hosts .list-group-item").each(function() {
                 var item = $(this);
-                var addr = item.attr("data-address");
+                var key = item.attr("data-key");
+                var machine = shell.disco.lookup(key);
+                var addr = machine.address;
                 var host = shell.hosts[addr];
                 if (!host || host.state == "failed")
                     return;
-                delete seen[addr];
-                if (!series[addr]) {
-                    series[addr] = plot_add(addr);
+                delete seen[key];
+                if (!series[key]) {
+                    series[key] = plot_add(addr);
                 }
-                $(series[addr])
+                $(series[key])
                     .off('hover')
                     .on('hover', function(event, val) {
-                        highlight(item, val);
+                        highlight(key, val);
                     });
-                if (series[addr].options.color != host.color) {
+                if (series[key].options.color != host.color) {
                     refresh = true;
-                    series[addr].options.color = host.color;
+                    series[key].options.color = host.color;
                 }
             });
 
-            $.each(seen, function(addr) {
-                series[addr].remove();
-                delete series[addr];
+            $.each(seen, function(key) {
+                series[key].remove();
+                delete series[key];
             });
 
             if (refresh)
                 self.plot.refresh();
         }
 
-        function highlight(item, val) {
-            item.toggleClass("highlight", val);
-            var s = series[item.attr("data-address")];
+        function highlight(key, val) {
+            $('#dashboard [data-key="' + key + '"]').toggleClass("highlight", val);
+            var s = series[key];
             if (s) {
                 s.options.lines.lineWidth = val? 3 : 2;
                 if (val)
@@ -536,32 +540,116 @@ PageDashboard.prototype = {
             }
         }
 
-        function host_renderer(target) {
+        function server_renderer(target) {
             var template = $("#dashboard-hosts-tmpl").html();
             Mustache.parse(template);
 
-            function render_avatar() {
-                if (this.state == "failed")
-                    return "images/server-error.png";
-                else if (this.avatar)
-                    return this.avatar;
-                else
-                    return "images/server-small.png";
-            }
+            /* jshint validthis:true */
+            var helpers = {
+                render_avatar: function() {
+                    if (this.avatar)
+                        return this.avatar;
+                    else
+                        return "images/server-small.png";
+                },
+                render_state: function() {
+                    if (this.problems) {
+                        var problem, i, length = this.problems.length;
+                        for (i = 0; i < length; i++) {
+                            problem = this.problems[i];
+                            if (problem == "no-cockpit" || problem == "not-supported")
+                                return "fa fa-cog";
+                            else if (problem == "unknown-hostkey" || problem == "no-forwarding")
+                                return "fa fa-lock";
+                        }
+                        if (this.problems.length)
+                            return "fa fa-exclamation-circle";
+                    }
+                    if (this.state == "failed")
+                        return "fa fa-exclamation-circle";
+                    else if (this.state == "waiting")
+                        return "fa fa-pause smaller";
+                    else if (this.state == "stopped")
+                        return "fa fa-stop smaller";
+                    else if (this.state == "running" || this.state == "connected")
+                        return "";
+                    else
+                        return "fa fa-question-circle";
+                }
+            };
 
             function render() {
-                var sorted_hosts = Object.keys(shell.hosts)
-                    .sort(function(a1, a2) {
-                        return shell.hosts[a1].compare(shell.hosts[a2]);
-                    }).
-                    map(function(a) {
-                        return shell.hosts[a];
-                    });
+                var text = Mustache.render(template, $.extend({
+                    machines: shell.disco.machines,
+                }, helpers));
 
-                var text = Mustache.render(template, {
-                    machines: sorted_hosts,
-                    render_avatar: render_avatar
-                });
+                target.amend(text);
+                update_series();
+            }
+
+            return render;
+        }
+
+        function event_renderer(target) {
+            var template = $("#dashboard-events-tmpl").html();
+            Mustache.parse(template);
+
+            /* jshint validthis:true */
+            var helpers = {
+                key: function() {
+                    var what = shell.disco.lookup(this.key);
+                    if (what) {
+                        if (what.machine)
+                            return what.machine.key;
+                        return what.key;
+                    }
+                    return this.key;
+                },
+                render_what: function() {
+                    var what = shell.disco.lookup(this.key);
+                    if (what)
+                        return what.label;
+                    return null;
+                },
+                render_when: function() {
+                    if (this.timestamp) {
+                        var date = new Date(this.timestamp);
+                        var hours = date.getHours();
+                        var minutes = date.getMinutes();
+
+                        if (hours < 10)
+                            hours = "0" + hours;
+                        if (minutes < 10)
+                            minutes = "0" + minutes;
+
+                        return hours + ":" + minutes;
+                    }
+                    return "";
+                },
+                render_color: function() {
+                    var what = shell.disco.lookup(this.key);
+                    if (what) {
+                        if (what.color)
+                            return what.color;
+                        else if (what.machine && what.machine.color)
+                            return what.machine.color;
+                    }
+                    return "#BABABA";
+                },
+                render_priority: function() {
+                    if (this.priority == "crit" || this.priority == "emerg" || this.priority == "alert")
+                        return "fa fa-exclamation-circle";
+                    return null;
+                },
+                render_json: function() {
+                    return JSON.stringify(this);
+                }
+            };
+
+            function render() {
+                var text = Mustache.render(template, $.extend({
+                    events: shell.disco.events,
+                }, helpers));
 
                 target.html(text);
                 update_series();
@@ -573,7 +661,7 @@ PageDashboard.prototype = {
         function plot_add(addr) {
             var shell_info = shell.hosts[addr];
 
-            if (shell_info.state == "failed")
+            if (!shell_info || shell_info.state == "failed")
                 return null;
 
             return self.plot.add_cockpitd_resource_monitor(shell_info.cockpitd,
