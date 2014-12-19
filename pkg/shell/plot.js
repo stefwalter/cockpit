@@ -185,15 +185,15 @@ shell.plot = function plot(element, x_range) {
         flot = null;
     }
 
-    function add_metrics_sum_series(desc, opts) {
+    function add_passive_series(opts) {
         var series = opts;
         var series_data = null;
-        var timestamp;
-        var channel;
-        var cur_samples;
 
         var self = {
             options: series,
+
+            init: init,
+            add_sample: add_sample,
             move_to_front: move_to_front,
             remove: remove
         };
@@ -202,7 +202,7 @@ shell.plot = function plot(element, x_range) {
         series.hover = hover;
 
         function stop() {
-            channel.close();
+            $(self).triggerHandler('stop');
         }
 
         function hover(val) {
@@ -237,16 +237,35 @@ shell.plot = function plot(element, x_range) {
             }
         }
 
-        var metrics;
-        var instances;
-
         function init() {
             series_data = [];
             trim_series();
             add_series();
             refresh();
-            timestamp = now;
         }
+
+        function add_sample(timestamp, val) {
+            trim_series();
+            series_data[series_data.length] = [ timestamp, val ];
+        }
+
+        function remove() {
+            stop();
+            remove_series();
+            refresh();
+        }
+
+        return self;
+    }
+
+    function add_metrics_sum_series(desc, opts) {
+        var self;
+        var timestamp;
+        var channel;
+        var cur_samples;
+
+        var metrics;
+        var instances;
 
         function on_new_sample(samples) {
             var i, j, sum = 0;
@@ -265,15 +284,8 @@ shell.plot = function plot(element, x_range) {
                     count_sample(i, cur_samples, samples);
             }
 
-            trim_series();
-            series_data[series_data.length] = [ timestamp, sum*(desc.factor || 1) ];
+            self.add_sample(timestamp, sum*(desc.factor || 1));
             timestamp += (desc.interval || 1000) / 1000;
-        }
-
-        function remove() {
-            stop();
-            remove_series();
-            refresh();
         }
 
         metrics = desc.metrics.map(function (n) { return { name: n, units: desc.units }; });
@@ -305,9 +317,17 @@ shell.plot = function plot(element, x_range) {
                             cur_samples[i] = [];
                     }
                 }
-                if (series_data === null)
-                    init();
+                if (timestamp === undefined) {
+                    timestamp = now;
+                    self.init();
+                }
             }
+        });
+
+        self = add_passive_series(opts);
+
+        $(self).on('stop', function () {
+            channel.close();
         });
 
         return self;
