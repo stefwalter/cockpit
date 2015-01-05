@@ -38,55 +38,69 @@
 </body>
 <script type="text/javascript">
 
-test("amend basic", function() {
-    expect (2);
+// test("amend basic", function() {
+//     expect (2);
 
-    var $div = $("<div><span>Hello</span><span>World</span></div>");
-    var div = $div[0];
-    var first_child = div.firstChild;
+//     var $div = $("<div><span>Hello</span><span>World</span></div>");
+//     var div = $div[0];
+//     var first_child = div.firstChild;
 
-    $div.amend("<span>Good bye</span><span>World</span>");
-    equal (div.outerHTML, "<div><span>Good bye</span><span>World</span></div>")
-    strictEqual (div.firstChild, first_child, "first child is the same");
-});
+//     $div.amend("<span>Good bye</span><span>World</span>");
+//     equal (div.outerHTML, "<div><span>Good bye</span><span>World</span></div>")
+//     strictEqual (div.firstChild, first_child, "first child is the same");
+// });
 
-test("amend append", function() {
-    expect (2);
+// test("amend append", function() {
+//     expect (2);
 
-    var $div = $("<div><span>Hello</span></div>");
-    var div = $div[0];
-    var first_child = div.firstChild;
+//     var $div = $("<div><span>Hello</span></div>");
+//     var div = $div[0];
+//     var first_child = div.firstChild;
 
-    $div.amend("<span>Hello</span><span>World</span>");
-    equal (div.outerHTML, "<div><span>Hello</span><span>World</span></div>")
-    strictEqual (div.firstChild, first_child, "first child is the same");
-});
+//     $div.amend("<span>Hello</span><span>World</span>");
+//     equal (div.outerHTML, "<div><span>Hello</span><span>World</span></div>")
+//     strictEqual (div.firstChild, first_child, "first child is the same");
+// });
 
-test("amend remove", function() {
-    expect (2);
+// test("amend remove", function() {
+//     expect (2);
 
-    var $div = $("<div><span>A</span><span>B</span><span>C</span></div>");
-    var div = $div[0];
-    var first_child = div.firstChild;
+//     var $div = $("<div><span>A</span><span>B</span><span>C</span></div>");
+//     var div = $div[0];
+//     var first_child = div.firstChild;
 
-    $div.amend("<span>A</span><span>C</span>");
-    equal (div.outerHTML, "<div><span>A</span><span>C</span></div>")
-    strictEqual (div.firstChild, first_child, "first child is the same");
-});
+//     $div.amend("<span>A</span><span>C</span>");
+//     equal (div.outerHTML, "<div><span>A</span><span>C</span></div>")
+//     strictEqual (div.firstChild, first_child, "first child is the same");
+// });
 
-test("amend attributes", function() {
+test("amend keyed remove", function() {
     expect (3);
 
-    var $div = $('<div><span>A</span><span data-foo="bar">B</span></div>');
+    var $div = $('<div amend-key="key"><span key="A">A</span><span key="B">B</span><span key="C">C</span></div>');
     var div = $div[0];
     var first_child = div.firstChild;
-    var second_child = div.firstChild.nextSibling;
+    var third_child = div.firstChild.nextSibling.nextSibling;
 
-    $div.amend('<span data-foo="bar">A</span><span>B</span>');
-    equal (div.outerHTML, '<div><span data-foo="bar">A</span><span>B</span></div>')
+    $div.amend('<span key="A">A</span><span key="C">C</span>');
+    equal (div.outerHTML, '<div amend-key="key"><span key="A">A</span><span key="C">C</span></div>')
     strictEqual (div.firstChild, first_child, "first child is the same");
-    strictEqual (div.firstChild.nextSibling, second_child, "second child is the same");
+    strictEqual (div.firstChild.nextSibling, third_child, "new second child is the old third child");
 });
+
+// test("amend attributes", function() {
+//     expect (3);
+
+//     var $div = $('<div><span>A</span><span data-foo="bar">B</span></div>');
+//     var div = $div[0];
+//     var first_child = div.firstChild;
+//     var second_child = div.firstChild.nextSibling;
+
+//     $div.amend('<span data-foo="bar">A</span><span>B</span>');
+//     equal (div.outerHTML, '<div><span data-foo="bar">A</span><span>B</span></div>')
+//     strictEqual (div.firstChild, first_child, "first child is the same");
+//     strictEqual (div.firstChild.nextSibling, second_child, "second child is the same");
+// });
 
 QUnit.start();
 

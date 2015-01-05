@@ -1,9 +1,12 @@
 (function ($) {
     "use strict";
 
-    function sync(output, input, depth) {
+    function sync(output, input, depth, amend_key) {
         var na, nb, a, b, i;
         var attrs, attr, seen;
+
+        var amend_key, key, a_key, b_key;
+        var old_children = { };
 
         if (depth > 0) {
             if (output.nodeType != input.nodeType ||
@@ -36,30 +39,61 @@
                     output.removeAttribute(i);
             }
 
+            amend_key = output.getAttribute("amend-key");
+            console.log(depth, amend_key);
+
             /* Sync children */
-            na = output.firstChild;
-            nb = input.firstChild;
-            for(;;) {
-                a = na;
-                b = nb;
-                while (a && a.nodeType != 1 && a.nodeType != 3)
-                    a = a.nextSibling;
-                while (b && b.nodeType != 1 && b.nodeType != 3)
-                    b = b.nextSibling;
-                if (!a && !b) {
-                    break;
-                } else if (!a) {
-                    na = null;
+
+            if (amend_key) {
+                while (output.firstChild) {
+                    a = output.removeChild(output.firstChild);
+                    key = a.getAttribute(amend_key);
+                    if (key)
+                        old_children[key] = a;
+                }
+                nb = input.firstChild;
+                while (nb) {
+                    a = null;
+                    b = nb;
+                    while (b && b.nodeType != 1 && b.nodeType != 3)
+                        b = b.nextSibling;
+                    key = b.getAttribute(amend_key);
+                    if (key)
+                        a = old_children[key];
                     nb = b.nextSibling;
-                    output.appendChild(input.removeChild(b));
-                } else if (!b) {
-                    na = a.nextSibling;
-                    nb = null;
-                    output.removeChild(a);
-                } else {
-                    na = a.nextSibling;
-                    nb = b.nextSibling;
-                    sync(a, b, (depth || 0) + 1);
+                    if (a) {
+                        output.appendChild(a);
+                        sync (a, b, (depth || 0) + 1);
+                    } else {
+                        output.appendChild(b);
+                    }
+                }
+            } else {
+                na = output.firstChild;
+                nb = input.firstChild;
+                for(;;) {
+                    a = na;
+                    b = nb;
+                    while (a && a.nodeType != 1 && a.nodeType != 3)
+                        a = a.nextSibling;
+                    while (b && b.nodeType != 1 && b.nodeType != 3)
+                        b = b.nextSibling;
+
+                    if (!a && !b) {
+                        break;
+                    } else if (!a) {
+                        na = null;
+                        nb = b.nextSibling;
+                        output.appendChild(input.removeChild(b));
+                    } else if (!b) {
+                        na = a.nextSibling;
+                        nb = null;
+                        output.removeChild(a);
+                    } else {
+                        na = a.nextSibling;
+                        nb = b.nextSibling;
+                        sync(a, b, (depth || 0) + 1);
+                    }
                 }
             }
         }
