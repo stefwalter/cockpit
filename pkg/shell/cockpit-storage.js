@@ -411,12 +411,13 @@ PageStorage.prototype = {
                                        "com.redhat.Cockpit.MultiResourceMonitor");
         $(this.monitor).on('NewSample.storage', render_samples);
 
-        this.rx_plot = shell.setup_multi_plot('#storage-reading-graph', this.monitor, 0, blues.concat(blues),
-                                                is_interesting_blockdev);
-        $(this.rx_plot).on('update-total', function (event, total) {
-            $('#storage-reading-text').text(cockpit.format_bytes_per_sec(total));
-        });
-        $(this.rx_plot).on('highlight', highlight_blockdev_row);
+        this.rx_plot = shell.plot($('#storage-reading-graph'), 300);
+        this.rx_plot.add_metrics_instances({ metrics: [ "disk.dev.read_bytes" ],
+                                             units: "byte",
+                                             interval: 1000
+                                           },
+                                           { });
+        this.rx_plot.start_walking(1);
 
         this.tx_plot = shell.setup_multi_plot('#storage-writing-graph', this.monitor, 1, blues.concat(blues),
                                                 is_interesting_blockdev);
@@ -446,12 +447,12 @@ PageStorage.prototype = {
     },
 
     show: function() {
-        this.rx_plot.start();
+        this.rx_plot.resize();
         this.tx_plot.start();
     },
 
     leave: function() {
-        this.rx_plot.destroy();
+        this.rx_plot.reset();
         this.tx_plot.destroy();
 
         $(this.client).off(".storage");

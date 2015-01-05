@@ -333,6 +333,72 @@ shell.plot = function plot(element, x_range) {
         return self;
     }
 
+    function add_metrics_instances(desc, opts) {
+        var self;
+        var timestamp;
+        var channel;
+
+        var metrics;
+
+        var instance_series = { };
+
+        function update_instances(instances) {
+            var new_instance_series = { };
+
+            for (var i = 0; i < instances.length; i++) {
+                var name = instances[i];
+                if (instance_series[name])
+                    new_instance_series[name] = name;
+                else if (!new_instance_series[name]) {
+                    console.log("A", name);
+                    new_instance_series[name] = add_passive_series(opts);
+                    new_instance_series[name].init();
+                }
+            }
+
+            for (var old in instance_series) {
+                if (!new_instance_series[old])
+                    instance_series[old].remove();
+            }
+
+            instance_series = new_instance_series;
+        }
+
+        function remove() {
+            console.log("REMOVE");
+        }
+
+        function on_new_sample(samples) {
+        }
+
+        metrics = desc.metrics.map(function (n) { return { name: n, units: desc.units }; });
+
+        channel = cockpit.channel({ payload: "metrics1",
+                                    source: desc.source || "direct",
+                                    metrics: metrics,
+                                    instances: desc.instances,
+                                    omit_instances: desc.omit_instances,
+                                    interval: desc.interval || 1000,
+                                    host: desc.host
+                                  });
+        $(channel).on("close", function (event, message) {
+            console.log(message);
+        });
+        $(channel).on("message", function (event, message) {
+            var msg = JSON.parse(message);
+            var i;
+            if (msg.length) {
+                for (i = 0; i < msg.length; i++) {
+                    on_new_sample(msg[i]);
+                }
+            } else if (msg.instances) {
+                update_instances(msg.instances[0]);
+            }
+        });
+
+        return { remove: remove };
+    }
+
     var cur_hover = null;
 
     function hover(series) {
@@ -365,7 +431,8 @@ shell.plot = function plot(element, x_range) {
         reset: reset,
         resize: resize,
         set_options: set_options,
-        add_metrics_sum_series: add_metrics_sum_series
+        add_metrics_sum_series: add_metrics_sum_series,
+        add_metrics_instances: add_metrics_instances
     };
 };
 
