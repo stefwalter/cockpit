@@ -25,16 +25,16 @@ require([
                     { name: "kernel.all.cpu.sys",
                       units: "millisec"
                     },
-                    { name: "network.interface.in.bytes",
+                    { name: "mem.util.used",
                       units: "byte"
                     },
-                    { name: "network.interface.out.bytes",
+                    { name: "mem.util.free",
                       units: "byte"
                     },
-                    { name: "disk.dev.read_bytes",
+                    { name: "network.interface.total.bytes",
                       units: "byte"
                     },
-                    { name: "disk.dev.write_bytes",
+                    { name: "disk.dev.total_bytes",
                       units: "byte"
                     },
                     { name: "hinv.machine",
@@ -47,29 +47,29 @@ require([
 
     var data = [ ];
 
-    function setup (instances, units, types) {
+    function setup (metrics) {
         var $results = $('#results');
         var span;
 
-        for (var i = 0; i < instances.length; i++) {
-            var name = metrics[i].name || metrics[i];
-            if (instances[i] === null) {
+        for (var i = 0; i < metrics.length; i++) {
+            var name = metrics[i].name;
+            if (metrics[i].instances === undefined) {
                 $('#results').append(
                     $('<div>').append(
                         name + " ",
                         span = $('<span>')));
 
-                data[i] = { element: span, units: units[i], type: types[i] };
+                data[i] = { element: span, metric: metrics[i] };
             } else {
                 data[i] = { instances: [ ] };
                 $('#results').append(
                     $('<div>').append(name));
-                for (var j = 0; j < instances[i].length; j++) {
+                for (var j = 0; j < metrics[i].instances.length; j++) {
                     $('#results').append(
                         $('<div style="padding-left:10px">').append(
-                            instances[i][j] + " ",
+                            metrics[i].instances[j] + " ",
                             span = $('<span>')));
-                    data[i].instances[j] = { element: span, units: units[i], type: types[i] };
+                    data[i].instances[j] = { element: span, metric: metrics[i] };
                 }
             }
         }
@@ -78,19 +78,17 @@ require([
     function new_sample(d, val) {
         var res;
 
-        if (!val)
+        if (val === null || val === undefined)
             val = d.last_val;
 
-        if (d.type == "number") {
-            if (val && d.last_val)
-                res = val - d.last_val;
-            else
-                res = 0;
-            d.element.text(res.toString() + " " + d.units + "/s");
-        } else if (d.type == "string") {
-            d.element.text(val.toString());
-        } else
-            d.element.text("?");
+        if  (val !== null && val !== undefined) {
+            if (d.metric.type == "number") {
+                d.element.text(val.toString() + " " + d.metric.units + (d.metric.semantics == "counter"? "/s" : ""));
+            } else if (d.metric.type == "string") {
+                d.element.text(val.toString());
+            } else
+                d.element.text("?");
+        }
 
         d.last_val = val;
     }
@@ -98,7 +96,7 @@ require([
     var channel = cockpit.channel({ payload: "metrics1",
                                     source: "direct",
                                     metrics: metrics,
-                                    omit_instances: [ "lo", "docker0" ],
+                                    'omit-instances': [ "lo", "docker0" ],
                                     interval: 1000
                                   });
     $(channel).on("close", function (event, message) {
@@ -119,7 +117,7 @@ require([
                 }
             }
         } else {
-            setup (msg.instances, msg.units, msg.types);
+            setup (msg.metrics);
         }
     });
 
