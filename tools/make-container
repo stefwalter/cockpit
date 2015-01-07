@@ -1,0 +1,24 @@
+#!/bin/sh -uef
+
+BASE=$(cd $(dirname $0)/../; pwd -P)
+
+TARGET=$1
+COMMIT=${2:-}
+CONTAINER=$BASE/build/containers/$TARGET
+
+if [ -n "$COMMIT" ]; then
+    if [ ! -f $CONTAINER/$COMMIT ]; then
+        ostree --repo=$REPO pull origin $COMMIT
+        rm -rf $CONTAINER
+        ostree --repo=$REPO checkout $COMMIT $CONTAINER
+    fi
+else
+    ostree --repo=$REPO pull origin $TARGET
+    COMMIT=$(ostree --repo=$REPO rev-parse $TARGET)
+    if [ ! -f $CONTAINER/$COMMIT ]; then
+        rm -rf $CONTAINER
+        ostree --repo=$REPO checkout $COMMIT $CONTAINER
+    fi
+fi
+
+touch $CONTAINER/$COMMIT

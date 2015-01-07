@@ -18,86 +18,63 @@
 
 set -eu
 
-base=$(cd $(dirname $0)/../; pwd -P)
-
-# For the TEST_OS defines
-. $base/test/testlib.sh
+BASE=$(cd $(dirname $0)/../; pwd -P)
+MAKE_SRPM=$BASE/tools/make-srpm
 
 usage()
 {
-	echo "usage: make-rpms [--clean] [--verbose]"
+	echo "usage: make-rpms" >&2
+    exit 2
 }
 
-mock_opts=""
-mock_clean_opts="--no-clean --no-cleanup-after"
-args=$(getopt -o "h,v,c" -l "help,verbose,clean" -- "$@")
-eval set -- "$args"
-while [ $# -gt 0 ]; do
-	case $1 in
-	--clean)
-        # We always use --no-cleanup-after because a
-        # --no-clean build can not start with a chroot that
-        # has been cleaned previously.
-		mock_clean_opts="--no-cleanup-after"
-		;;
-	-v|--verbose)
-		mock_opts="$mock_opts --verbose"
-		;;
-	-h|--help)
-		usage
-		exit 0
-		;;
-	--)
-		shift
-		break
-		;;
-	esac
-	shift
+warning()
+{
+    echo "make-rpms: $@" >&2
+}
+
+while getopts "" o; do
+    case "${o}" in
+        *)
+            usage
+            ;;
+    esac
 done
+shift $(expr $OPTIND - 1)
 
-if [ $# -ne 0 ]; then
-	usage
-	exit 2
-fi
-
-if test $(id -u) = 0; then
-    echo "Don't run this as root!"
+if test $(id -u) != 0; then
+    warning "run this command as root"
     exit 1
 fi
 
-make_srpm=$base/tools/make-srpm
+SRPM=$($MAKE_SRPM)
+REPO=$BASE/mock/tree
 
-os=${TEST_OS:-}
-arch=${TEST_ARCH:-}
+if [ ! -d $REPO/objects ]; then
+    mkdir -p $REPO
+    ostree --repo=$REPO init
+    ostree --repo=$REPO remote add --set=gpg-verify=false origin http://localhost/cockpit-tree
+fi
 
-srpm=$("$make_srpm" "$@")
-rm -rf $base/mock/*
+build()
+{
+    target=$1
+    shift
 
-# Create our custom config
-mkdir -p $base/mock
-cp --preserve=timestamps /etc/mock/site-defaults.cfg $base/mock/
-cp --preserve=timestamps /etc/mock/logging.ini $base/mock/
-cp --preserve=timestamps /etc/mock/$os-$arch.cfg $base/mock/$os-$arch-cockpit.cfg
-cat >>$base/mock/$os-$arch-cockpit.cfg <<EOF
-config_opts['root'] = "$os-$arch-cockpit"
-config_opts['yum.conf'] += """
-[updates-testing]
-enabled=1
-"""
-EOF
-# HACK: Signatures seem to be unreliable in Fedora 21 right now
-sed -i -e 's/gpgcheck=1/gpgcheck=0/' $base/mock/$os-$arch-cockpit.cfg
-touch -r /etc/mock/$os-$arch.cfg $base/mock/$os-$arch-cockpit.cfg
+    $BASE/tools/make-container $target-devel $@
 
-if LANG=C /usr/bin/mock --quiet $mock_opts $mock_clean_opts --configdir=$base/mock/ \
-	--resultdir $base/mock -r $os-$arch-cockpit $srpm; then
-    grep "^Wrote: .*\.\($arch\|noarch\)\.rpm$" $base/mock/build.log | while read l; do
-        p=$(basename "$l") # knocks off the "Wrote:" part as well...
-        echo $p
-        mv $base/mock/$p .
-    done
-    exit 0
+    container=$BASE/build/containers/$target
+    cp $SRPM $container/tmp/$SRPM
+    systemd-nspawn -D $container /usr/bin/rpmbuild --rebuild /tmp/$SRPM >&2
+    find $container/root/rpmbuild/ -name '*.rpm'
+}
+
+set -x
+if [ $# -eq 0 ]; then
+    while read target commit; do
+        build $target $commit
+    done < $BASE/tools/build-targets
 else
-    echo >&2 FAILED
-    exit 1
+    for target in $@; do
+        build $target
+    done
 fi

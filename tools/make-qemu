@@ -1,0 +1,45 @@
+#!/bin/sh -ue
+
+BASE=$(cd $(dirname $0)/../; pwd -P)
+
+TARGET=$1
+COMMIT=${2:-}
+MACHINE=$BASE/build/machine/$TARGET
+REPO=$BASE/build/tree
+
+if [ -n "$COMMIT" ]; then
+    if [ -f $MACHINE/$COMMIT ]; then
+	exit 0
+    fi
+
+    ostree --repo=$REPO pull origin $COMMIT
+else
+    ostree --repo=$REPO pull origin $TARGET
+    COMMIT=$(ostree --repo=$REPO rev-parse $TARGET)
+    if [ -f $MACHINE/$COMMIT ]; then
+        exit 0
+    fi
+fi
+
+if grep -q $MACHINE/mount /proc/mounts; then
+	umount -d -f $MACHINE/mount
+fi
+
+rm -rf $MACHINE
+
+# Sparse files are used with raw images anyway
+mkdir -p $MACHINE/mount
+qemu-img create -q -f "raw" $MACHINE/root 4G
+mkfs.ext4 -q -F $MACHINE/root
+mount -o loop $MACHINE/root $MACHINE/mount
+
+ostree --repo=$REPO checkout --fsync=false $COMMIT --union $MACHINE/mount
+for kernel in $MACHINE/mount/boot/vmlinuz-*; do
+    cp $kernel $MACHINE/kernel
+    break
+done
+for initrd in $MACHINE/mount/boot/initramfs-*; do
+    cp $kernel $MACHINE/initrd
+done
+umount -d -f $MACHINE/mount
+touch $MACHINE/$COMMIT

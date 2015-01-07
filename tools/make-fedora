@@ -1,0 +1,155 @@
+#!/bin/sh -e
+
+DEPS="
+accountsservice-libs
+json-glib
+libudisks2
+realmd
+lvm2
+mdadm
+glib-networking
+libssh
+storaged
+selinux-policy-targeted
+docker-io
+udisks2
+"
+
+BUILD="
+accountsservice-devel
+rpm-build
+autoconf
+automake
+checkpolicy
+dbus-devel
+docbook-style-xsl
+gcc
+glib2-devel
+intltool
+json-glib-devel
+krb5-devel
+keyutils-libs-devel
+libgudev1-devel
+libssh-devel
+libudisks2-devel
+libxslt-devel
+nodejs
+npm
+pam-devel
+pkgconfig
+polkit-devel
+openssl-devel
+selinux-policy-doc
+selinux-policy-devel
+systemd-devel
+xmlto
+zlib-devel
+"
+
+BASICS="
+systemd
+passwd
+yum
+fedora-release
+vim-minimal
+openssh-server
+kernel
+systemtap-runtime-virtguest
+"
+
+IPA="
+freeipa-client
+oddjob
+oddjob-mkhomedir
+sssd
+"
+
+fedora_branch()
+{
+    YUM=$1
+    REL=$2
+    WORK=$BASE/work/f$REL
+    ARCH=$(uname -p)
+
+    mkdir -p $WORK
+    rm -rf $WORK/*
+    cd $WORK
+
+    # Remove all Fedora branches for this version
+    ostree refs --repo=$BASE --delete fedora-$REL-$ARCH
+
+    yum -y --releasever=$REL --nogpg --installroot=$WORK --disablerepo='*' --enablerepo=$YUM install $BASICS
+    ostree commit --repo=$BASE --subject="Fedora $REL base" --branch="fedora-$REL-$ARCH-base" --fsync=no
+
+    # Build a basic cockpit system
+    yum -y --releasever=$REL --nogpg --installroot=$WORK --disablerepo='*' --enablerepo=$YUM install $DEPS
+
+    # Basic setup of some files
+    rm -rf $WORK/etc/sysconfig/iptables
+    echo 'NETWORKING=yes' > $WORK/etc/sysconfig/network
+
+    # Password is foobar
+    PASS='$6$/.Z3zdqk$qXvKySZQGZ.62j/3wI3k8I.CFjknwzCfSRVAHAuFxuRYsclZsFZTcAGOXgW8if/9VJl65rcAfZKBAyHBkuKA0/'
+    chroot $WORK useradd -u 1000 -c Administrator -G wheel -p "$PASS" admin
+    chroot $WORK usermod -p "$PASS" root
+
+    # Stopping a user@.service at poweroff sometimes hangs and then times
+    # out, but that seems to be harmless otherwise.  We reduce the timeout
+    # so that we don't have to wait for the default 90 seconds.
+    FILE=$WORK/usr/lib/systemd/system/user@.service
+    if [ -f $FILE ] && ! grep -q TimeoutStopSec $FILE; then
+        echo TimeoutStopSec=1 >> $FILE
+    fi
+
+    # https://bugzilla.redhat.com/show_bug.cgi?id=1057236
+    FILE=$WORK/usr/lib/systemd/system/ntpd.service
+    if [ -f $FILE ]; then
+        sed -i -e 's/-u ntp:ntp //' $FILE
+    fi
+
+    rm -rf $WORK/var/log/journal/*
+
+    ln -sf ../selinux/config $WORK/etc/sysconfig/selinux
+    echo 'SELINUX=enforcing' > $WORK/etc/selinux/config
+    touch $WORK/.autorelabel
+
+    # Audit events to the journal
+    rm -f '/etc/systemd/system/multi-user.target.wants/auditd.service'
+    rm -rf /var/log/audit/
+
+    ostree commit --repo=$BASE --subject="Fedora $REL deps" --branch="fedora-$REL-$ARCH" --fsync=no
+
+    # The build dependencies
+    yum -y --releasever=$REL --nogpg --installroot=$WORK --disablerepo='*' --enablerepo=$YUM install $BUILD
+    ostree commit --repo=$BASE --subject="Fedora $REL build" --branch="fedora-$REL-$ARCH-devel" --fsync=no
+}
+
+ipa_branch()
+{
+    WORK=$BASE/work/ipa
+    rm -rf $WORK
+
+    ostree refs --repo=$BASE --delete fedora-ipa
+    ostree checkout --repo=$BASE fedora-21-x86_64-base $WORK
+
+    cd $WORK
+    yum -y --releasever=21 --nogpg --installroot=$WORK --disablerepo='*' --enablerepo=fedora install $IPA
+    ostree commit --repo=$BASE --subject="Fedora $REL IPA" --branch="fedora-ipa" --fsync=no
+}
+
+usage()
+{
+    echo "usage: make-fedora repo" >&2
+    exit 2
+}
+
+if [ $# -ne 1 ]; then
+    usage
+    exit 2
+fi
+
+set -x
+BASE=$1
+fedora_branch fedora 21
+fedora_branch rawhide 22
+ipa_branch
