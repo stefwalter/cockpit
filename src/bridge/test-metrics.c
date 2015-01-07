@@ -223,10 +223,8 @@ test_metrics_compression (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.value', 'type': 'number', 'units': '', 'semantics': 'instant' } ]"));
 
   assert_sample (tc, "[[0]]");
   assert_sample (tc, "[[]]");
@@ -250,10 +248,8 @@ test_metrics_units (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "['sec']"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.seconds', 'type': 'number', 'units': 'sec', 'semantics': 'instant' } ]"));
 
   assert_sample (tc, "[[60]]");
 
@@ -271,10 +267,8 @@ test_metrics_units_conv (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "['min']"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.seconds', 'type': 'number', 'units': 'min', 'semantics': 'instant' } ]"));
 
   assert_sample (tc, "[[1]]");
 
@@ -310,10 +304,8 @@ test_metrics_units_funny_conv (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "['min*2']"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.seconds', 'type': 'number', 'units': 'min*2', 'semantics': 'instant' } ]"));
 
   assert_sample (tc, "[[0.5]]");
 
@@ -331,10 +323,8 @@ test_metrics_strings (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['string']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.string', 'type': 'string', 'units': '', 'semantics': 'instant' } ]"));
 
   assert_sample (tc, "[['foobar']]");
   assert_sample (tc, "[[]]");
@@ -394,10 +384,10 @@ test_metrics_simple_instances (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[['red', 'green', 'blue']]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.values', 'type': 'number', 'units': '', 'semantics': 'instant', "
+                        "    'instances': ['red', 'green', 'blue'] "
+                        "  } ]"));
 
   assert_sample (tc, "[[[0, 0, 0]]]");
   mock_pmda_control ("set-value", 1, 1);
@@ -424,10 +414,10 @@ test_metrics_instance_filter_include (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[['red', 'blue']]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.values', 'type': 'number', 'units': '', 'semantics': 'instant', "
+                        "    'instances': ['red', 'blue'] "
+                        "  } ]"));
 
   assert_sample (tc, "[[[0, 0]]]");
   mock_pmda_control ("set-value", 3, 1);
@@ -449,10 +439,10 @@ test_metrics_instance_filter_omit (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[['red', 'blue']]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.values', 'type': 'number', 'units': '', 'semantics': 'instant', "
+                        "    'instances': ['red', 'blue'] "
+                        "  } ]"));
 
   assert_sample (tc, "[[[0, 0]]]");
   mock_pmda_control ("set-value", 3, 1);
@@ -474,10 +464,10 @@ test_metrics_instance_dynamic (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[[]]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['instant']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.instances', 'type': 'number', 'units': '', 'semantics': 'instant', "
+                        "    'instances': [] "
+                        "  } ]"));
 
   assert_sample (tc, "[[[]]]");
 
@@ -485,14 +475,20 @@ test_metrics_instance_dynamic (TestCase *tc,
   mock_pmda_control ("add-instance", "milk", 3);
 
   meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[['bananas', 'milk']]"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.instances', 'type': 'number', 'units': '', 'semantics': 'instant', "
+                        "    'instances': [ 'bananas', 'milk' ] "
+                        "  } ]"));
   assert_sample (tc, "[[[ 5, 3 ]]]");
   assert_sample (tc, "[[[]]]");
 
   mock_pmda_control ("del-instance", "bananas");
 
   meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[['milk']]"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.instances', 'type': 'number', 'units': '', 'semantics': 'instant', "
+                        "    'instances': [ 'milk' ] "
+                        "  } ]"));
   assert_sample (tc, "[[[ 3 ]]]");
 
   mock_pmda_control ("add-instance", "milk", 2);
@@ -514,10 +510,8 @@ test_metrics_counter (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['counter']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.counter', 'type': 'number', 'units': '', 'semantics': 'counter' } ]"));
 
   assert_sample (tc, "[[]]");
   assert_sample (tc, "[[0]]");
@@ -541,10 +535,8 @@ test_metrics_counter64 (TestCase *tc,
   setup_metrics_channel_json (tc, options);
 
   JsonObject *meta = recv_json_object (tc);
-  g_assert (json_equal (json_object_get_member (meta, "instances"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "units"), "[null]"));
-  g_assert (json_equal (json_object_get_member (meta, "types"),"['number']"));
-  g_assert (json_equal (json_object_get_member (meta, "semantics"),"['counter']"));
+  g_assert (json_equal (json_object_get_member (meta, "metrics"),
+                        "[ { 'name': 'mock.counter64', 'type': 'number', 'units': '', 'semantics': 'counter' } ]"));
 
   assert_sample (tc, "[[]]");
   assert_sample (tc, "[[0]]");

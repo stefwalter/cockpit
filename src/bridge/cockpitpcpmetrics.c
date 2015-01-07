@@ -139,11 +139,9 @@ static JsonObject *
 build_meta (CockpitPcpMetrics *self,
             pmResult *result)
 {
+  JsonArray *metrics;
+  JsonObject *metric;
   JsonArray *instances;
-  JsonArray *units;
-  JsonArray *types;
-  JsonArray *semantics;
-  JsonArray *array;
   JsonObject *root;
   pmValueSet *vs;
   gint64 timestamp;
@@ -158,19 +156,25 @@ build_meta (CockpitPcpMetrics *self,
   json_object_set_int_member (root, "timestamp", timestamp);
   json_object_set_int_member (root, "interval", self->interval);
 
-  instances = json_array_new ();
+  metrics = json_array_new ();
   for (i = 0; i < result->numpmid; i++)
     {
-      vs = result->vset[i];
+      metric = json_object_new ();
 
-      /* When negative numval is an error code ... we don't care */
+      /* Name
+       */
+      json_object_set_string_member (metric, "name", self->metrics[i].name);
+
+      /* Instances
+       */
+      vs = result->vset[i];
       if (vs->numval < 0 || (vs->numval == 1 && vs->vlist[0].inst == PM_IN_NULL))
         {
-          json_array_add_null_element (instances);
+          /* When negative numval is an error code ... we don't care */
         }
       else
         {
-          array = json_array_new ();
+          instances = json_array_new ();
 
           for (j = 0; j < vs->numval; j++)
             {
@@ -190,39 +194,33 @@ build_meta (CockpitPcpMetrics *self,
               {
                 JsonNode *string_element = json_node_alloc ();
                 json_node_init_string (string_element, instance);
-                json_array_add_element (array, string_element);
+                json_array_add_element (instances, string_element);
               }
 
               if (instance)
                 free (instance);
             }
-          json_array_add_array_element (instances, array);
+          json_object_set_array_member (metric, "instances", instances);
         }
-    }
-  json_object_set_array_member (root, "instances", instances);
 
-  units = json_array_new ();
-  for (i = 0; i < result->numpmid; i++)
-    {
+      /* Units
+       */
       if (self->metrics[i].factor == 1.0)
         {
-          json_array_add_string_element (units, pmUnitsStr(self->metrics[i].units));
+          json_object_set_string_member (metric, "units", pmUnitsStr(self->metrics[i].units));
         }
       else
         {
           gchar *name = g_strdup_printf ("%s*%g", pmUnitsStr(self->metrics[i].units), 1.0/self->metrics[i].factor);
-          json_array_add_string_element (units, name);
+          json_object_set_string_member (metric, "units", name);
           g_free (name);
         }
-    }
-  json_object_set_array_member (root, "units", units);
 
-  types = json_array_new ();
-  for (i = 0; i < result->numpmid; i++)
-    {
+      /* Type
+       */
       switch (self->metrics[i].desc.type) {
       case PM_TYPE_STRING:
-        json_array_add_string_element (types, "string");
+        json_object_set_string_member (metric, "type", "string");
         break;
       case PM_TYPE_32:
       case PM_TYPE_U32:
@@ -230,35 +228,32 @@ build_meta (CockpitPcpMetrics *self,
       case PM_TYPE_U64:
       case PM_TYPE_FLOAT:
       case PM_TYPE_DOUBLE:
-        json_array_add_string_element (types, "number");
+        json_object_set_string_member (metric, "type", "number");
         break;
       default:
-        json_array_add_null_element (types);
         break;
       }
-    }
-  json_object_set_array_member (root, "types", types);
 
-  semantics = json_array_new ();
-  for (i = 0; i < result->numpmid; i++)
-    {
+      /* Semantics
+       */
       switch (self->metrics[i].desc.sem) {
       case PM_SEM_COUNTER:
-        json_array_add_string_element (semantics, "counter");
+        json_object_set_string_member (metric, "semantics", "counter");
         break;
       case PM_SEM_INSTANT:
-        json_array_add_string_element (semantics, "instant");
+        json_object_set_string_member (metric, "semantics", "instant");
         break;
       case PM_SEM_DISCRETE:
-        json_array_add_string_element (semantics, "discrete");
+        json_object_set_string_member (metric, "semantics", "discrete");
         break;
       default:
-        json_array_add_null_element (types);
         break;
       }
-    }
-  json_object_set_array_member (root, "semantics", semantics);
 
+      json_array_add_object_element (metrics, metric);
+    }
+
+  json_object_set_array_member (root, "metrics", metrics);
   return root;
 }
 

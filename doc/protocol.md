@@ -729,13 +729,21 @@ arrays.
 
 The 'meta' messages have at least the following fields:
 
- * "instances" (array): This field lists the instances of each metric,
-   in the same order as the "metrics" option used when opening the
-   channel.  For each metric, the array contains either "null" when
-   the metric is not instanced, or an array of strings with the actual
-   instance names.
+ * "metrics" (array): This field provides information about the
+   requested metrics.  The array has one object for each metric, in
+   the same order as the "metrics" option used when opening the
+   channel.
 
-Depending on the source, more fields might be present.
+   For each metric, the corresponding object contains at least the
+   following field:
+
+   * "instances" (array of strings, optional): This field lists the
+      instances for instanced metrics.  This field is not present for
+      non-instanced metrics.
+
+Depending on the source, more fields might be present in a 'meta'
+message, and more fields might be present in the objects of the
+"metrics" field.
 
 The 'data' messages are nested arrays in this shape:
 
@@ -840,17 +848,20 @@ A metric description can have the following fields:
 
    When specifying "units", "type" defaults to "number".
 
-The 'meta' messages for PCP sources also contain these fields:
+The metric information objects in the 'meta' messages for PCP sources
+also contain these fields:
 
- * "types" (array of strings): The type of the values reported for
-   each metric, either "number" or "string".
+ * "name" (string): The name of the metric.
 
- * "semantics" (array of strings): The semantics of each metric, one
-   of "counter", "instant", or "discrete".  Counter metrics are
-   treated specially by a metrics channel, see below.
+ * "type" (string): The type of the values reported for this metric,
+   either "number" or "string".
 
- * "units" (array of strings): The units for the values reported for
-   each metric.
+ * "semantics" (string): The semantics of this metric, one of
+   "counter", "instant", or "discrete".  Counter metrics are treated
+   specially by a metrics channel, see below.
+
+ * "units" (string): The units for the values reported for this
+   metric.
 
 The idea is that you can either provide detailed expectations for a
 metric and can then be sure that your code will not be faced with
