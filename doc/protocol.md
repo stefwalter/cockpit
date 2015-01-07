@@ -739,25 +739,25 @@ Depending on the source, more fields might be present.
 
 The 'data' messages are nested arrays in this shape:
 
-  [  // first point in time
-     [
-        // first metric (instanced, with two instances)
-        [
-           // first instance
-           1234,
-           // second instance
-           5678
-        ],
-        // second metric (not instanced)
-        789,
-        // third metric (string)
-        "foo"
-     ],
-     // next point in time
-     [
-        // same shape again as for the first point in time
-     ]
-  ]
+    [  // first point in time
+       [
+          // first metric (instanced, with two instances)
+          [
+             // first instance
+             1234,
+             // second instance
+             5678
+          ],
+          // second metric (not instanced)
+          789,
+          // third metric (string)
+          "foo"
+       ],
+       // next point in time
+       [
+          // same shape again as for the first point in time
+       ]
+    ]
 
 Thus, a 'data' message contains data for one or more points in time
 where samples have been taken.  A point in time is always one
@@ -789,28 +789,28 @@ transmitting a shorter array.
 
 For example, say the samples for three points in time are
 
-  1: [ 21354, [ 5,  5, 5 ], 100 ]
-  2: [ 21354, [ 5, 15, 5 ], 100 ]
-  3: [ 21354, [ 5, 15, 5 ], 100 ]
+    1: [ 21354, [ 5,  5, 5 ], 100 ]
+    2: [ 21354, [ 5, 15, 5 ], 100 ]
+    3: [ 21354, [ 5, 15, 5 ], 100 ]
 
 then the channel will send these array instead:
 
-  1: [ 21354, [    5,  5, 5 ], 100 ]
-  2: [  null, [ null, 15 ] ]
-  3: [  null, [ ] ]
+    1: [ 21354, [    5,  5, 5 ], 100 ]
+    2: [  null, [ null, 15 ] ]
+    3: [  null, [ ] ]
 
 # PCP metric sources
 
 You specify the desired metrics as an array of objects, where each
 object describes one metric.  For example:
 
-  [ { name: "kernel.all.cpu.user",
-      type: "number",
-      units: "millisec",
-      semantics: "counter"
-    },
-    ...
-  ]
+    [ { name: "kernel.all.cpu.user",
+        type: "number",
+        units: "millisec",
+        semantics: "counter"
+      },
+      ...
+    ]
 
 A metric description is used to describe the expected behavior of the
 metric.  For example, you can specify that you expect numbers for a
