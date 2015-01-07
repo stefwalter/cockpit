@@ -504,8 +504,9 @@ cockpit_pcp_metrics_tick (CockpitMetrics *metrics,
     cockpit_channel_close (COCKPIT_CHANNEL (self), NULL);
 }
 
-static gboolean units_equal (pmUnits *a,
-                             pmUnits *b)
+static gboolean
+units_equal (pmUnits *a,
+             pmUnits *b)
 {
   return (a->scaleCount == b->scaleCount &&
           a->scaleTime == b->scaleTime &&
@@ -515,8 +516,9 @@ static gboolean units_equal (pmUnits *a,
           a->dimSpace == b->dimSpace);
 }
 
-static gboolean units_convertible (pmUnits *a,
-                                   pmUnits *b)
+static gboolean
+units_convertible (pmUnits *a,
+                   pmUnits *b)
 {
   pmAtomValue dummy;
   dummy.d = 0;
