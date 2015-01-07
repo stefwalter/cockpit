@@ -504,115 +504,6 @@ cockpit_pcp_metrics_tick (CockpitMetrics *metrics,
     cockpit_channel_close (COCKPIT_CHANNEL (self), NULL);
 }
 
-static gboolean
-on_idle_batch (gpointer user_data)
-{
-  const int archive_batch = 60;
-  CockpitPcpMetrics *self = user_data;
-  JsonArray *message = NULL;
-  const gchar *problem;
-  JsonObject *meta;
-  pmResult *result;
-  gint i;
-  int rc;
-
-  if (pmUseContext (self->context) < 0)
-    return FALSE;
-
-  for (i = 0; i < archive_batch; i++)
-    {
-      /* Sent enough samples? */
-      self->limit--;
-      if (self->limit <= 0)
-        rc = PM_ERR_EOL;
-      else
-        rc = pmFetch (self->numpmid, self->pmidlist, &result);
-      if (rc < 0)
-        {
-          if (rc == PM_ERR_EOL)
-            {
-              problem = NULL;
-              if (message)
-                send_array (self, message);
-            }
-          else
-            {
-              g_message ("%s: couldn't read from archive: %s", self->name, pmErrStr (self->context));
-              problem = "internal-error";
-            }
-          cockpit_channel_close (COCKPIT_CHANNEL (self), problem);
-          if (message)
-            json_array_unref (message);
-          return FALSE;
-        }
-
-      meta = build_meta_if_necessary (self, result);
-      if (meta)
-        {
-          send_array (self, message);
-          json_array_unref (message);
-          message = NULL;
-
-          send_object (self, meta);
-          json_object_unref (meta);
-        }
-
-      if (message == NULL)
-          message = json_array_new ();
-      json_array_add_array_element (message, build_samples (self, result));
-
-      if (self->last)
-        {
-          pmFreeResult (self->last);
-          self->last = result;
-        }
-    }
-
-  if (message)
-    {
-      send_array (self, message);
-      json_array_unref (message);
-    }
-
-  return TRUE;
-}
-
-static void
-perform_load (CockpitPcpMetrics *self,
-              gint64 timestamp)
-{
-  struct timeval stamp;
-  pmResult *result;
-  int rc;
-
-  if (timestamp == 0)
-    {
-      stamp.tv_sec = 0x7fffffff;
-      if (pmSetMode (PM_MODE_BACK, &stamp, 0) != 0)
-        g_return_if_reached ();
-      rc = pmFetchArchive (&result);
-      if (rc < 0)
-        {
-          g_message ("%s: couldn't read from archive: %s", self->name, pmErrStr (self->context));
-          cockpit_channel_close (COCKPIT_CHANNEL (self), "internal-error");
-          return;
-        }
-      memcpy (&stamp, &result->timestamp, sizeof (stamp));
-      pmFreeResult (result);
-    }
-  else
-    {
-      stamp.tv_sec = (timestamp / 1000);
-      stamp.tv_usec = (timestamp % 1000) * 1000;
-    }
-
-  if (pmSetMode (PM_MODE_INTERP | PM_XTB_SET(PM_TIME_MSEC), &stamp, self->interval) != 0)
-    g_return_if_reached ();
-
-  if (on_idle_batch (self))
-    self->idler = g_idle_add (on_idle_batch, self);
-}
-
 static gboolean units_equal (pmUnits *a,
                              pmUnits *b)
 {
@@ -643,7 +534,6 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
   const gchar **omit_instances = NULL;
   JsonArray *metrics;
   const char *name;
-  gint64 timestamp;
   int type;
   int i;
 
@@ -661,11 +551,6 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
     {
       g_warning ("no \"source\" option specified for metrics channel");
       goto out;
-    }
-  else if (g_str_has_prefix (source, "/"))
-    {
-      type = PM_CONTEXT_ARCHIVE;
-      name = source;
     }
   else if (g_str_equal (source, "direct"))
     {
@@ -905,35 +790,8 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       goto out;
     }
 
-  /* "timestamp" option */
-  if (!cockpit_json_get_int (options, "timestamp", 0, &timestamp))
-    {
-      g_warning ("%s: invalid \"timestamp\" option", self->name);
-      goto out;
-    }
-  if (timestamp < 0 || timestamp / 1000 > G_MAXLONG)
-    {
-      g_warning ("%s: invalid \"timestamp\" value: %" G_GINT64_FORMAT, self->name, timestamp);
-      goto out;
-    }
-
-  /* "limit" option */
-  if (!cockpit_json_get_int (options, "limit", G_MAXINT64, &self->limit))
-    {
-      g_warning ("%s: invalid \"limit\" option", self->name);
-      goto out;
-    }
-  else if (self->limit <= 0)
-    {
-      g_warning ("%s: invalid \"limit\" option value: %" G_GINT64_FORMAT, self->name, self->limit);
-      goto out;
-    }
-
   problem = NULL;
-  if (type == PM_CONTEXT_ARCHIVE)
-    perform_load (self, timestamp);
-  else
-    cockpit_metrics_metronome (COCKPIT_METRICS (self), self->interval);
+  cockpit_metrics_metronome (COCKPIT_METRICS (self), self->interval);
   cockpit_channel_ready (channel);
 
 out:
