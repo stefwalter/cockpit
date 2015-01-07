@@ -709,9 +709,9 @@ The general open options are:
  * "instances" (array of strings, optional): When specified, only the
    listed instances are included in the reported samples.
 
- * "omit_instances" (array of strings, optional): When specified, the
+ * "omit-instances" (array of strings, optional): When specified, the
    listed instances are omitted from the reported samples.  Only one
-   of "instances" and "omit_instances" can be specified.
+   of "instances" and "omit-instances" can be specified.
 
  * "interval" (number, optional): The sample interval in milliseconds.
    Defaults to 1000.

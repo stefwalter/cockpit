@@ -442,7 +442,7 @@ test_metrics_instance_filter_omit (TestCase *tc,
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
                                  "  'metrics': [ 'mock.values' ],"
-                                 "  'omit_instances': [ 'green' ],"
+                                 "  'omit-instances': [ 'green' ],"
                                  "  'interval': 1"
                                  "}");
 

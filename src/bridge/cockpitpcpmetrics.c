@@ -705,10 +705,10 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       goto out;
     }
 
-  /* "omit_instances" option */
-  if (!cockpit_json_get_strv (options, "omit_instances", NULL, (gchar ***)&omit_instances))
+  /* "omit-instances" option */
+  if (!cockpit_json_get_strv (options, "omit-instances", NULL, (gchar ***)&omit_instances))
     {
-      g_warning ("%s: invalid \"omit_instances\" option (not an array of strings)", self->name);
+      g_warning ("%s: invalid \"omit-instances\" option (not an array of strings)", self->name);
       goto out;
     }
 
