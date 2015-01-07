@@ -533,8 +533,8 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
   const gchar *problem = "protocol-error";
   JsonObject *options;
   const gchar *source;
-  const gchar **instances = NULL;
-  const gchar **omit_instances = NULL;
+  gchar **instances = NULL;
+  gchar **omit_instances = NULL;
   JsonArray *metrics;
   const char *name;
   int type;
