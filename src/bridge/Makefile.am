@@ -42,8 +42,6 @@ libcockpit_bridge_a_SOURCES = \
 	src/bridge/cockpitfswatch.h \
 	src/bridge/cockpitfsdir.c \
 	src/bridge/cockpitfsdir.h \
-	src/bridge/pcpunits.c \
-	src/bridge/pcpunits.h \
 	src/bridge/deprecated/cockpitdbusjson1.c \
 	src/bridge/deprecated/cockpitdbusjson1.h \
 	$(NULL)
