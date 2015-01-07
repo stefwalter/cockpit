@@ -190,7 +190,7 @@ AC_CHECK_HEADER([pcp/pmapi.h], ,
 AC_CHECK_LIB(pcp, pmNewContext, [ true ],
   [AC_MSG_ERROR([Couldn't find pcp library. Try installing pcp-libs-devel])]
 )
-COCKPIT_BRIDGE_LIBS="$COCKPIT_BRIDGE_LIBS -lpcp"
+COCKPIT_BRIDGE_LIBS="$COCKPIT_BRIDGE_LIBS -lpcp -lm"
 
 # gssapi
 AC_CHECK_LIB(gssapi_krb5, gss_import_cred,

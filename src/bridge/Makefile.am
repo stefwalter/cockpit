@@ -62,7 +62,6 @@ libcockpit_bridge_LIBS = \
 	libcockpit-common.a \
 	libwebsocket.a \
 	$(COCKPIT_BRIDGE_LIBS) \
-	-lm \
 	$(NULL)
 
 # -----------------------------------------------------------------------------
