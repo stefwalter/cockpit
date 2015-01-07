@@ -526,6 +526,151 @@ units_convertible (pmUnits *a,
   return pmConvScale (PM_TYPE_DOUBLE, &dummy, a, &dummy, b) >= 0;
 }
 
+static gboolean
+convert_metric_description (CockpitPcpMetrics *self,
+                            JsonNode *node,
+                            MetricInfo *info,
+                            int index)
+{
+  const gchar *units;
+  const gchar *type;
+  const gchar *semantics;
+
+  if (json_node_get_node_type (node) == JSON_NODE_OBJECT)
+    {
+      if (!cockpit_json_get_string (json_node_get_object (node), "name", NULL, &info->name)
+          || info->name == NULL)
+        {
+          g_warning ("%s: invalid \"metrics\" option was specified (no name for metric %d)",
+                     self->name, index);
+          return FALSE;
+        }
+
+      if (!cockpit_json_get_string (json_node_get_object (node), "units", NULL, &units))
+        {
+          g_warning ("%s: invalid units for metric %s (not a string)",
+                     self->name, info->name);
+          return FALSE;
+        }
+
+      if (!cockpit_json_get_string (json_node_get_object (node), "type", NULL, &type))
+        {
+          g_warning ("%s: invalid type for metric %s (not a string)",
+                     self->name, info->name);
+          return FALSE;
+        }
+
+      if (!cockpit_json_get_string (json_node_get_object (node), "semantics", NULL, &semantics))
+        {
+          g_warning ("%s: invalid semantics for metric %s (not a string)",
+                     self->name, info->name);
+          return FALSE;
+        }
+    }
+  else
+    {
+      g_warning ("%s: invalid \"metrics\" option was specified (not an object for metric %d)",
+                 self->name, index);
+      return FALSE;
+    }
+
+  if (pmLookupName (1, (char **)&info->name, &info->id) < 0)
+    {
+      g_warning ("%s: no such metric: %s (%s)", self->name, info->name, pmErrStr (self->context));
+      return FALSE;
+    }
+
+  if (pmLookupDesc (info->id, &info->desc) < 0)
+    {
+      g_warning ("%s: no such metric: %s (%s)", self->name, info->name, pmErrStr (self->context));
+      return FALSE;
+    }
+
+  if (units)
+    {
+      if (type == NULL)
+        type = "number";
+
+      if (my_pmParseUnitsStr (units, &info->units_buf, &info->factor) < 0)
+        {
+          g_warning ("%s: failed to parse units: %s", self->name, units);
+          return FALSE;
+        }
+
+      if (!units_convertible (&info->desc.units, &info->units_buf))
+        {
+          g_warning ("%s: can't convert metric %s to units %s", self->name, info->name, units);
+          return FALSE;
+        }
+
+      if (info->factor != 1.0 || !units_equal (&info->desc.units, &info->units_buf))
+        info->units = &info->units_buf;
+    }
+
+  if (!info->units)
+    {
+      info->units = &info->desc.units;
+      info->factor = 1.0;
+    }
+
+  if (g_strcmp0 (type, "number") == 0)
+    {
+      int dt = info->desc.type;
+      if (!(dt == PM_TYPE_32 || dt == PM_TYPE_U32 ||
+            dt == PM_TYPE_64 || dt == PM_TYPE_U64 ||
+            dt == PM_TYPE_FLOAT || dt == PM_TYPE_DOUBLE))
+        {
+          g_warning ("%s: metric %s is not a number", self->name, info->name);
+          return FALSE;
+        }
+    }
+  else if (g_strcmp0 (type, "string") == 0)
+    {
+      if (info->desc.type != PM_TYPE_STRING)
+        {
+          g_warning ("%s: metric %s is not a string", self->name, info->name);
+          return FALSE;
+        }
+    }
+  else if (type != NULL)
+    {
+      g_warning ("%s: unsupported type %s", self->name, type);
+      return FALSE;
+    }
+
+  if (g_strcmp0 (semantics, "counter") == 0)
+    {
+      if (info->desc.sem != PM_SEM_COUNTER)
+        {
+          g_warning ("%s: metric %s is not a counter", self->name, info->name);
+          return FALSE;
+        }
+    }
+  else if (g_strcmp0 (semantics, "instant") == 0)
+    {
+      if (info->desc.sem != PM_SEM_INSTANT)
+        {
+          g_warning ("%s: metric %s is not instantaneous", self->name, info->name);
+          return FALSE;
+        }
+    }
+  else if (g_strcmp0 (semantics, "discrete") == 0)
+    {
+      if (info->desc.sem != PM_SEM_DISCRETE)
+        {
+          g_warning ("%s: metric %s is not discrete", self->name, info->name);
+          return FALSE;
+        }
+    }
+  else if (semantics != NULL)
+    {
+      g_warning ("%s: unsupported semantics %s", self->name, semantics);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 static void
 cockpit_pcp_metrics_prepare (CockpitChannel *channel)
 {
@@ -610,142 +755,8 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
   for (i = 0; i < self->numpmid; i++)
     {
       MetricInfo *info = &self->metrics[i];
-      const gchar *units;
-      const gchar *type;
-      const gchar *semantics;
-
-      JsonNode *node = json_array_get_element (metrics, i);
-      if (json_node_get_node_type (node) == JSON_NODE_OBJECT)
-        {
-          if (!cockpit_json_get_string (json_node_get_object (node), "name", NULL, &info->name)
-              || info->name == NULL)
-            {
-              g_warning ("%s: invalid \"metrics\" option was specified (no name for metric %d)",
-                         self->name, i);
-              goto out;
-            }
-
-          if (!cockpit_json_get_string (json_node_get_object (node), "units", NULL, &units))
-            {
-              g_warning ("%s: invalid units for metric %s (not a string)",
-                         self->name, info->name);
-              goto out;
-            }
-
-          if (!cockpit_json_get_string (json_node_get_object (node), "type", NULL, &type))
-            {
-              g_warning ("%s: invalid type for metric %s (not a string)",
-                         self->name, info->name);
-              goto out;
-            }
-
-          if (!cockpit_json_get_string (json_node_get_object (node), "semantics", NULL, &semantics))
-            {
-              g_warning ("%s: invalid semantics for metric %s (not a string)",
-                         self->name, info->name);
-              goto out;
-            }
-        }
-      else
-        {
-          g_warning ("%s: invalid \"metrics\" option was specified (not an object for metric %d)",
-                     self->name, i);
-          goto out;
-        }
-
-      if (pmLookupName (1, (char **)&info->name, &info->id) < 0)
-        {
-          g_warning ("%s: no such metric: %s (%s)", self->name, info->name, pmErrStr (self->context));
-          goto out;
-        }
-
-      if (pmLookupDesc (info->id, &info->desc) < 0)
-        {
-          g_warning ("%s: no such metric: %s (%s)", self->name, info->name, pmErrStr (self->context));
-          goto out;
-        }
-
-      if (units)
-        {
-          if (type == NULL)
-            type = "number";
-
-          if (my_pmParseUnitsStr (units, &info->units_buf, &info->factor) < 0)
-            {
-              g_warning ("%s: failed to parse units: %s", self->name, units);
-              goto out;
-            }
-
-          if (!units_convertible (&info->desc.units, &info->units_buf))
-            {
-              g_warning ("%s: can't convert metric %s to units %s", self->name, info->name, units);
-              goto out;
-            }
-
-          if (info->factor != 1.0 || !units_equal (&info->desc.units, &info->units_buf))
-            info->units = &info->units_buf;
-        }
-
-      if (!info->units)
-        {
-          info->units = &info->desc.units;
-          info->factor = 1.0;
-        }
-
-      if (g_strcmp0 (type, "number") == 0)
-        {
-          int dt = info->desc.type;
-          if (!(dt == PM_TYPE_32 || dt == PM_TYPE_U32 ||
-                dt == PM_TYPE_64 || dt == PM_TYPE_U64 ||
-                dt == PM_TYPE_FLOAT || dt == PM_TYPE_DOUBLE))
-            {
-              g_warning ("%s: metric %s is not a number", self->name, info->name);
-              goto out;
-            }
-        }
-      else if (g_strcmp0 (type, "string") == 0)
-        {
-          if (info->desc.type != PM_TYPE_STRING)
-            {
-              g_warning ("%s: metric %s is not a string", self->name, info->name);
-              goto out;
-            }
-        }
-      else if (type != NULL)
-        {
-          g_warning ("%s: unsupported type %s", self->name, type);
-          goto out;
-        }
-
-      if (g_strcmp0 (semantics, "counter") == 0)
-        {
-          if (info->desc.sem != PM_SEM_COUNTER)
-            {
-              g_warning ("%s: metric %s is not a counter", self->name, info->name);
-              goto out;
-            }
-        }
-      else if (g_strcmp0 (semantics, "instant") == 0)
-        {
-          if (info->desc.sem != PM_SEM_INSTANT)
-            {
-              g_warning ("%s: metric %s is not instantaneous", self->name, info->name);
-              goto out;
-            }
-        }
-      else if (g_strcmp0 (semantics, "discrete") == 0)
-        {
-          if (info->desc.sem != PM_SEM_DISCRETE)
-            {
-              g_warning ("%s: metric %s is not discrete", self->name, info->name);
-              goto out;
-            }
-        }
-      else if (semantics != NULL)
-        {
-          g_warning ("%s: unsupported semantics %s", self->name, semantics);
-          goto out;
-        }
+      if (!convert_metric_description (self, json_array_get_element (metrics, i), info, i))
+        goto out;
 
       self->pmidlist[i] = info->id;
 
