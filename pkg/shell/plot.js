@@ -258,7 +258,7 @@ shell.plot = function plot(element, x_range) {
             }
 
             for (i = 0; i < metrics.length; i++) {
-                if (instances[i] !== null) {
+                if (instances[i] !== undefined) {
                     for (j = 0; j < instances[i].length; j++)
                         count_sample(j, cur_samples[i], samples[i]);
                 } else
@@ -297,13 +297,11 @@ shell.plot = function plot(element, x_range) {
                     on_new_sample(msg[i]);
                 }
             } else {
-                if (msg.instances) {
-                    instances = msg.instances;
-                    cur_samples = [];
-                    for (i = 0; i < metrics.length; i++) {
-                        if (instances[i] !== null)
-                            cur_samples[i] = [];
-                    }
+                instances = msg.metrics.map(function (m) { return m.instances; });
+                cur_samples = [];
+                for (i = 0; i < metrics.length; i++) {
+                    if (instances[i] !== null)
+                        cur_samples[i] = [];
                 }
                 if (series_data === null)
                     init();
