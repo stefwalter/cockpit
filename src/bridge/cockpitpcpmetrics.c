@@ -614,14 +614,7 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
       const gchar *semantics;
 
       JsonNode *node = json_array_get_element (metrics, i);
-      if (json_node_get_value_type (node) == G_TYPE_STRING)
-        {
-          info->name = json_node_get_string (node);
-          type = NULL;
-          units = NULL;
-          semantics = NULL;
-        }
-      else if (json_node_get_node_type (node) == JSON_NODE_OBJECT)
+      if (json_node_get_node_type (node) == JSON_NODE_OBJECT)
         {
           if (!cockpit_json_get_string (json_node_get_object (node), "name", NULL, &info->name)
               || info->name == NULL)
@@ -654,7 +647,7 @@ cockpit_pcp_metrics_prepare (CockpitChannel *channel)
         }
       else
         {
-          g_warning ("%s: invalid \"metrics\" option was specified (neither string nor object for metric %d)",
+          g_warning ("%s: invalid \"metrics\" option was specified (not an object for metric %d)",
                      self->name, i);
           goto out;
         }

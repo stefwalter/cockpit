@@ -216,7 +216,7 @@ test_metrics_compression (TestCase *tc,
                           gconstpointer unused)
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.value' ],"
+                                 "  'metrics': [ { 'name': 'mock.value' } ],"
                                  "  'interval': 1"
                                  "}");
 
@@ -241,7 +241,7 @@ test_metrics_units (TestCase *tc,
                     gconstpointer unused)
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.seconds' ],"
+                                 "  'metrics': [ { 'name': 'mock.seconds' } ],"
                                  "  'interval': 1"
                                  "}");
 
@@ -317,7 +317,7 @@ test_metrics_strings (TestCase *tc,
                       gconstpointer unused)
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.string' ],"
+                                 "  'metrics': [ { 'name': 'mock.string' } ],"
                                  "  'interval': 1"
                                  "}");
   setup_metrics_channel_json (tc, options);
@@ -377,7 +377,7 @@ test_metrics_simple_instances (TestCase *tc,
                                gconstpointer unused)
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.values' ],"
+                                 "  'metrics': [ { 'name': 'mock.values' } ],"
                                  "  'interval': 1"
                                  "}");
 
@@ -406,7 +406,7 @@ test_metrics_instance_filter_include (TestCase *tc,
                                       gconstpointer unused)
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.values' ],"
+                                 "  'metrics': [ { 'name': 'mock.values' } ],"
                                  "  'instances': [ 'red', 'blue' ],"
                                  "  'interval': 1"
                                  "}");
@@ -431,7 +431,7 @@ test_metrics_instance_filter_omit (TestCase *tc,
                                    gconstpointer unused)
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.values' ],"
+                                 "  'metrics': [ { 'name': 'mock.values' } ],"
                                  "  'omit-instances': [ 'green' ],"
                                  "  'interval': 1"
                                  "}");
@@ -457,7 +457,7 @@ test_metrics_instance_dynamic (TestCase *tc,
 {
   JsonObject *meta;
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.instances' ],"
+                                 "  'metrics': [ { 'name': 'mock.instances' } ],"
                                  "  'interval': 1"
                                  "}");
 
@@ -503,7 +503,7 @@ test_metrics_counter (TestCase *tc,
                       gconstpointer unused)
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.counter' ],"
+                                 "  'metrics': [ { 'name': 'mock.counter' } ],"
                                  "  'interval': 1"
                                  "}");
 
@@ -528,7 +528,7 @@ test_metrics_counter64 (TestCase *tc,
                         gconstpointer unused)
 {
   JsonObject *options = json_obj("{ 'source': 'direct',"
-                                 "  'metrics': [ 'mock.counter64' ],"
+                                 "  'metrics': [ { 'name': 'mock.counter64' } ],"
                                  "  'interval': 1"
                                  "}");
 
