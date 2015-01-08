@@ -158,3 +158,48 @@ cockpit_metrics_open (CockpitTransport *transport,
                        "options", options,
                        NULL);
 }
+
+/* ---- */
+
+void
+cockpit_compressed_array_builder_init (CockpitCompressedArrayBuilder *compr)
+{
+  compr->array = NULL;
+  compr->n_skip = 0;
+}
+
+void
+cockpit_compressed_array_builder_add (CockpitCompressedArrayBuilder *compr,
+                                      JsonNode *element)
+{
+  if (element == NULL)
+    compr->n_skip++;
+  else
+    {
+      if (!compr->array)
+        compr->array = json_array_new ();
+      for (int i = 0; i < compr->n_skip; i++)
+        json_array_add_null_element (compr->array);
+      compr->n_skip = 0;
+      json_array_add_element (compr->array, element);
+    }
+}
+
+void
+cockpit_compressed_array_builder_take_and_add_array (CockpitCompressedArrayBuilder *compr,
+                                                     JsonArray *array)
+{
+  JsonNode *node = json_node_alloc ();
+  json_node_init_array (node, array);
+  cockpit_compressed_array_builder_add (compr, node);
+  json_array_unref (array);
+}
+
+JsonArray *
+cockpit_compressed_array_builder_finish (CockpitCompressedArrayBuilder *compr)
+{
+  if (compr->array)
+    return compr->array;
+  else
+    return json_array_new ();
+}

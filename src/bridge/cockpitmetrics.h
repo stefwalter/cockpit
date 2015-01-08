@@ -54,4 +54,19 @@ CockpitChannel *   cockpit_metrics_open         (CockpitTransport *transport,
 void               cockpit_metrics_metronome    (CockpitMetrics *self,
                                                  gint64 interval);
 
+typedef struct {
+  JsonArray *array;
+  int n_skip;
+} CockpitCompressedArrayBuilder;
+
+void cockpit_compressed_array_builder_init              (CockpitCompressedArrayBuilder *compr);
+
+void cockpit_compressed_array_builder_add               (CockpitCompressedArrayBuilder *compr,
+                                                         JsonNode *element);
+
+void cockpit_compressed_array_builder_take_and_add_array (CockpitCompressedArrayBuilder *compr,
+                                                          JsonArray *array);
+
+JsonArray *cockpit_compressed_array_builder_finish      (CockpitCompressedArrayBuilder *compr);
+
 #endif /* COCKPIT_METRICS_H__ */

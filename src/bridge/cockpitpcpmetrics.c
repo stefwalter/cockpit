@@ -274,52 +274,6 @@ build_meta_if_necessary (CockpitPcpMetrics *self,
   return build_meta (self, result);
 }
 
-typedef struct {
-  JsonArray *array;
-  int n_skip;
-} CompressedArrayBuilder;
-
-static void
-compressed_array_builder_init (CompressedArrayBuilder *compr)
-{
-  compr->array = NULL;
-  compr->n_skip = 0;
-}
-
-static void
-compressed_array_builder_add (CompressedArrayBuilder *compr, JsonNode *element)
-{
-  if (element == NULL)
-    compr->n_skip++;
-  else
-    {
-      if (!compr->array)
-        compr->array = json_array_new ();
-      for (int i = 0; i < compr->n_skip; i++)
-        json_array_add_null_element (compr->array);
-      compr->n_skip = 0;
-      json_array_add_element (compr->array, element);
-    }
-}
-
-static void
-compressed_array_builder_take_and_add_array (CompressedArrayBuilder *compr, JsonArray *array)
-{
-  JsonNode *node = json_node_alloc ();
-  json_node_init_array (node, array);
-  compressed_array_builder_add (compr, node);
-  json_array_unref (array);
-}
-
-static JsonArray *
-compressed_array_builder_finish (CompressedArrayBuilder *compr)
-{
-  if (compr->array)
-    return compr->array;
-  else
-    return json_array_new ();
-}
-
 static gboolean
 result_value_equal (int valfmt,
                     pmValue *val1,
@@ -425,12 +379,12 @@ static JsonArray *
 build_samples (CockpitPcpMetrics *self,
                pmResult *result)
 {
-  CompressedArrayBuilder samples;
-  CompressedArrayBuilder array;
+  CockpitCompressedArrayBuilder samples;
+  CockpitCompressedArrayBuilder array;
   pmValueSet *vs;
   int i, j;
 
-  compressed_array_builder_init (&samples);
+  cockpit_compressed_array_builder_init (&samples);
 
   for (i = 0; i < result->numpmid; i++)
     {
@@ -438,19 +392,20 @@ build_samples (CockpitPcpMetrics *self,
 
       /* When negative numval is an error code ... we don't care */
       if (vs->numval < 0)
-        compressed_array_builder_add (&samples, NULL);
+        cockpit_compressed_array_builder_add (&samples, NULL);
       else if (vs->numval == 1 && vs->vlist[0].inst == PM_IN_NULL)
-        compressed_array_builder_add (&samples, build_sample (self, result, i, 0));
+        cockpit_compressed_array_builder_add (&samples, build_sample (self, result, i, 0));
       else
         {
-          compressed_array_builder_init (&array);
+          cockpit_compressed_array_builder_init (&array);
           for (j = 0; j < vs->numval; j++)
-            compressed_array_builder_add (&array, build_sample (self, result, i, j));
-          compressed_array_builder_take_and_add_array (&samples, compressed_array_builder_finish (&array));
+            cockpit_compressed_array_builder_add (&array, build_sample (self, result, i, j));
+          cockpit_compressed_array_builder_take_and_add_array (&samples,
+                                                               cockpit_compressed_array_builder_finish (&array));
         }
     }
 
-  return compressed_array_builder_finish (&samples);
+  return cockpit_compressed_array_builder_finish (&samples);
 }
 
 static void
