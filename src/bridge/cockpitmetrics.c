@@ -35,7 +35,8 @@ G_DEFINE_ABSTRACT_TYPE (CockpitMetrics, cockpit_metrics, COCKPIT_TYPE_CHANNEL);
 static void
 cockpit_metrics_init (CockpitMetrics *self)
 {
-  self->priv = g_new0 (CockpitMetricsPrivate, 1);
+  self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, COCKPIT_TYPE_METRICS,
+                                            CockpitMetricsPrivate);
 }
 
 static void
@@ -76,26 +77,17 @@ cockpit_metrics_dispose (GObject *object)
 }
 
 static void
-cockpit_metrics_finalize (GObject *object)
-{
-  CockpitMetrics *self = COCKPIT_METRICS (object);
-
-  g_free (self->priv);
-
-  G_OBJECT_CLASS (cockpit_metrics_parent_class)->finalize (object);
-}
-
-static void
 cockpit_metrics_class_init (CockpitMetricsClass *klass)
 {
   CockpitChannelClass *channel_class = COCKPIT_CHANNEL_CLASS (klass);
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
   object_class->dispose = cockpit_metrics_dispose;
-  object_class->finalize = cockpit_metrics_finalize;
 
   channel_class->recv = cockpit_metrics_recv;
   channel_class->close = cockpit_metrics_close;
+
+  g_type_class_add_private (klass, sizeof (CockpitMetricsPrivate));
 }
 
 static gboolean
