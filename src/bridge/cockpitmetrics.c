@@ -95,7 +95,7 @@ on_timeout_tick (gpointer data)
 {
   CockpitMetrics *self = data;
   CockpitMetricsClass *klass;
-  gint next_interval;
+  gint64 next_interval;
 
   if (self->priv->timeout > 0)
     {
@@ -111,7 +111,13 @@ on_timeout_tick (gpointer data)
   next_interval = self->priv->next - g_get_monotonic_time() / 1000;
   if (next_interval < 0)
     next_interval = 0;
-  self->priv->timeout = g_timeout_add (next_interval, on_timeout_tick, self);
+  else if (next_interval <= G_MAXUINT)
+    self->priv->timeout = g_timeout_add (next_interval, on_timeout_tick, self);
+  else if (next_interval / 1000 <= G_MAXUINT)
+    self->priv->timeout = g_timeout_add_seconds (next_interval / 1000, on_timeout_tick, self);
+  else
+    cockpit_channel_close (COCKPIT_CHANNEL (self), "internal-error");
+
   return FALSE;
 }
 
