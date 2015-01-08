@@ -55,8 +55,6 @@ typedef struct {
   MetricInfo *metrics;
   gchar **instances;
   gint64 interval;
-  gint64 limit;
-  guint idler;
 
   /* The previous samples sent */
   pmResult *last;
@@ -498,11 +496,6 @@ cockpit_pcp_metrics_tick (CockpitMetrics *metrics,
   if (self->last)
     pmFreeResult (self->last);
   self->last = result;
-
-  /* Sent enough samples? */
-  self->limit--;
-  if (self->limit <= 0)
-    cockpit_channel_close (COCKPIT_CHANNEL (self), NULL);
 }
 
 static gboolean
@@ -809,30 +802,9 @@ out:
 }
 
 static void
-cockpit_pcp_metrics_close (CockpitChannel *channel,
-                           const gchar *problem)
-{
-  CockpitPcpMetrics *self = COCKPIT_PCP_METRICS (channel);
-
-  if (self->idler)
-    {
-      g_source_remove (self->idler);
-      self->idler = 0;
-    }
-
-  COCKPIT_CHANNEL_CLASS (cockpit_pcp_metrics_parent_class)->close (channel, problem);
-}
-
-static void
 cockpit_pcp_metrics_dispose (GObject *object)
 {
   CockpitPcpMetrics *self = COCKPIT_PCP_METRICS (object);
-
-  if (self->idler)
-    {
-      g_source_remove (self->idler);
-      self->idler = 0;
-    }
 
   if (self->last)
     {
@@ -872,7 +844,6 @@ cockpit_pcp_metrics_class_init (CockpitPcpMetricsClass *klass)
   gobject_class->finalize = cockpit_pcp_metrics_finalize;
 
   channel_class->prepare = cockpit_pcp_metrics_prepare;
-  channel_class->close = cockpit_pcp_metrics_close;
   metrics_class->tick = cockpit_pcp_metrics_tick;
 }
 
