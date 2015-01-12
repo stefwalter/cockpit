@@ -380,7 +380,6 @@ build_samples (CockpitPcpMetrics *self,
                pmResult *result)
 {
   CockpitCompressedArrayBuilder samples;
-  CockpitCompressedArrayBuilder array;
   pmValueSet *vs;
   int i, j;
 
@@ -397,11 +396,8 @@ build_samples (CockpitPcpMetrics *self,
         cockpit_compressed_array_builder_add (&samples, build_sample (self, result, i, 0));
       else
         {
-          cockpit_compressed_array_builder_init (&array);
           for (j = 0; j < vs->numval; j++)
-            cockpit_compressed_array_builder_add (&array, build_sample (self, result, i, j));
-          cockpit_compressed_array_builder_take_and_add_array (&samples,
-                                                               cockpit_compressed_array_builder_finish (&array));
+            cockpit_compressed_array_builder_add (&samples, build_sample (self, result, i, j));
         }
     }
 

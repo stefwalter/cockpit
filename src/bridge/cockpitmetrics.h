@@ -56,6 +56,7 @@ void               cockpit_metrics_metronome    (CockpitMetrics *self,
 
 typedef struct {
   JsonArray *array;
+  int n_no_skip;
   int n_skip;
 } CockpitCompressedArrayBuilder;
 
@@ -63,9 +64,6 @@ void cockpit_compressed_array_builder_init              (CockpitCompressedArrayB
 
 void cockpit_compressed_array_builder_add               (CockpitCompressedArrayBuilder *compr,
                                                          JsonNode *element);
-
-void cockpit_compressed_array_builder_take_and_add_array (CockpitCompressedArrayBuilder *compr,
-                                                          JsonArray *array);
 
 JsonArray *cockpit_compressed_array_builder_finish      (CockpitCompressedArrayBuilder *compr);
 
