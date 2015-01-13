@@ -1140,6 +1140,19 @@ function NetworkManagerModel(address) {
     return self;
 }
 
+function update_privileged() {
+    var message = "";
+    if (!permission.allowed)
+        message = _("You are not permitted to modify network settings");
+    $(".network-privileged")
+        .attr("disabled", permission.allowed)
+        .attr("title", message)
+        .tooltip();
+}
+
+var permission = cockpit.permission("org.freedesktop.NetworkManager.settings.modify.system");
+$(permission).on("changed", update_privileged);
+
 var nm_models = shell.util.make_resource_cache();
 
 function get_nm_model(machine) {
@@ -1244,6 +1257,7 @@ PageNetworking.prototype = {
     },
 
     setup: function () {
+        update_privileged();
         $("#networking-add-bond").click($.proxy(this, "add_bond"));
         $("#networking-add-bridge").click($.proxy(this, "add_bridge"));
         $("#networking-add-vlan").click($.proxy(this, "add_vlan"));
@@ -1571,7 +1585,8 @@ PageNetworkInterface.prototype = {
                                               $.proxy(this, "connect"),
                                               $.proxy(this, "disconnect"),
                                               function () {
-                                                  return shell.check_admin(self.cockpitd);
+                                                  /* TODO: The OnOff should be disabled instead */
+                                                  return permission.allowed;
                                               }));
     },
 
@@ -1667,9 +1682,6 @@ PageNetworkInterface.prototype = {
 
     delete_connections: function() {
         var self = this;
-
-        if (!shell.check_admin(self.cockpitd))
-            return;
 
         function delete_connection_and_slaves(con) {
             return $.when(con.delete_(),
@@ -1912,11 +1924,9 @@ PageNetworkInterface.prototype = {
                         css('vertical-align', rows.length > 1 ? "top" : "center"),
                     $('<td>').append(rows),
                     $('<td style="text-align:right;vertical-align:top">').append(
-                        $('<button class="btn btn-default">').
+                        $('<button class="btn btn-default network-privileged">').
                             text(_("Configure")).
                             click(function () {
-                                if (!shell.check_admin(self.cockpitd))
-                                    return;
                                 configure();
                             })));
             }
@@ -2105,6 +2115,8 @@ PageNetworkInterface.prototype = {
             append(render_carrier_status_row()).
             append(render_connection_settings_rows(self.main_connection, self.connection_settings));
 
+        update_privileged();
+
         function update_connection_slaves(con) {
             var tbody = $('#network-interface-slaves tbody');
             var rows = { };
@@ -2151,14 +2163,13 @@ PageNetworkInterface.prototype = {
                                                          }
                                                      },
                                                      function () {
-                                                         return shell.check_admin(self.cockpitd);
+                                                         /* TODO: The OnOff should be disabled instead */
+                                                         return permission.allowed;
                                                      })),
                                    $('<td width="28px">').append(
-                                       $('<button class="btn btn-default btn-control">').
+                                       $('<button class="btn btn-default btn-control network-privileged">').
                                            text("-").
                                            click(function () {
-                                               if (!shell.check_admin(self.cockpitd))
-                                                   return false;
                                                slave_con.delete_().
                                                    fail(shell.show_unexpected_error);
                                                return false;
@@ -2168,6 +2179,8 @@ PageNetworkInterface.prototype = {
                         });
                 });
             });
+
+            update_privileged();
 
             Object.keys(rows).sort().forEach(function(name) {
                 tbody.append(rows[name]);
@@ -2189,11 +2202,9 @@ PageNetworkInterface.prototype = {
                                     !self.graph_ifaces[iface.Name] &&
                                     iface != self.iface) {
                                     return $('<li role="presentation">').append(
-                                        $('<a role="menuitem">').
+                                        $('<a role="menuitem" class="network-privileged">').
                                             text(iface.Name).
                                             click(function () {
-                                                if (!shell.check_admin(self.cockpitd))
-                                                    return;
                                                 set_slave(self.model, con, con.Settings,
                                                           con.Settings.connection.type, iface.Name,
                                                           true).
@@ -2207,6 +2218,8 @@ PageNetworkInterface.prototype = {
 
             $(self.monitor).trigger('notify:Consumers');
             $('#network-interface-slaves').show();
+
+            update_privileged();
         }
 
         update_connection_slaves(self.main_connection);
