@@ -23,6 +23,8 @@
 
 #include "cockpitdbusinternal.h"
 
+#include <polkit/polkit.h>
+
 #include <sys/types.h>
 #include <errno.h>
 #include <grp.h>
@@ -112,6 +114,32 @@ populate_group_prop (GHashTable *props)
   g_free (list);
 }
 
+static void
+populate_subject_prop (GHashTable *props)
+{
+  PolkitSubject *subject;
+  PolkitUnixProcess *process;
+  GVariantBuilder builder;
+  GVariant *dict;
+
+  subject = polkit_unix_process_new_for_owner (getpid (), 0, getuid ());
+  process = POLKIT_UNIX_PROCESS (subject);
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+
+  g_variant_builder_add (&builder, "{sv}", "uid",
+                         g_variant_new_int32 (polkit_unix_process_get_uid (process)));
+  g_variant_builder_add (&builder, "{sv}", "pid",
+                         g_variant_new_uint32 (polkit_unix_process_get_pid (process)));
+  g_variant_builder_add (&builder, "{sv}", "start-time",
+                         g_variant_new_uint64 (polkit_unix_process_get_start_time (process)));
+
+  dict = g_variant_builder_end (&builder);
+  variant_table_sink (props, "Subject", g_variant_new ("(s@a{sv})", "unix-process", dict));
+
+  g_object_unref (subject);
+}
+
 static GVariant *
 user_get_property (GDBusConnection *connection,
                    const gchar *sender,
@@ -125,6 +153,8 @@ user_get_property (GDBusConnection *connection,
 
   if (!g_hash_table_lookup (props, "Groups"))
     populate_group_prop (props);
+  if (!g_hash_table_lookup (props, "Subject"))
+    populate_subject_prop (props);
 
   GVariant *value = g_hash_table_lookup (props, property_name);
   g_return_val_if_fail (value != NULL, NULL);
@@ -155,6 +185,10 @@ static GDBusPropertyInfo user_groups_property = {
   -1, "Groups", "as", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
 };
 
+static GDBusPropertyInfo user_subject_property = {
+  -1, "Subject", "(sa{sv})", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
 static GDBusPropertyInfo *user_properties[] = {
   &user_name_property,
   &user_full_property,
@@ -162,6 +196,7 @@ static GDBusPropertyInfo *user_properties[] = {
   &user_shell_property,
   &user_home_property,
   &user_groups_property,
+  &user_subject_property,
   NULL
 };
 
