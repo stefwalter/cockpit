@@ -1456,6 +1456,62 @@
 
   </refsection>
 
+<refsection id="latest-permission">
+    <title>Permission Lookup</title>
+
+    <para>Cockpit provides a mechnisim for checking if the current user satisfies a
+      given criteria. Currently capable of checking for root users, and group
+      membership. This is meant for updating UI elements based on what actions the
+      user can perform. It is <emphasis>not an access control mechanism</emphasis>.</para>
+
+    <refsection id="latest-permission-constructor">
+      <title>cockpit.permission()</title>
+<programlisting>
+ permission = cockpit.permission([options])
+</programlisting>
+
+    <para>Create a new permission object. If specified the <code>options</code> argument
+      object with a <code>"group"</code> group field. If no argument is given, the permission
+      will just check if the user is root.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><code>"allowed"</code></term>
+          <listitem><para>A Boolean that indicates whether or not the current user satisfies the given criteria. If any of the given tests evaluate to true, result will be true even if other criteria are false. Because getting the correct value may be a async operation, this value should generally be checked from within a <code>$(permission).on("changed", </code>callback.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsection>
+
+    <refsection id="latest-permission-allowed">
+      <title>permission.allowed</title>
+
+      <para>A boolean value which indicates if the permission is allowed or not. This will
+        be <code>null</code> if the permission is unknown, or there was an error checking
+        the permission or the the permission data has not yet loaded. This property will update
+        asynchronously and if you wish to be notified of changes connect to the
+        <link linkend="latest-permission-changed">permission.onchanged</link> event.</para>
+    </refsection>
+
+    <refsection id="latest-permission-changed">
+      <title>permission.onchanged</title>
+<programlisting>
+  $(permission).on("changed", function() { ... })
+</programlisting>
+      <para>This event is fired when the permission changes. In particular the
+        <link linkend="latest-permission-allowed">permission.allowed</link> property.</para>
+    </refsection>
+
+    <refsection id="latest-permission-close">
+      <title>permission.close()</title>
+<programlisting>
+  permission.close()
+</programlisting>
+      <para>Closes the permission object and tears down any registered callbacks and dbus subscriptions.</para>
+    </refsection>
+
+  </refsection>
+
   <refsection id="latest-locale">
     <title>Localization</title>
 
