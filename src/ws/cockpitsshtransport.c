@@ -68,7 +68,7 @@ typedef struct {
   GMainContext *context;
 
   /* Input to the connect thread*/
-  const gchar *logname;
+  const gchar *host;
   ssh_session session;
   CockpitCreds *creds;
   gchar *command;
@@ -222,7 +222,7 @@ verify_knownhost (CockpitSshData *data)
       /* Only check that the host key matches this specifically */
       if (g_str_equal (data->host_key, data->expect_key))
         {
-          g_debug ("%s: host key matched expected", data->logname);
+          g_debug ("%s: host key matched expected", data->host);
           ret = NULL; /* success */
         }
       else
@@ -231,7 +231,7 @@ verify_knownhost (CockpitSshData *data)
              failure.  Don't warn about it.
           */
           if (data->expect_key[0])
-            g_message ("%s: host key did not match expected", data->logname);
+            g_message ("%s: host key did not match expected", data->host);
         }
     }
   else
@@ -246,14 +246,14 @@ verify_knownhost (CockpitSshData *data)
       state = ssh_is_server_known (data->session);
       if (state == SSH_SERVER_KNOWN_OK)
         {
-          g_debug ("%s: verified host key", data->logname);
+          g_debug ("%s: verified host key", data->host);
           ret = NULL; /* success */
           goto done;
         }
       else if (state == SSH_SERVER_ERROR)
         {
           if (g_atomic_int_get (data->connecting))
-            g_warning ("%s: couldn't check host key: %s", data->logname,
+            g_warning ("%s: couldn't check host key: %s", data->host,
                        ssh_get_error (data->session));
           ret = "internal-error";
           goto done;
@@ -267,18 +267,18 @@ verify_knownhost (CockpitSshData *data)
           break;
         case SSH_SERVER_KNOWN_CHANGED:
           g_message ("%s: %s host key for server has changed to: %s",
-                     data->logname, type, data->host_fingerprint);
+                     data->host, type, data->host_fingerprint);
           break;
         case SSH_SERVER_FOUND_OTHER:
           g_message ("%s: host key for this server changed key type: %s",
-                     data->logname, type);
+                     data->host, type);
           break;
         case SSH_SERVER_FILE_NOT_FOUND:
           g_debug ("Couldn't find the known hosts file");
           /* fall through */
         case SSH_SERVER_NOT_KNOWN:
           g_message ("%s: %s host key for server is not known: %s",
-                     data->logname, type, data->host_fingerprint);
+                     data->host, type, data->host_fingerprint);
           break;
         }
     }
@@ -308,7 +308,7 @@ cockpit_ssh_authenticate (CockpitSshData *data)
     {
       if (g_atomic_int_get (data->connecting))
         g_message ("%s: server authentication handshake failed: %s",
-                   data->logname, ssh_get_error (data->session));
+                   data->host, ssh_get_error (data->session));
       problem = "internal-error";
       goto out;
     }
@@ -330,24 +330,22 @@ cockpit_ssh_authenticate (CockpitSshData *data)
           switch (rc)
             {
             case SSH_AUTH_SUCCESS:
-              g_debug ("%s: password auth succeeded", data->logname);
+              g_debug ("%s: password auth succeeded", data->host);
               problem = NULL;
               goto out;
             case SSH_AUTH_DENIED:
-              g_debug ("%s: password auth failed", data->logname);
+              g_debug ("%s: password auth failed", data->host);
               break;
             case SSH_AUTH_PARTIAL:
-              g_message ("%s: password auth worked, but server wants more authentication",
-                         data->logname);
+              g_message ("%s: password auth worked, but server wants more authentication", data->host);
               break;
             case SSH_AUTH_AGAIN:
-              g_message ("%s: password auth failed: server asked for retry",
-                         data->logname);
+              g_message ("%s: password auth failed: server asked for retry", data->host);
               break;
             default:
               msg = ssh_get_error (data->session);
               if (g_atomic_int_get (data->connecting))
-                g_message ("%s: couldn't authenticate: %s", data->logname, msg);
+                g_message ("%s: couldn't authenticate: %s", data->host, msg);
               if (ssh_msg_is_disconnected (msg))
                 problem = "terminated";
               else
@@ -380,20 +378,19 @@ cockpit_ssh_authenticate (CockpitSshData *data)
           switch (rc)
             {
             case SSH_AUTH_SUCCESS:
-              g_debug("%s: gssapi auth succeeded", data->logname);
+              g_debug("%s: gssapi auth succeeded", data->host);
               problem = NULL;
               goto out;
             case SSH_AUTH_DENIED:
-              g_debug ("%s: gssapi auth failed", data->logname);
+              g_debug ("%s: gssapi auth failed", data->host);
               break;
             case SSH_AUTH_PARTIAL:
-              g_message ("%s: gssapi auth worked, but server wants more authentication",
-                         data->logname);
+              g_message ("%s: gssapi auth worked, but server wants more authentication", data->host);
               break;
             default:
               msg = ssh_get_error (data->session);
               if (g_atomic_int_get (data->connecting))
-                g_message ("%s: couldn't authenticate: %s", data->logname, msg);
+                g_message ("%s: couldn't authenticate: %s", data->host, msg);
               if (ssh_msg_is_disconnected (msg))
                 problem = "terminated";
               else
@@ -407,7 +404,7 @@ cockpit_ssh_authenticate (CockpitSshData *data)
     {
       description = auth_method_description (methods);
       g_message ("%s: server offered unsupported authentication methods: %s",
-                 data->logname, description);
+                 data->host, description);
       g_free (description);
       problem = "not-authorized";
     }
@@ -440,12 +437,12 @@ cockpit_ssh_connect (CockpitSshData *data)
   if (rc != SSH_OK)
     {
       if (g_atomic_int_get (data->connecting))
-        g_message ("%s: couldn't connect: %s", data->logname,
+        g_message ("%s: couldn't connect: %s", data->host,
                    ssh_get_error (data->session));
       return "no-host";
     }
 
-  g_debug ("%s: connected", data->logname);
+  g_debug ("%s: connected", data->host);
 
   if (!data->ignore_key)
     {
@@ -466,7 +463,7 @@ cockpit_ssh_connect (CockpitSshData *data)
   if (rc != SSH_OK)
     {
       if (g_atomic_int_get (data->connecting))
-        g_message ("%s: couldn't open session: %s", data->logname,
+        g_message ("%s: couldn't open session: %s", data->host,
                    ssh_get_error (data->session));
       return "internal-error";
     }
@@ -475,12 +472,12 @@ cockpit_ssh_connect (CockpitSshData *data)
   if (rc != SSH_OK)
     {
       if (g_atomic_int_get (data->connecting))
-        g_message ("%s: couldn't execute command: %s: %s", data->logname,
+        g_message ("%s: couldn't execute command: %s: %s", data->host,
                    data->command, ssh_get_error (data->session));
       return "internal-error";
     }
 
-  g_debug ("%s: opened channel", data->logname);
+  g_debug ("%s: opened channel", data->host);
 
   /* Success */
   return NULL;
@@ -1274,7 +1271,7 @@ cockpit_ssh_transport_set_property (GObject *obj,
     {
     case PROP_HOST:
       self->logname = g_value_dup_string (value);
-      self->data->logname = self->logname;
+      self->data->host = self->logname;
       g_warn_if_fail (ssh_options_set (self->data->session, SSH_OPTIONS_HOST,
                                        g_value_get_string (value)) == 0);
       break;
