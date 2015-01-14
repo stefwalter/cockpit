@@ -1765,6 +1765,16 @@ handle = file.watch(callback, error_callback);
   </programlisting>
       <para>Format <code>number</code> of bits into a displayable speed <code>string</code>.</para>
     </refsection>
+
+    <refsection>
+      <title>cockpit.uuid()</title>
+  <programlisting>
+    string = cockpit.uuid()
+  </programlisting>
+      <para>Generate a new UUID style unique identifier. This will be a string in the form
+        <code>"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"</code>.</para>
+    </refsection>
+
   </refsection>
 
   <refsection id="latest-packages">

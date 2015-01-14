@@ -2246,6 +2246,13 @@ function full_scope(cockpit, $) {
         return format_units(number, bit_suffixes, 1000, false);
     };
 
+    cockpit.uuid = function uuid() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+            return v.toString(16);
+        });
+    };
+
     function HttpError(arg0, arg1, message) {
         var status = parseInt(arg0, 10);
         if (isNaN(status)) {

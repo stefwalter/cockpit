@@ -1397,7 +1397,7 @@ PageNetworking.prototype = {
         if (!shell.check_admin(this.cockpitd))
             return;
 
-        uuid = shell.util.uuid();
+        uuid = cockpit.uuid();
         for (i = 0; i < 100; i++) {
             iface = "bond" + i;
             if (!this.model.find_interface(iface))
@@ -1433,7 +1433,7 @@ PageNetworking.prototype = {
         if (!shell.check_admin(this.cockpitd))
             return;
 
-        uuid = shell.util.uuid();
+        uuid = cockpit.uuid();
         for (i = 0; i < 100; i++) {
             iface = "bridge" + i;
             if (!this.model.find_interface(iface))
@@ -1472,7 +1472,7 @@ PageNetworking.prototype = {
         if (!shell.check_admin(this.cockpitd))
             return;
 
-        uuid = shell.util.uuid();
+        uuid = cockpit.uuid();
 
         PageNetworkVlanSettings.model = this.model;
         PageNetworkVlanSettings.done = null;
@@ -2039,7 +2039,7 @@ PageNetworkInterface.prototype = {
         }
 
         function create_ghost_connection_settings() {
-            var uuid = shell.util.uuid();
+            var uuid = cockpit.uuid();
             return {
                 connection: {
                     id: uuid,
@@ -2537,7 +2537,7 @@ function set_slave(model, master_connection, master_settings, slave_type,
          */
 
         if (!main_connection) {
-            uuid = shell.util.uuid();
+            uuid = cockpit.uuid();
             return model.get_settings().add_connection({ connection:
                                                          { id: uuid,
                                                            uuid: uuid,
