@@ -1,0 +1,31 @@
+cockpit-logger.service : src/logger/cockpit-logger.service.in Makefile.am
+	$(AM_V_GEN) $(SED_SUBST) $< > $@
+nodist_systemdunit_DATA += cockpit-logger.service
+
+cockpit-logger-janitor.service : src/logger/cockpit-logger-janitor.service.in Makefile.am
+	$(AM_V_GEN) $(SED_SUBST) $< > $@
+nodist_systemdunit_DATA += cockpit-logger-janitor.service
+
+dist_systemdunit_DATA += src/logger/cockpit-logger-janitor.timer
+
+cockpit-logger : src/logger/cockpit-logger.in Makefile.am
+	$(AM_V_GEN) $(SED_SUBST) $< > $@
+nodist_libexec_SCRIPTS += cockpit-logger
+
+libexec_PROGRAMS += cockpit-logger-janitor
+
+cockpit_logger_janitor_SOURCES = src/logger/cockpit-logger-janitor.c
+cockpit_logger_janitor_LDADD = -lpcp
+
+pkgdata_DATA = src/logger/logger.conf
+
+EXTRA_DIST += \
+	src/ws/cockpit-logger.service.in \
+	src/ws/cockpit-logger-janitor.service.in \
+	src/ws/logger.conf \
+	$(NULL)
+
+CLEANFILES += \
+	cockpit-logger.service \
+	cockpit-logger-janitor.service \
+	$(NULL)

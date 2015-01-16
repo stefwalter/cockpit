@@ -15,6 +15,8 @@ noinst_DATA =
 nodist_noinst_DATA =
 TESTS =
 
+nodist_libexec_SCRIPTS =
+
 dist_systemdunit_DATA   =
 nodist_systemdunit_DATA =
 
@@ -102,6 +104,7 @@ recheck-memory: valgrind-suppressions
 
 SED_SUBST = sed \
         -e 's,[@]datadir[@],$(datadir),g' \
+        -e 's,[@]pkgdatadir[@],$(pkgdatadir),g' \
         -e 's,[@]libexecdir[@],$(libexecdir),g' \
         -e 's,[@]libdir[@],$(libdir),g' \
         -e 's,[@]includedir[@],$(includedir),g' \
@@ -201,3 +204,4 @@ include src/static/Makefile-static.am
 include src/remotectl/Makefile-remotectl.am
 include src/reauthorize/Makefile-reauthorize.am
 include src/selinux/Makefile-selinux.am
+include src/logger/Makefile-logger.am

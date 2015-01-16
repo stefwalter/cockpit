@@ -1,0 +1,12 @@
+[Unit]
+Description=Cockpit Logger
+Requires=pmcd.service
+After=pmcd.service
+Requires=cockpit-logger-janitor.timer
+
+[Service]
+ExecStart=@libexecdir@/cockpit-logger
+Restart=always
+
+[Install]
+WantedBy=default.target

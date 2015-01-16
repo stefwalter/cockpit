@@ -93,3 +93,8 @@ shell.js
 /src/ws/cockpit.appdata.xml
 /src/ws/cockpit.desktop
 /po/.intltool-merge-cache
+/cockpit-logger
+/cockpit-logger.service
+/src/logger/cockpit-logger-janitor.service
+/cockpit-logger-janitor
+/cockpit-logger-janitor.service

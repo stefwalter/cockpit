@@ -1,0 +1,5 @@
+[Unit]
+Description=Cockpit Logger Janitor
+
+[Timer]
+OnCalendar=hourly

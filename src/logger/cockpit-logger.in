@@ -1,0 +1,10 @@
+#! /bin/sh
+
+dir=/var/log/cockpit/archives
+mkdir -p "$dir"
+
+archive=`date +%s`
+while [ -f "$dir"/"$archive" ]; do
+    archive=`expr "$archive" + 1`
+done
+pmlogger -T 30min -c @pkgdatadir@/logger.conf "$dir"/"$archive"

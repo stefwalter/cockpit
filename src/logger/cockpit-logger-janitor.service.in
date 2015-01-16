@@ -1,0 +1,6 @@
+[Unit]
+Description=Cockpit Logger Janitor
+
+[Service]
+Type=oneshot
+ExecStart=@libexecdir@/cockpit-logger-janitor /var/log/cockpit/archives 2
