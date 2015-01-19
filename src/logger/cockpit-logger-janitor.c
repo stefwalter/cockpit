@@ -37,7 +37,7 @@ int verbose;
 double max_age_in_hours;
 
 static void
-usage ()
+usage (void)
 {
   fprintf (stderr, "usage: cockpit-logger-janitor [-v] DIR MAXAGE_IN_HOURS\n");
   exit (1);
