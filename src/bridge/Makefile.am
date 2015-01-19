@@ -2,8 +2,14 @@
 noinst_LIBRARIES += libcockpit-bridge.a
 
 libcockpit_bridge_a_SOURCES = \
+	src/bridge/cockpitblocksamples.c \
+	src/bridge/cockpitblocksamples.h \
+	src/bridge/cockpitcgroupsamples.c \
+	src/bridge/cockpitcgroupsamples.h \
 	src/bridge/cockpitchannel.c \
 	src/bridge/cockpitchannel.h \
+	src/bridge/cockpitcpusamples.c \
+	src/bridge/cockpitcpusamples.h \
 	src/bridge/cockpitdbuscache.c \
 	src/bridge/cockpitdbuscache.h \
 	src/bridge/cockpitdbusinternal.h \
@@ -14,6 +20,8 @@ libcockpit_bridge_a_SOURCES = \
 	src/bridge/cockpitdbusrules.h \
 	src/bridge/cockpitdbususer.c \
 	src/bridge/cockpitdbususer.h \
+	src/bridge/cockpitdisksamples.c \
+	src/bridge/cockpitdisksamples.h \
 	src/bridge/cockpitechochannel.c \
 	src/bridge/cockpitechochannel.h \
 	src/bridge/cockpithttpstream.c \
@@ -28,12 +36,20 @@ libcockpit_bridge_a_SOURCES = \
 	src/bridge/cockpitpcpmetrics.h \
 	src/bridge/cockpitpolkitagent.c \
 	src/bridge/cockpitpolkitagent.h \
+	src/bridge/cockpitmemorysamples.c \
+	src/bridge/cockpitmemorysamples.h \
 	src/bridge/cockpitmetrics.c \
 	src/bridge/cockpitmetrics.h \
+	src/bridge/cockpitnetdevsamples.c \
+	src/bridge/cockpitnetdevsamples.h \
+	src/bridge/cockpitnetworksamples.c \
+	src/bridge/cockpitnetworksamples.h \
 	src/bridge/cockpitnullchannel.c \
 	src/bridge/cockpitnullchannel.h \
 	src/bridge/cockpitresource.c \
 	src/bridge/cockpitresource.h \
+	src/bridge/cockpitsamples.c \
+	src/bridge/cockpitsamples.h \
 	src/bridge/cockpitstream.c \
 	src/bridge/cockpitstream.h \
 	src/bridge/cockpitsuperchannels.c \
