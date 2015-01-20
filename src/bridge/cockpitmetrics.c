@@ -24,11 +24,20 @@
 
 #include "common/cockpitjson.h"
 
+enum {
+  DERIVE_NONE = 0,
+  DERIVE_DELTA = 1,
+  DERIVE_RATE = 2,
+};
+
 struct _CockpitMetricsPrivate {
   guint timeout;
   gint64 next;
   gint64 interval;
   JsonArray *last;
+
+  gint *derives;
+  gint count;
 };
 
 G_DEFINE_ABSTRACT_TYPE (CockpitMetrics, cockpit_metrics, COCKPIT_TYPE_CHANNEL);
@@ -167,6 +176,48 @@ cockpit_metrics_open (CockpitTransport *transport,
                        NULL);
 }
 
+static gboolean
+update_derive_info (CockpitMetrics *self,
+                    JsonObject *meta)
+{
+  JsonArray *array;
+  JsonObject *info;
+  guint length;
+
+  array = json_object_get_array_member (meta, "metrics");
+  g_return_val_if_fail (info != NULL, FALSE);
+
+  length = json_array_get_length (array);
+  self->priv->derives = g_renew (gint, self->priv->derives, length);
+
+  for (i = 0; i < length; i++)
+    {
+      info = json_array_get_object_element (array, i);
+      g_return_val_if_fail (array != NULL, FALSE);
+
+      derive = json_object_get_string_member (info, "derive");
+      if (!derive)
+        {
+          self->priv->derives[i] = DERIVE_NONE;
+        }
+      else if (g_str_equal (derive, "delta"))
+        {
+          self->priv->derives[i] = DERIVE_DELTA;
+        }
+      else if (g_str_equal (derive, "rate"))
+        {
+          self->priv->derives[i] = DERIVE_RATE;
+        }
+      else
+        {
+          g_warning ("unsupported derive function: %s", derive);
+          return FALSE;
+        }
+    }
+
+  self->priv->count = length;
+}
+
 static void
 send_object (CockpitMetrics *self,
              JsonObject *object)
@@ -195,6 +246,13 @@ cockpit_metrics_send_meta (CockpitMetrics *self,
   if (self->priv->last)
     json_array_unref (self->priv->last);
   self->priv->last = NULL;
+
+  /* Calculate what we need to derive */
+  if (!update_derive_info (meta))
+    {
+      cockpit_channel_close (COCKPIT_CHANNEL (self), "internal-error");
+      return;
+    }
 
   send_object (self, meta);
 }
@@ -240,7 +298,8 @@ push_array_at (JsonArray *array,
 
 static JsonArray *
 interframe_compress_samples (JsonArray *last,
-                             JsonArray *samples)
+                             JsonArray *samples,
+                             guint depth)
 {
   JsonArray *output = NULL;
   JsonArray *res = NULL;
@@ -271,7 +330,8 @@ interframe_compress_samples (JsonArray *last,
                    json_node_get_node_type (b) == JSON_NODE_ARRAY)
             {
               res = interframe_compress_samples (json_node_get_array (a),
-                                                 json_node_get_array (b));
+                                                 json_node_get_array (b),
+                                                 depth + 1);
               node = json_node_new (JSON_NODE_ARRAY);
               json_node_take_array (node, res ? res : json_array_new ());
               output = push_array_at (output, i, node);
@@ -305,7 +365,7 @@ cockpit_metrics_send_data (CockpitMetrics *self,
 {
   JsonArray *res;
 
-  res = interframe_compress_samples (self->priv->last, data);
+  res = interframe_compress_samples (self->priv->last, data, 0);
 
   if (self->priv->last)
     json_array_unref (self->priv->last);
