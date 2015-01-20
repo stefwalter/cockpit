@@ -19,7 +19,7 @@
 
 #include "config.h"
 
-#include "cockpitdbususer.h"
+#include "cockpituser.h"
 
 #include "cockpitdbusinternal.h"
 
@@ -185,7 +185,7 @@ static GDBusInterfaceVTable user_vtable = {
 };
 
 void
-cockpit_dbus_user_startup (void)
+cockpit_user_init (void)
 {
   GDBusConnection *connection;
   GHashTable *props;

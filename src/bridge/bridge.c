@@ -20,11 +20,11 @@
 
 #include "cockpitchannel.h"
 #include "cockpitdbusinternal.h"
-#include "cockpitdbususer.h"
 #include "cockpitinteracttransport.h"
 #include "cockpitpackage.h"
 #include "cockpitpolkitagent.h"
 #include "cockpitsuperchannels.h"
+#include "cockpituser.h"
 
 #include "common/cockpitjson.h"
 #include "common/cockpitlog.h"
@@ -362,7 +362,7 @@ run_bridge (const gchar *interactive)
       super = cockpit_super_channels_new (transport);
     }
 
-  cockpit_dbus_user_startup ();
+  cockpit_user_init ();
 
   g_signal_connect (transport, "control", G_CALLBACK (on_transport_control), NULL);
   g_signal_connect (transport, "closed", G_CALLBACK (on_closed_set_flag), &closed);

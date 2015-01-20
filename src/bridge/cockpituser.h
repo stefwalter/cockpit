@@ -17,15 +17,15 @@
  * along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __COCKPIT_DBUS_USER_H
-#define __COCKPIT_DBUS_USER_H
+#ifndef __COCKPIT_USER_H
+#define __COCKPIT_USER_H
 
 #include <gio/gio.h>
 
 G_BEGIN_DECLS
 
-void                  cockpit_dbus_user_startup      (void);
+void                  cockpit_user_init      (void);
 
 G_END_DECLS
 
-#endif /* __COCKPIT_DBUS_USER_H */
+#endif /* __COCKPIT_USER_H */
