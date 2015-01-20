@@ -811,7 +811,7 @@ then the channel will send these array instead:
     2: [  null, [ null, 15 ] ]
     3: [  null, [ ] ]
 
-# PCP metric sources
+**PCP metric source**
 
 You specify the desired metrics as an array of objects, where each
 object describes one metric.  For example:
