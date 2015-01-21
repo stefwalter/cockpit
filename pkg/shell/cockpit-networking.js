@@ -1140,6 +1140,8 @@ function NetworkManagerModel(address) {
     return self;
 }
 
+var permission = cockpit.permission("org.freedesktop.NetworkManager.settings.modify.system");
+
 var nm_models = shell.util.make_resource_cache();
 
 function get_nm_model(machine) {
@@ -1401,7 +1403,7 @@ PageNetworking.prototype = {
     add_bond: function () {
         var iface, i, uuid;
 
-        if (!shell.check_admin(this.cockpitd))
+        if (!shell.check_admin(permission))
             return;
 
         uuid = generate_uuid();
@@ -1437,7 +1439,7 @@ PageNetworking.prototype = {
     add_bridge: function () {
         var iface, i, uuid;
 
-        if (!shell.check_admin(this.cockpitd))
+        if (!shell.check_admin(permission))
             return;
 
         uuid = generate_uuid();
@@ -1476,7 +1478,7 @@ PageNetworking.prototype = {
     add_vlan: function () {
         var iface, i, uuid;
 
-        if (!shell.check_admin(this.cockpitd))
+        if (!shell.check_admin(permission))
             return;
 
         uuid = generate_uuid();
@@ -1571,7 +1573,7 @@ PageNetworkInterface.prototype = {
                                               $.proxy(this, "connect"),
                                               $.proxy(this, "disconnect"),
                                               function () {
-                                                  return shell.check_admin(self.cockpitd);
+                                                  return shell.check_admin(permission);
                                               }));
     },
 
@@ -1668,7 +1670,7 @@ PageNetworkInterface.prototype = {
     delete_connections: function() {
         var self = this;
 
-        if (!shell.check_admin(self.cockpitd))
+        if (!shell.check_admin(permission))
             return;
 
         function delete_connection_and_slaves(con) {
@@ -1915,7 +1917,7 @@ PageNetworkInterface.prototype = {
                         $('<button class="btn btn-default">').
                             text(_("Configure")).
                             click(function () {
-                                if (!shell.check_admin(self.cockpitd))
+                                if (!shell.check_admin(permission))
                                     return;
                                 configure();
                             })));
@@ -2151,13 +2153,13 @@ PageNetworkInterface.prototype = {
                                                          }
                                                      },
                                                      function () {
-                                                         return shell.check_admin(self.cockpitd);
+                                                         return shell.check_admin(permission);
                                                      })),
                                    $('<td width="28px">').append(
                                        $('<button class="btn btn-default btn-control">').
                                            text("-").
                                            click(function () {
-                                               if (!shell.check_admin(self.cockpitd))
+                                               if (!shell.check_admin(permission))
                                                    return false;
                                                slave_con.delete_().
                                                    fail(shell.show_unexpected_error);
@@ -2192,7 +2194,7 @@ PageNetworkInterface.prototype = {
                                         $('<a role="menuitem">').
                                             text(iface.Name).
                                             click(function () {
-                                                if (!shell.check_admin(self.cockpitd))
+                                                if (!shell.check_admin(permission))
                                                     return;
                                                 set_slave(self.model, con, con.Settings,
                                                           con.Settings.connection.type, iface.Name,
