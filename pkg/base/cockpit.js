@@ -2582,15 +2582,30 @@ function full_scope(cockpit, $) {
         }
 
         var sub = null;
+        var timer = null;
+
+        function throttled_callback() {
+            return function () {
+                if (timer)
+                    window.clearTimeout(timer);
+                timer = window.setTimeout(function () {
+                    check_authorization();
+                }, 250);
+            };
+        }
 
         if (action) {
             if (!authority)
                 authority = cockpit.dbus("org.freedesktop.PolicyKit1");
+                $(authority).on("close", function () {
+                    self.close();
+                });
+
             sub = authority.subscribe({
                     interface: "org.freedesktop.PolicyKit1.Authority",
                     path: "/org/freedesktop/PolicyKit1/Authority",
                     member: "Changed"
-                }, check_authorization);
+                }, throttled_callback());
         }
 
         function user_changed() {
@@ -2604,6 +2619,9 @@ function full_scope(cockpit, $) {
         user_changed();
 
         self.close = function close() {
+            if (timer)
+                window.clearTimeout(timer);
+
             if (sub) {
                 sub.remove();
                 sub = null;
