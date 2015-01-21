@@ -162,6 +162,8 @@ function off_account_changes(client, id) {
     $(client).off("." + id);
 }
 
+var account_permission = cockpit.permission("org.freedesktop.accounts.user-administration");
+
 PageAccounts.prototype = {
     _init: function() {
         this.id = "accounts";
@@ -235,7 +237,7 @@ PageAccounts.prototype = {
     },
 
     create: function () {
-        if (shell.check_admin()) {
+        if (shell.check_admin(account_permission)) {
             PageAccountsCreate.client = this.client;
             $('#accounts-create-dialog').modal('show');
         }
@@ -472,7 +474,7 @@ PageAccount.prototype = {
 
     check_role_for_self_mod: function () {
         return (this.account.UserName == cockpit.user["user"] ||
-                shell.check_admin());
+                shell.check_admin(account_permission));
     },
 
     change_real_name: function() {
@@ -497,7 +499,7 @@ PageAccount.prototype = {
     change_locked: function() {
         var me = this;
 
-        if (!shell.check_admin()) {
+        if (!shell.check_admin(account_permission)) {
             me.update ();
             return;
         }
@@ -522,7 +524,7 @@ PageAccount.prototype = {
     },
 
     delete_account: function() {
-        if (!shell.check_admin())
+        if (!shell.check_admin(account_permission))
             return;
 
         PageAccountConfirmDelete.account = this.account;
@@ -532,7 +534,7 @@ PageAccount.prototype = {
     logout_account: function() {
         var me = this;
 
-        if (!shell.check_admin())
+        if (!shell.check_admin(account_permission))
             return;
 
         this.account.call('KillSessions',
@@ -545,7 +547,7 @@ PageAccount.prototype = {
     },
 
     change_roles: function() {
-        if (!shell.check_admin())
+        if (!shell.check_admin(account_permission))
             return;
 
         PageAccountChangeRoles.account = this.account;

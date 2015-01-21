@@ -205,6 +205,8 @@ function render_service (name, desc, load_state, active_state, sub_state, file_s
     return tr;
 }
 
+var manage_permission = cockpit.permission("org.freedesktop.systemd1.manage-units");
+
 PageServices.prototype = {
     _init: function() {
         this.id = "services";
@@ -836,7 +838,7 @@ PageService.prototype = {
     },
 
     action: function(op) {
-        if (!shell.check_admin())
+        if (!shell.check_admin(manage_permission))
             return;
 
         this.manager.call('ServiceAction', this.service, op, function (error) {
