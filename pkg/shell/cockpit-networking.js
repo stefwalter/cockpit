@@ -1145,7 +1145,7 @@ function update_privileged() {
     if (!permission.allowed)
         message = _("You are not permitted to modify network settings");
     $(".network-privileged")
-        .attr("disabled", permission.allowed)
+        .toggleClass("disabled", !permission.allowed)
         .attr("title", message)
         .tooltip();
 }

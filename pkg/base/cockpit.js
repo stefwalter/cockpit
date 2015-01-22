@@ -2539,12 +2539,14 @@ function full_scope(cockpit, $) {
             if (checked && (checked[0] || checked[1]))
                 allowed = true;
 
+            if (user.groups) {
             $.each(user.groups, function(i, name) {
                 if (name == group) {
                     allowed = true;
                     return false;
                 }
             });
+            }
 
             if (self.allowed !== allowed) {
                 self.allowed = allowed;
