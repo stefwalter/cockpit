@@ -91,7 +91,7 @@ test("root-all-permissions", function() {
 });
 
 test("group-permissions", function() {
-    expect(3);
+    expect(4);
     setup_user(priv_user);
 
     var p1 = cockpit.permission({ group: "badgroup" });
@@ -103,6 +103,10 @@ test("group-permissions", function() {
     setup_user(root_user);
     var p3 = cockpit.permission({ group: "agroup" });
     equal(p3.allowed, true, "no group but root, allowed");
+
+    setup_user({ "groups" : ["other"]});
+    var p4 = cockpit.permission({ group: "agroup" });
+    equal(p4.allowed, true, "no group match but root, allowed");
 });
 
 // Start tests after we have a user object

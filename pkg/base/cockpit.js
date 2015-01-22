@@ -2531,8 +2531,10 @@ function full_scope(cockpit, $) {
 
             if (user.id === 0)
                 allowed = true;
+            else if (!group)
+                allowed = false;
 
-            if (user.groups) {
+            if (!allowed && group && user.groups) {
                 allowed = false;
                 $.each(user.groups, function(i, name) {
                     if (name == group) {
