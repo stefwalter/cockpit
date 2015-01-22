@@ -707,6 +707,14 @@ The general open options are:
 
    * "pcmd": PCP metrics from the local PCP daemon.
 
+   * A string starting with "/": PCP metrics from one or more
+     archives.
+
+     The string is either the name of an archive, or the name of a
+     directory.  When it refers to a directory, the bridge will find
+     all archives in that directory and merge them.  The archives must
+     not overlap in time, and should contain the same metrics.
+
  * "metrics" (array): Descriptions of the metrics to use.  The exact
    format and semantics depend on the source.  See the specific
    sections below.
@@ -720,6 +728,21 @@ The general open options are:
 
  * "interval" (number, optional): The sample interval in milliseconds.
    Defaults to 1000.
+
+ * "timestamp" (number, optional): The desired time of the first
+   sample.  This is only used when accessing archives of samples.
+
+   This is either the number of milliseconds since the epoch, or (when
+   negative) the number of milliseconds in the past.
+
+   The first sample will be from a time not earlier than this
+   timestamp, but it might be from a much later time.
+
+ * "limit" (number, optional): The number of samples to return.  This
+   is only used when accessing an archive.
+
+   When no "limit" is specified, all samples until the end of the
+   archive are delivered.
 
 Once the channel is open, it will send messages encoded as JSON.  It
 will send two types of message: 'meta' messages that describe the
