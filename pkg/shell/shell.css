@@ -137,6 +137,30 @@ html, body {
     white-space: nowrap;
 }
 
+#dashboard-events table td:first-child {
+    white-space: nowrap;
+}
+
+#dashboard-events table td:last-child {
+    border-right-width: 5px;
+    border-right-style: solid;
+    white-space: nowrap;
+}
+
+#dashboard-events table td {
+    border-top: none;
+    border-bottom: none;
+}
+
+#dashboard-events .fa {
+    font-size: 20px;
+    color: #555;
+}
+
+td.event-message {
+    width: 100%;
+}
+
 #content-navbar-hostname {
     width: 248px;
     overflow: hidden;
