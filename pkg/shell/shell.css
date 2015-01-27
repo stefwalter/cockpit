@@ -32,43 +32,6 @@ html, body {
     font-size: 14px;
 }
 
-/* Host switcher sidebar styling */
-
-#cockpit-sidebar {
-    background: #fafafa;
-    border-right: 1px solid #d0d0d0;
-}
-
-#cockpit-sidebar .list-group .list-group-item {
-    background: transparent;
-    border-color: transparent;
-}
-
-#cockpit-sidebar .list-group .list-group-item.active,
-#cockpit-sidebar .list-group .list-group-item.active:hover {
-    background: #0099d3;
-    border-color: #0076b7;
-    color: #fff;
-}
-
-#cockpit-sidebar .list-group .list-group-item:first-child {
-    background: #e4e4e4;
-    border-bottom: 1px solid #cbcbcb;
-    padding-bottom: 10px;
-}
-
-#cockpit-sidebar .list-group .list-group-item:first-child span {
-    font-weight: bold;
-    font-size: 14px;
-}
-
-#cockpit-sidebar .list-group .list-group-item:hover {
-    background: #d4edfa;
-    border-color: #b3d3e7;
-    border-right-color: transparent;
-}
-
-#cockpit-sidebar .list-group .list-group-item .btn,
 #dashboard-add {
     height: 28px;
     width: 28px;
@@ -144,19 +107,6 @@ html, body {
 
 #dashboard-plot {
     margin-bottom: 10px;
-}
-
-#content-navbar-hostname {
-    width: 248px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap
-}
-
-#cockpit-sidebar .list-group .list-group-item {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 #host-edit-color-popover .color-cell {
@@ -251,12 +201,6 @@ html, body {
     padding-left: 20px;
 }
 
-iframe.container-frame {
-    display: block;
-    width: 100%;
-    border: none;
-}
-
 /* The server avatar */
 #server-avatar {
     width:       128px;
@@ -278,16 +222,6 @@ iframe.container-frame {
 
 ul.available-interfaces-group {
     margin-bottom: 0px;
-}
-
-/* Language dialog styling */
-
-#display-language-list {
-    width: 100%;
-}
-
-#display-language-list option {
-    padding: 10px;
 }
 
 .server-graph:hover {
