@@ -8,8 +8,6 @@ shell_js_PARTS = \
 	pkg/shell/cockpit-util.js \
 	pkg/shell/cockpit-main.js \
 	pkg/shell/cockpit-plot.js \
-	pkg/shell/cockpit-about.js \
-	pkg/shell/cockpit-language.js \
 	pkg/shell/cockpit-dashboard.js \
 	pkg/shell/cockpit-setup.js \
 	pkg/shell/cockpit-server.js \
@@ -34,6 +32,8 @@ shelldir = $(pkgdatadir)/shell
 shell_DATA = \
 	shell.js \
 	shell.min.js \
+	pkg/shell/index.html \
+	pkg/shell/index.min.html \
 	pkg/shell/shell.css \
 	pkg/shell/shell.html \
 	pkg/shell/shell.min.html \

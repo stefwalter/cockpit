@@ -76,8 +76,6 @@ require([
 
 function init() {
     $('.dropdown-toggle').dropdown();
-    setup_user_menu();
-    setup_watchdog();
     content_init();
     content_show();
 }
@@ -107,18 +105,6 @@ function dbus(address, options) {
                             function () { return shell.dbus_client(address, options); });
 }
 
-var watchdog_problem = null;
-
-function setup_watchdog() {
-    var watchdog = cockpit.channel({ "payload": "null" });
-    $(watchdog).on("close", function(event, options) {
-        console.warn("transport closed: " + options.problem);
-        watchdog_problem = options.problem;
-        $('.modal[role="dialog"]').modal('hide');
-        $('#disconnected-dialog').modal('show');
-    });
-}
-
 /* current_params are the navigation parameters of the current page,
  * for example:
  *
@@ -137,8 +123,6 @@ function setup_watchdog() {
 var current_params;
 var current_page_element;
 var current_legacy_page;
-
-var page_navigation_count = 0;
 
 function content_init() {
     var current_visible_dialog = null;
@@ -645,86 +629,6 @@ function get_location_hash(location) {
     return location.href.split('#')[1] || '';
 }
 
-function get_page_iframe(params) {
-    /* Find the component that matches the longest prefix.  This
-     * determines the prefix we will use.
-     */
-    var prefix, key, comp;
-    for (var i = params.path.length; i >= 0; i--) {
-        prefix = params.path.slice(0,i);
-        key = JSON.stringify(prefix);
-        if (components[key]) {
-            comp = components[key];
-            break;
-        }
-    }
-
-    if (!comp)
-        return null;
-
-    /* Now find or create the iframe for it.
-     */
-
-    key = params.host + ":" + key;
-
-    var iframe = page_iframes[key];
-    if (!iframe) {
-        var host = params.host;
-        if (host == "localhost")
-            host = "local";
-        var name = "/" + encodeURIComponent(host) + "/" + prefix.map(encodeURIComponent).join("/");
-        iframe = $('<iframe class="container-frame">').
-            hide().
-            attr('name', name);
-        $('#content').append(iframe);
-        register_child(iframe[0].contentWindow, params.host);
-        page_iframes[key] = iframe;
-        iframe.on('load', function () {
-            /* Setting the "data-loaded" attribute helps the testsuite
-             * to know when it can switch into the frame and inject
-             * its own additions.
-             */
-            iframe.attr('data-loaded', true);
-            update_global_nav();
-
-            $(iframe[0].contentWindow).on('hashchange', function () {
-                if (current_page_element == iframe) {
-                    var options = { };
-                    var inner_hash = get_location_hash(iframe[0].contentWindow.location);
-                    var inner_path = cockpit.location.decode(inner_hash, options);
-                    var outer_path = [ host ].concat(prefix, inner_path);
-                    cockpit.location.go(outer_path, options);
-                }
-            });
-        });
-    }
-
-    /* We get a package listing so that we can load the entry point
-     * via checksums (which enables caching), but most importantly so
-     * that cockpit-ws will learn all the checksums and can load other
-     * pieces that the entry point refers to via checksums.
-     */
-
-    var href = cockpit.location.encode(params.path.slice(prefix.length), params.options);
-
-    var pkg = comp.pkg + "@" + params.host;
-    cockpit.packages.lookup(pkg).
-        done(function (info) {
-            var url = "/cockpit/";
-            if (info.checksum)
-                url += info.checksum;
-            else
-                url += pkg;
-            iframe.attr('src', url + "/" + comp.entry + '#' + href);
-        }).
-        fail(function (error) {
-            console.log("Error loading package " + pkg, error.toString());
-            iframe.attr('src', "/cockpit/" + pkg + "/" + comp.entry + '#' + href);
-        });
-
-    return iframe;
-}
-
 function legacy_page_from_id(id) {
     var n;
     for (n = 0; n < shell.pages.length; n++) {
@@ -739,30 +643,26 @@ function legacy_page_from_id(id) {
  */
 
 function display_params(params) {
-    page_navigation_count += 1;
-
-    var element = get_page_iframe(params);
+    var element = null;
     var legacy_page = null;
 
     /* Try to find a legacy page for path[0].
      */
-    if (!element) {
-        var id = params.path[0];
-        legacy_page = visited_legacy_pages[id];
-        if (!legacy_page) {
-            legacy_page = legacy_page_from_id(id);
-            if (legacy_page) {
-                if (legacy_page.setup)
-                    legacy_page.setup();
-                visited_legacy_pages[id] = legacy_page;
-            }
+    var id = params.path[0];
+    legacy_page = visited_legacy_pages[id];
+    if (!legacy_page) {
+        legacy_page = legacy_page_from_id(id);
+        if (legacy_page) {
+            if (legacy_page.setup)
+                legacy_page.setup();
+            visited_legacy_pages[id] = legacy_page;
         }
-        if (legacy_page)
-            element = $('#' + id);
     }
+    if (legacy_page)
+        element = $('#' + id);
 
     if (!element) {
-        cockpit.location.go([ "local", "dashboard" ]);
+        cockpit.location.go([ "server" ]);
         return;
     }
 
@@ -909,229 +809,6 @@ shell.confirm = function confirm(title, body, action_text) {
     $('#confirmation-dialog').modal('show');
     return deferred.promise();
 };
-
-function setup_user_menu() {
-    function update_name() {
-        var str = cockpit.user["name"] || cockpit.user["user"] || "???";
-        $('#content-user-name').text(str);
-    }
-
-    function update_user_menu() {
-        var is_root = (cockpit.user["user"] == "root");
-        var is_not_root = (cockpit.user["user"] && !is_root);
-        $('#cockpit-go-account').toggle(is_not_root);
-        $('#cockpit-change-passwd').toggle(is_root);
-        $('.cockpit-deauthorize-item').toggle(is_not_root);
-    }
-
-    $(cockpit.user).on("changed", update_name);
-    if (cockpit.user["name"])
-        update_name();
-
-    $(".cockpit-deauthorize-item a").on("click", function(ev) {
-        cockpit.drop_privileges(false);
-        $(".cockpit-deauthorize-item").addClass("disabled");
-        $(".cockpit-deauthorize-item a").off("click");
-
-        /* TODO: We need a better indicator for deauthorized state */
-        $(".cockpit-deauthorize-status").text("deauthorized");
-        ev.preventDefault();
-    });
-
-    update_user_menu();
-    $(cockpit.user).on("changed", update_user_menu);
-}
-
-shell.go_login_account = function go_login_account() {
-    cockpit.location.go([ "local", "account" ], { id: cockpit.user["user"] });
-};
-
-PageDisconnected.prototype = {
-    _init: function() {
-        this.id = "disconnected-dialog";
-    },
-
-    setup: function() {
-        $('#disconnected-reconnect').click($.proxy(this, "reconnect"));
-        $('#disconnected-logout').click($.proxy(this, "logout"));
-    },
-
-    enter: function() {
-        /* Try to reconnect right away ... so that reconnect button has a chance */
-        cockpit.channel({ payload: "null" });
-        $('#disconnected-error').text(cockpit.message(watchdog_problem));
-    },
-
-    show: function() {
-    },
-
-    leave: function() {
-    },
-
-    reconnect: function() {
-        /*
-         * If the connection was interrupted, but cockpit-ws is still running,
-         * then it still has our session. The dummy cockpit.channel() above tried
-         * to reestablish a connection with the same credentials.
-         *
-         * So if that works, this should reload the current page and get back to
-         * where the user was right away. Otherwise this sends the user back
-         * to the login screen.
-         */
-        window.location.reload(false);
-    },
-
-    logout: function() {
-        cockpit.logout();
-    }
-};
-
-function PageDisconnected() {
-    this._init();
-}
-
-shell.dialogs.push(new PageDisconnected());
-
-var unique_id = 0;
-var origin = cockpit.transport.origin;
-var frame_peers_by_seed = { };
-var frame_peers_by_name = { };
-
-function register_child(child_window, host) {
-    if (!child_window.name) {
-        console.warn("invalid child window", child_window);
-        return;
-    }
-
-    unique_id += 1;
-    var seed = (cockpit.transport.options["channel-seed"] || "undefined:") + unique_id + "!";
-    var peer = {
-        window: child_window,
-        channel_seed: seed,
-        default_host: host,
-        initialized: false
-    };
-    frame_peers_by_seed[seed] = peer;
-    frame_peers_by_name[child_window.name] = peer;
-}
-
-cockpit.transport.filter(function(message, channel, control) {
-
-    /* Only control messages with a channel are forwardable */
-    if (control) {
-        if (control.channel !== undefined) {
-            $.each(frame_peers_by_seed, function(seed, peer) {
-                if (peer.initialized)
-                    peer.window.postMessage(message, origin);
-            });
-        }
-        return true; /* still deliver locally */
-
-    /* Forward message to relevant frame */
-    } else if (channel) {
-        var pos = channel.indexOf('!');
-        if (pos !== -1) {
-            var seed = channel.substring(0, pos + 1);
-            var peer = frame_peers_by_seed[seed];
-            if (peer && peer.initialized) {
-                peer.window.postMessage(message, origin);
-                return false; /* Stop delivery */
-            }
-        }
-        /* Still deliver the message locally */
-        return true;
-    }
-
-});
-
-window.addEventListener("message", function(event) {
-    if (event.origin !== origin)
-        return;
-
-    var data = event.data;
-    if (typeof data !== "string")
-        return;
-
-    var frame = event.source;
-    var peer = frame_peers_by_name[frame.name];
-    if (!peer || peer.window != frame)
-        return;
-
-    /* Closing the transport */
-    if (data.length === 0) {
-        peer.initialized = false;
-        return;
-    }
-
-    /* A control message */
-    if (data[0] == '\n') {
-        var control = JSON.parse(data.substring(1));
-        if (control.command === "init") {
-            peer.initialized = true;
-            var reply = $.extend({ }, cockpit.transport.options,
-                { "default-host": peer.default_host, "channel-seed": peer.channel_seed }
-            );
-            frame.postMessage("\n" + JSON.stringify(reply), origin);
-
-        /* Only control messages with a channel are forwardable */
-        } else if (control.channel === undefined) {
-            return;
-        }
-    }
-
-    if (!peer.initialized) {
-        console.warn("child frame " + frame.name + " sending data without init");
-        return;
-    }
-
-    /* Everything else gets forwarded */
-    cockpit.transport.inject(data);
-}, false);
-
-/* This tells child frames we are a parent wants to accept messages */
-if (!window.options)
-    window.options = { };
-$.extend(window.options, { sink: true, protocol: "cockpit1" });
-
-cockpit.packages.all(true).
-    done(function(pkgs) {
-        packages = pkgs;
-
-        var list = $.map(pkgs, function(pkg) { return pkg; });
-        list.sort(function(a, b) {
-            return a.name == b.name ? 0 : a.name < b.name ? -1 : 1;
-        });
-
-        var seen = { };
-        $.each(list, function(i, pkg) {
-            var tools = pkg.manifest.tools;
-            if (!tools)
-                return;
-            $.each(tools, function(ident, info) {
-                if (seen[ident])
-                    return;
-                seen[ident] = ident;
-                register_component([ ident ], pkg.name, info.path);
-                register_tool(ident, info.label);
-            });
-        });
-
-        maybe_init();
-    }).
-    fail(function(ex) {
-        packages = { };
-        maybe_init();
-
-        throw ex; /* should show an oops */
-    });
-
-/* Run when jQuery thinks page is loaded */
-$(function() {
-    register_component([ "playground" ], "playground", "test.html");
-    register_component([ "journal" ], "server", "log.html");
-    loaded = true;
-    maybe_init();
-});
 
 })(jQuery, cockpit, shell, modules);
 
