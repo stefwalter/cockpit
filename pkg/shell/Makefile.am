@@ -36,6 +36,8 @@ shell_DATA = \
 	pkg/shell/index.html \
 	pkg/shell/index.min.html \
 	pkg/shell/jquery-flot.js \
+	pkg/shell/main.js \
+	pkg/shell/main.min.js \
 	pkg/shell/shell.css \
 	pkg/shell/shell.html \
 	pkg/shell/shell.min.html \

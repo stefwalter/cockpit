@@ -21,6 +21,8 @@ define([
     "jquery",
     "latest/cockpit",
 ], function($, cockpit) {
+    var _ = cockpit.gettext;
+
     var main = { };
 
     function Machines(list) {
@@ -65,12 +67,13 @@ define([
         }
 
         proxies.wait(function() {
-            $(hosts).on('added removed changed', update);
+            $(proxies).on('added removed changed', update);
             update();
         });
     }
 
     function Components(list) {
+        var self = this;
 
         /* TODO: We should remove the hard coded settings here */
 
@@ -87,7 +90,7 @@ define([
             },
             {
                 path: "containers",
-                label: _("Containers")
+                label: _("Containers"),
                 src: "shell/shell.html"
             },
             {
@@ -131,16 +134,11 @@ define([
                             return;
                         list.push({
                             path: ident,
-                            label: locale.gettext(info.label),
-                            src: pkg.name + "/" + info.path;
+                            label: cockpit.gettext(info.label),
+                            src: pkg.name + "/" + info.path
                         });
-                        seen[ident] = ident;
-                        register_component([ ident ], pkg.name, info.path);
-                        register_tool(ident, info.label);
                     });
                 });
-
-                maybe_init();
             })
             .fail(function(ex) {
                 console.warn("Couldn't load package info: " + ex);
