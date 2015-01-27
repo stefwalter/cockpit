@@ -11,6 +11,23 @@
         .oops-status { color: red; font-weight: bold; }
         #display-language-list { width: 100%; }
         #display-language-list option { padding: 10px; }
+
+        #machine-color {
+            border-left: 7px solid #BABABA;
+            border-top: none;
+            border-bottom: none;
+            height: 44px;
+            padding: 0px;
+        }
+        #machine-link {
+            padding: 9px;
+            padding-right: 15px;
+        }
+        #machine-avatar {
+            width: 24px;
+            height: 24px;
+            margin-right: 9px;
+        }
     </style>
   </head>
   <body>
@@ -56,22 +73,22 @@
           </li>
         </ul>
         <ul class="nav navbar-nav navbar-primary" id="content-navbar">
-          <li>
-            <a style="border-left: 7px solid #0099d3; border-top: none; border-bottom: none; height: 44px; padding: 0px;"></a>
+          <li class="machine-collapse">
+            <a id="machine-color"></a>
           </li>
-          <li class="active" style="">
-            <a style="padding-left: 9px; padding-top: 9px; padding-bottom: 9px;"><img src="images/server-small.png" style="width: 24px; height: 24px; margin-right: 9px;">falcon.thewalter.lan <b class="caret"></b></a>
+          <li class="machine-collapse active">
+            <a id="machine-link">
+              <img src="images/server-small.png" id="machine-avatar"><span>falcon.thewalter.lan</span>
+              <b class="caret"></b>
+            </a>
           </li>
-          <li style="width: 200px;">
-            &nbsp;
-          </li>
-          <li>
+          <li class="dashboard-link" data-dashboard="machines">
             <a translatable="yes">Machines</a>
           </li>
-          <li>
+          <li class="dashboard-link" data-dashboard="journal">
             <a translatable="yes">Journal</a>
           </li>
-          <li>
+          <li class="dashboard-link" data-dashboard="cluster">
             <a translatable="yes">Cluster</a>
           </li>
         </ul>
@@ -166,14 +183,14 @@
       </div>
     </div>
 
-    
 <script>
 
 require([
     'jquery',
     'latest/cockpit',
-    'latest/po'
-], function($, cockpit, po, shell) {
+    'latest/po',
+    'shell/main'
+], function($, cockpit, po, main) {
     cockpit.locale(po);
     var _ = cockpit.gettext;
 
@@ -320,29 +337,147 @@ require([
         $('#disconnected-dialog').modal('show');
     });
 
+    /* Data storage and discovery */
+
+    /* The current list of machines */
+    var machines = [ ];
+
+    /* The current list of discoveries, by address */
+    var discos = { };
+
+    /* The entire data store retrieved, by address */
+    var store = { };
+
+    /* Lists of frames, by address */
+    var iframes = { };
+
+    function rebuild(address) {
+        var removed = { };
+        var added = { };
+
+        if (!address) {
+            $.each(machines, function(i, machine) {
+                removed[machine.address] = machine;
+            });
+            machines = store.machines || [ ];
+            $.each(machines, function(i, machine) {
+                if (removed[machine.address])
+                    delete removed[machine.address];
+                else
+                    added[machine.address] = machine;
+            });
+        }
+
+        $.each(added, function(a) {
+            discover(a, null);
+        });
+        $.each(removed, function(a) {
+            var disco = discos[a];
+            if (disco) {
+                disco.close();
+                delete discos[a];
+            }
+
+            delete store[a];
+
+            var list = frames[a];
+            if (list) {
+                $.each(list, function(i, iframe) {
+                    iframe.parentNode.removeChild(iframe);
+                });
+                delete frames[a];
+            }
+        });
+    }
+
+    function discover(host, what) {
+        var module;
+        if (host)
+            module = "shell@" + host + "/main";
+        else
+            module = "shell/main";
+        require([module], function(main) {
+            discos[host] = main.disco(what, function(data) {
+                store[data] = data;
+                rebuild(host);
+            });
+        });
+    }
+
     /* Navigation */
 
-    var frames = { };
+    var current_address = null;
+    var current_dashboard = null;
 
     function navigate() {
         var path = cockpit.location.path;
 
-        var frame;
-        if (path.length === 0)
-            frame = "@localhost";
-        else
-            frame = path[0];
+        var address = null;
+        var component = null;
+        var dashboard = null;
 
-        if (!frames[0]) {
-            
+        var at = 0;
+        if (path.length === at) {
+            address = "localhost";
 
-        /* TODO: A host */
+        } else if (path[at][0] == '@') {
+            address = path[at].substring(1);
+            at++;
+
         } else {
-            
+            dashboard = path[at];
+            at++;
         }
+
+        if (address) {
+            if (path.length === at) {
+                component = "server";
+            } else {
+                component = path[at];
+                at++;
+            }
+        }
+
+        var remainder = path.slice(at);
+
+        update_navbar(address, dashboard);
+        /*
+           xxxx
+        update_sidebar(address);
+        update_frame(address || dashboard, component, remainder);
+        */
     }
 
     $(cockpit).on("locationchanged", navigate);
+    navigate();
+
+    /* Navigation widgets */
+
+    function lookup_machine(address) {
+        return null; /* xxx */
+    }
+
+    function update_navbar(address, dashboard) {
+        if (address) {
+            var machine = lookup_machine(address) || { };
+            $("#machine-color").css("border-left-color", machine.color || "");
+            $("#machine-avatar").attr("src", machine.avatar || "images/server-small.png");
+            $("#machine-link span").text(machine.label || address);
+        }
+        $(".machine-collapse").toggle(!!address);
+
+        $(".dashboard-link").each(function() {
+            var el = $(this);
+            el.toggleClass("active", el.attr("data-dashboard") === dashboard);
+        });
+    }
+
+    function update_sidebar(address) {
+    }
+
+    /* Framed components */
+
+    var frames = { };
 
     var origin = cockpit.transport.origin;
     var frame_peers_by_seed = { };
