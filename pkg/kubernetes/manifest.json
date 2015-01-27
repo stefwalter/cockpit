@@ -1,10 +1,12 @@
 {
     "version": 0,
     "discovery": [ "kubernetes" ],
+    "components": {
+        "kube-master": "tool.html"
+    },
     "tools": {
         "kube-master": {
-            "label": "Kubernetes Master",
-            "path": "tool.html"
+            "label": "Kubernetes Master"
         }
     }
 }

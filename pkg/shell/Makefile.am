@@ -8,8 +8,6 @@ shell_js_PARTS = \
 	pkg/shell/cockpit-util.js \
 	pkg/shell/cockpit-main.js \
 	pkg/shell/cockpit-plot.js \
-	pkg/shell/cockpit-about.js \
-	pkg/shell/cockpit-language.js \
 	pkg/shell/cockpit-dashboard.js \
 	pkg/shell/cockpit-setup.js \
 	pkg/shell/cockpit-server.js \
@@ -36,6 +34,8 @@ shell_DATA = \
 	shell.js \
 	shell.min.js \
 	pkg/shell/attrchange.js \
+	pkg/shell/index.html \
+	pkg/shell/index.min.html \
 	pkg/shell/jquery-flot.js \
 	pkg/shell/shell.css \
 	pkg/shell/shell.html \

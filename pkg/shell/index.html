@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Cockpit</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/cockpit/@@shell@@/index.html">
+    <link href="../@@latest@@/cockpit.css" rel="stylesheet">
+    <script src="../@@latest@@/cockpit.js"></script>
+    <style>
+        .oops-status { color: red; font-weight: bold; }
+        #display-language-list { width: 100%; }
+        #display-language-list option { padding: 10px; }
+    </style>
+  </head>
+  <body>
+    <nav id="topnav" class="navbar navbar-default navbar-pf" role="navigation">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse-1">
+          <span class="sr-only" translatable="yes">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <img class="navbar-brand" height="25" src="/static/images/brand.v0.png" alt="Cockpit" />
+      </div>
+      <div class="collapse navbar-collapse navbar-collapse-1">
+        <ul class="nav navbar-nav navbar-utility">
+          <li id="navbar-oops" style="display: none;">
+            <a><span class="oops-status" translatable="yes">Ooops!</span></a>
+          </li>
+          <li class="dropdown">
+            <a class="dropdown-toggle" data-toggle="dropdown">
+              <span class="pficon pficon-user"></span>
+              <span id="user-name"></span><b class="caret"></b>
+            </a>
+            <ul class="dropdown-menu">
+              <li>
+                <a data-toggle="modal" data-target="#display-language" translatable="yes">Display Language</a>
+              </li>
+              <li class="divider"></li>
+              <li>
+                <a data-toggle="modal" data-target="#about" translatable="yes">About Cockpit</a>
+              </li>
+              <li class="divider"></li>
+              <li>
+                <a id="go-account" translatable="yes">Account Settings</a>
+              </li>
+              <li>
+                <a  id="deauthorize-item" translatable="yes">Drop extra privileges</a>
+              </li>
+              <li>
+                <a id="go-logout" translatable="yes">Log out</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="nav navbar-nav navbar-primary" id="content-navbar">
+          <li>
+            <a style="border-left: 7px solid #0099d3; border-top: none; border-bottom: none; height: 44px; padding: 0px;"></a>
+          </li>
+          <li class="active" style="">
+            <a style="padding-left: 9px; padding-top: 9px; padding-bottom: 9px;"><img src="images/server-small.png" style="width: 24px; height: 24px; margin-right: 9px;">falcon.thewalter.lan <b class="caret"></b></a>
+          </li>
+          <li style="width: 200px;">
+            &nbsp;
+          </li>
+          <li>
+            <a translatable="yes">Machines</a>
+          </li>
+          <li>
+            <a translatable="yes">Journal</a>
+          </li>
+          <li>
+            <a translatable="yes">Cluster</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="modal" id="about" tabindex="-1" role="dialog" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" translatable="yes">About Cockpit</h4>
+          </div>
+          <div class="modal-body">
+            <div translatable="yes">
+              Cockpit is an advanced application with many options.
+            </div>
+            <div>
+              <span translatable="yes">Version</span> <span id="about-version"></span>.
+            </div>
+            <div>
+              <span id="about-build-info"></span>.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" data-dismiss="modal">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="display-language" tabindex="-1" role="dialog" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" translatable="yes">Display Language</h4>
+          </div>
+          <div class="modal-body">
+	    <p translatable="yes">Choose the language to be used in the application</p>
+            <select id="display-language-list" size="5" data-role="none">
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" data-dismiss="modal" translatable="yes">
+              Cancel
+            </button>
+            <button class="btn btn-primary" id="display-language-select-button" translatable="yes">
+              Select
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="disconnected-dialog" tabindex="-1" role="dialog" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" translatable="yes">Disconnected</h4>
+          </div>
+          <div class="modal-body">
+            <div id="disconnected-error"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" id="disconnected-reconnect" translatable="yes">
+              Try to reconnect
+            </button>
+            <button class="btn btn-default" id="disconnected-logout" translatable="yes">
+              Log in again
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="error-popup" tabindex="-1" role="dialog" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" id="error-popup-title"></h4>
+          </div>
+          <div class="modal-body">
+            <p id="error-popup-message"></p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" data-dismiss="modal" translatable="yes">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    
+<script>
+
+require([
+    'jquery',
+    'latest/cockpit',
+    'latest/po'
+], function($, cockpit, po, shell) {
+    cockpit.locale(po);
+    var _ = cockpit.gettext;
+
+    /* The oops bar */
+
+    var oops = null;
+    function setup_oops() {
+        if (oops)
+            return true;
+        oops = $("#navbar-oops");
+        if (!oops)
+            return false;
+        oops.children("a").on("click", function() {
+            $("#error-popup-title").text(_("Unexpected error"));
+            var details = _("Cockpit had an unexpected internal error. <br/><br/>") +
+                          _("You can try restarting Cockpit by pressing refresh in your browser. ") +
+                          _("The javascript console contains details about this error ") +
+                          _("(<b>Ctrl-Shift-J</b> in most browsers).");
+            $("#error-popup-message").html(details);
+            $('#error-popup').modal('show');
+        });
+        return true;
+    }
+
+    if (window.navigator.userAgent.indexOf("PhantomJS") == -1) {
+        var old_onerror = window.onerror;
+        window.onerror = function cockpit_error_handler(msg, url, line) {
+            if (setup_oops())
+                oops.show();
+            if (old_onerror)
+                return old_onerror(msg, url, line);
+            return false;
+        };
+    }
+
+    /* Basic menu items */
+
+    $("#deauthorize-item").on("click", function(ev) {
+        cockpit.drop_privileges(false);
+        $("#deauthorize-item").addClass("disabled");
+        $("#deauthorize-item").off("click");
+        ev.preventDefault();
+    });
+    $("#go-logout").on("click", function() {
+        cockpit.logout();
+    });
+    $("#go-account").on("click", function() {
+        cockpit.location.go([ "@localhost", "account", cockpit.user["user"] ]);
+    });
+
+    /* User name and menu */
+
+    function update_user(first) {
+        var str = cockpit.user["name"] || cockpit.user["user"];
+        if (!str)
+            str = first ? "" : "???";
+        $('#user-name').text(str);
+
+        var is_root = (cockpit.user["user"] == "root");
+        var is_not_root = (cockpit.user["user"] && !is_root);
+        $('#deauthorize-item').toggle(is_not_root);
+    }
+
+    $(cockpit.user).on("changed", update_user);
+    update_user(true);
+
+    /* Display language dialog */
+
+    /*
+     * Note that we don't go ahead and load all the po files in order
+     * to produce this list. Perhaps we would include it somewhere in a
+     * separate automatically generated file. Need to see.
+     */
+    var names = {
+        "da": "Dansk",
+        "de": "Deutsch",
+        "en": "English"
+    };
+
+    cockpit.packages.lookup("shell")
+        .done(function(pkg) {
+            $.each(pkg.manifest.linguas, function(i, code) {
+                var name = names[code] || code;
+                var el = $("<option>").text(name).val(code);
+                if (code == cockpit.language)
+                    el.attr("selected", "true");
+                $("#display-language-list").append(el);
+            });
+        })
+        .fail(function(ex) {
+            console.warn("Couldn't load languages: " + ex);
+        });
+
+    $("#display-language-select-button").on("click", function(event) {
+        var code_to_select = $("#display-language-list").val();
+        document.cookie = "cockpitlang=" + code_to_select;
+        window.location.reload(true);
+        return false;
+    });
+
+    $("display-language").on("shown.bs.modal", function() {
+        $("display-language-list").focus();
+    });
+
+    /* About dialog */
+
+    $(cockpit.info).on("changed", function() {
+        $("#about-version").text(cockpit.info.version);
+        $("#about-build-info").text(cockpit.info.build);
+    });
+
+    /* Disconnected dialog */
+
+    var watchdog_problem = null;
+
+    $("#disconnected-dialog").on("show.bs.modal", function() {
+        /* Try to reconnect right away ... so that reconnect button has a chance */
+        cockpit.channel({ payload: "null" });
+        $('#disconnected-error').text(cockpit.message(watchdog_problem));
+    });
+
+    $('#disconnected-reconnect').on("click", function() {
+        /*
+         * If the connection was interrupted, but cockpit-ws is still running,
+         * then it still has our session. The dummy cockpit.channel() above tried
+         * to reestablish a connection with the same credentials.
+         *
+         * So if that works, this should reload the current page and get back to
+         * where the user was right away. Otherwise this sends the user back
+         * to the login screen.
+         */
+        window.location.reload(false);
+    });
+
+    $('#disconnected-logout').on("click", function() {
+        cockpit.logout();
+    });
+
+    var watchdog = cockpit.channel({ "payload": "null" });
+    $(watchdog).on("close", function(event, options) {
+        console.warn("transport closed: " + options.problem);
+        watchdog_problem = options.problem;
+        $('.modal[role="dialog"]').modal('hide');
+        $('#disconnected-dialog').modal('show');
+    });
+
+    /* Navigation */
+
+    var frames = { };
+
+    function navigate() {
+        var path = cockpit.location.path;
+
+        var frame;
+        if (path.length === 0)
+            frame = "@localhost";
+        else
+            frame = path[0];
+
+        if (!frames[0]) {
+            
+
+        /* TODO: A host */
+        } else {
+            
+        }
+    }
+
+    $(cockpit).on("locationchanged", navigate);
+
+    var origin = cockpit.transport.origin;
+    var frame_peers_by_seed = { };
+    var frame_peers_by_name = { };
+
+    cockpit.transport.filter(function(message, channel, control) {
+
+        /* Only control messages with a channel are forwardable */
+        if (control) {
+            if (control.channel !== undefined) {
+                $.each(frame_peers_by_seed, function(seed, peer) {
+                    if (peer.initialized)
+                        peer.window.postMessage(message, origin);
+                });
+            }
+            return true; /* still deliver locally */
+
+            /* Forward message to relevant frame */
+        } else if (channel) {
+            var pos = channel.indexOf('!');
+            if (pos !== -1) {
+                var seed = channel.substring(0, pos + 1);
+                var peer = frame_peers_by_seed[seed];
+                if (peer && peer.initialized) {
+                    peer.window.postMessage(message, origin);
+                    return false; /* Stop delivery */
+                }
+            }
+            /* Still deliver the message locally */
+            return true;
+        }
+    });
+
+    window.addEventListener("message", function(event) {
+
+        if (event.origin !== origin)
+            return;
+
+        var data = event.data;
+        if (typeof data !== "string")
+            return;
+
+        var frame = event.source;
+        var peer = frame_peers_by_name[frame.name];
+        if (!peer || peer.window != frame)
+            return;
+
+        /* Closing the transport */
+        if (data.length === 0) {
+            peer.initialized = false;
+            return;
+        }
+
+        /* A control message */
+        if (data[0] == '\n') {
+            var control = JSON.parse(data.substring(1));
+            if (control.command === "init") {
+                peer.initialized = true;
+                var reply = $.extend({ }, cockpit.transport.options,
+                    { "default-host": peer.default_host, "channel-seed": peer.channel_seed }
+                );
+                frame.postMessage("\n" + JSON.stringify(reply), origin);
+
+            } else if (control.command === "navigate") {
+                cockpit.location = control.location;
+                return;
+
+            } else if (control.command === "menu") {
+                /* xxxx; */
+
+            } else if (control.command == "oops") {
+                oops.show();
+                return;
+
+            /* Only control messages with a channel are forwardable */
+            } else if (control.channel === undefined) {
+                return;
+            }
+        }
+
+        if (!peer.initialized) {
+            console.warn("child frame " + frame.name + " sending data without init");
+            return;
+        }
+
+        /* Everything else gets forwarded */
+        cockpit.transport.inject(data);
+    }, false);
+
+    /* This tells child frames we are a parent wants to accept messages */
+    if (!window.options)
+        window.options = { };
+    $.extend(window.options, { sink: true, protocol: "cockpit1" });
+});
+
+</script>
+
+  </body>
+</html>

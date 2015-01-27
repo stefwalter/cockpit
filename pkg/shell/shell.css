@@ -27,43 +27,6 @@ html, body {
     height: 100%;
 }
 
-/* Host switcher sidebar styling */
-
-#cockpit-sidebar {
-    background: #fafafa;
-    border-right: 1px solid #d0d0d0;
-}
-
-#cockpit-sidebar .list-group .list-group-item {
-    background: transparent;
-    border-color: transparent;
-}
-
-#cockpit-sidebar .list-group .list-group-item.active,
-#cockpit-sidebar .list-group .list-group-item.active:hover {
-    background: #0099d3;
-    border-color: #0076b7;
-    color: #fff;
-}
-
-#cockpit-sidebar .list-group .list-group-item:first-child {
-    background: #e4e4e4;
-    border-bottom: 1px solid #cbcbcb;
-    padding-bottom: 10px;
-}
-
-#cockpit-sidebar .list-group .list-group-item:first-child span {
-    font-weight: bold;
-    font-size: 14px;
-}
-
-#cockpit-sidebar .list-group .list-group-item:hover {
-    background: #d4edfa;
-    border-color: #b3d3e7;
-    border-right-color: transparent;
-}
-
-#cockpit-sidebar .list-group .list-group-item .btn,
 #dashboard-add {
     height: 28px;
     width: 28px;
@@ -132,19 +95,6 @@ html, body {
     display: block;
     padding-top: 6px;
     padding-bottom: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-#content-navbar-hostname {
-    width: 248px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap
-}
-
-#cockpit-sidebar .list-group .list-group-item {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -263,16 +213,6 @@ iframe.container-frame {
 
 ul.available-interfaces-group {
     margin-bottom: 0px;
-}
-
-/* Language dialog styling */
-
-#display-language-list {
-    width: 100%;
-}
-
-#display-language-list option {
-    padding: 10px;
 }
 
 .server-graph:hover {

@@ -947,10 +947,4 @@ function PageAccountSetPassword() {
 
 shell.dialogs.push(new PageAccountSetPassword());
 
-shell.change_password = function change_password() {
-    PageAccountSetPassword.account = null;
-    PageAccountSetPassword.user_name = cockpit.user["user"];
-    $('#account-set-password-dialog').modal('show');
-};
-
 })(jQuery, cockpit, shell);
