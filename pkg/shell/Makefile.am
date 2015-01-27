@@ -33,6 +33,8 @@ shell_DATA = \
 	shell.min.js \
 	pkg/shell/index.html \
 	pkg/shell/index.min.html \
+	pkg/shell/main.js \
+	pkg/shell/main.min.js \
 	pkg/shell/shell.css \
 	pkg/shell/shell.html \
 	pkg/shell/shell.min.html \
