@@ -70,48 +70,57 @@ define([
             $(proxies).on('added removed changed', update);
             update();
         });
+
+        self.close = function close() {
+            if (proxies)
+                $(proxies).off();
+            if (client)
+                client.close();
+        };
     }
 
-    function Components(list) {
+    function Components(map, list) {
         var self = this;
+        var closed = false;
 
         /* TODO: We should remove the hard coded settings here */
 
+        map[""] = "shell/shell.html";
+        map["services"] = "shell/shell.html";
+        map["containers"] = "shell/shell.html";
+        map["journal"] = "shell/shell.html";
+        map["networking"] = "shell/shell.html";
+        map["storage"] = "shell/shell.html";
+        map["accounts"] = "shell/shell.html";
+
         list.push.apply([
             {
-                path: null,
+                path: "",
                 label: _("System"),
-                src: "shell/shell.html"
             },
             {
                 path: "services",
                 label: _("Services"),
-                src: "shell/shell.html"
             },
             {
                 path: "containers",
                 label: _("Containers"),
-                src: "shell/shell.html"
             },
             {
                 path: "journal",
                 label: _("Journal"),
-                src: "shell/shell.html"
             },
             {
                 path: "networking",
                 label: _("Networking"),
-                src: "shell/shell.html"
             },
             {
                 path: "storage",
                 label: _("Storage"),
-                src: "shell/shell.html"
             },
             {
                 path: "accounts",
                 label: _("Administrator Accounts"),
-                src: "shell/shell.html"
             }
         ]);
 
@@ -132,11 +141,8 @@ define([
                     $.each(tools, function(ident, info) {
                         if (seen[ident])
                             return;
-                        list.push({
-                            path: ident,
-                            label: cockpit.gettext(info.label),
-                            src: pkg.name + "/" + info.path
-                        });
+                        map[ident] = pkg.name + "/" + info.path;
+                        list.push({ path: ident, label: cockpit.gettext(info.label) });
                     });
                 });
             })
@@ -144,11 +150,33 @@ define([
                 console.warn("Couldn't load package info: " + ex);
             })
             .always(function() {
-                $(self).triggerHandler("changed");
+                if (!closed)
+                    $(self).triggerHandler("changed");
             });
+
+        self.close = function close() {
+            closed = true;
+        };
     }
 
-    main.disco = function disco(callback, only) {
+    main.disco = function disco(unused, callback) {
+        var store = {
+            machines: [ ],
+            components: [ ],
+            map: { }
+        };
+
+        var machines_loaded = false;
+        var machines = new Machines(store["machines"]);
+
+        var components_loaded = false;
+        var components = new Components(store["map"], store["components"]);
+
+        /*
+        $(machines).on("changed", function() {
+            machines_loaded = xxx;
+        });
+        */
 
     };
 
