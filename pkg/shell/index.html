@@ -4,9 +4,8 @@
     <title>Cockpit</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <base href="/cockpit/@@shell@@/index.html">
-    <link href="../@@latest@@/cockpit.css" rel="stylesheet">
-    <script src="../@@latest@@/cockpit.js"></script>
+    <link href="/cockpit/@@latest@@/cockpit.css" rel="stylesheet">
+    <script src="/cockpit/@@latest@@/cockpit.js"></script>
     <style>
         .oops-status { color: red; font-weight: bold; }
         #display-language-list { width: 100%; }
@@ -23,10 +22,23 @@
             padding: 9px;
             padding-right: 15px;
         }
+        #machine-link span {
+            display: inline-block;
+            min-width: 150px;
+        }
         #machine-avatar {
             width: 24px;
             height: 24px;
             margin-right: 9px;
+        }
+        #sidebar {
+            float: left;
+            width: 230px;
+            font-size: 13px;
+            border-right: 1px solid #BABABA;
+        }
+        #sidebar a {
+            border: none;
         }
     </style>
   </head>
@@ -78,7 +90,7 @@
           </li>
           <li class="machine-collapse active">
             <a id="machine-link">
-              <img src="images/server-small.png" id="machine-avatar"><span>falcon.thewalter.lan</span>
+              <img src="/cockpit/@@shell@@/images/server-small.png" id="machine-avatar"><span>falcon.thewalter.lan</span>
               <b class="caret"></b>
             </a>
           </li>
@@ -182,6 +194,15 @@
         </div>
       </div>
     </div>
+
+    <div id="sidebar" class="list-group">
+      <a href="#/@localhost/" class="list-group-item active">System</a>
+      <a href="#/@localhost/services" class="list-group-item">Services</a>
+      <a href="#" class="list-group-item">Networking</a>
+      <a href="#" class="list-group-item">Storage</a>
+      <a href="#" class="list-group-item">Containers</a>
+      <a href="#" class="list-group-item">Administrator accounts</a>
+   </div>
 
 <script>
 
@@ -461,7 +482,7 @@ require([
         if (address) {
             var machine = lookup_machine(address) || { };
             $("#machine-color").css("border-left-color", machine.color || "");
-            $("#machine-avatar").attr("src", machine.avatar || "images/server-small.png");
+            $("#machine-avatar").attr("src", machine.avatar || "/cockpit/@@shell@@/images/server-small.png");
             $("#machine-link span").text(machine.label || address);
         }
         $(".machine-collapse").toggle(!!address);
@@ -473,7 +494,17 @@ require([
     }
 
     function update_sidebar(address) {
+        var components = lookup_components(components);
+        
+      <a href="#/@localhost/" class="list-group-item active">System</a>
+      <a href="#/@localhost/services" class="list-group-item">Services</a>
+      <a href="#" class="list-group-item">Networking</a>
+      <a href="#" class="list-group-item">Storage</a>
+      <a href="#" class="list-group-item">Containers</a>
+      <a href="#" class="list-group-item">Administrator accounts</a>
+   </div>
     }
+    
 
     /* Framed components */
 
