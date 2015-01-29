@@ -478,6 +478,10 @@ require([
         return null; /* xxx */
     }
 
+    function lookup_components(address) {
+        xxx;
+    }
+
     function update_navbar(address, dashboard) {
         if (address) {
             var machine = lookup_machine(address) || { };
@@ -493,18 +497,20 @@ require([
         });
     }
 
-    function update_sidebar(address) {
+    function update_sidebar(address, current) {
         var components = lookup_components(components);
-        
-      <a href="#/@localhost/" class="list-group-item active">System</a>
-      <a href="#/@localhost/services" class="list-group-item">Services</a>
-      <a href="#" class="list-group-item">Networking</a>
-      <a href="#" class="list-group-item">Storage</a>
-      <a href="#" class="list-group-item">Containers</a>
-      <a href="#" class="list-group-item">Administrator accounts</a>
-   </div>
+        var links = components.map(function(component) {
+            var href = "#/@" + address;
+            if (component.path)
+                href += "/" + component.path;
+            return $("<a>")
+                .attr("href", href)
+                .addClass("list-group-item")
+                .toggleClass("active", current === component.path)
+                .text(cockpit.gettext(component.label));
+        });
+        $("#sidebar").empty().append(links);
     }
-    
 
     /* Framed components */
 
