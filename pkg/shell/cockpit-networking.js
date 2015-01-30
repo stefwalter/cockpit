@@ -1567,7 +1567,7 @@ PageNetworkInterface.prototype = {
         var self = this;
         $('#network-interface-delete').click($.proxy(this, "delete_connections"));
         $('#network-interface-delete').parent().append(
-            this.device_onoff = shell.OnOff(false,
+            this.device_onoff = modules.extra.OnOff(false,
                                               $.proxy(this, "connect"),
                                               $.proxy(this, "disconnect"),
                                               function () {
@@ -2139,7 +2139,7 @@ PageNetworkInterface.prototype = {
                                     [ $('<td>').text(""), $('<td>').text("") ] :
                                     $('<td colspan="2">').text(device_state_text(dev))),
                                    $('<td style="text-align:right">').append(
-                                       shell.OnOff(is_active,
+                                       modules.extra.OnOff(is_active,
                                                      function () {
                                                          slave_con.activate(iface.Device).
                                                              fail(shell.show_unexpected_error);

@@ -24,7 +24,9 @@
 /* global Mustache */
 
 var shell = shell || { };
-(function($, cockpit, shell) {
+var modules = modules || { };
+
+(function($, cockpit, shell, modules) {
 
 var common_plot_options = {
     legend: { show: false },
@@ -201,7 +203,7 @@ PageDashboard.prototype = {
         $('#dashboard-enable-edit').click(function () {
             self.toggle_edit(!self.edit_enabled);
         });
-        this.plot = shell.plot($('#dashboard-plot'), 300);
+        this.plot = modules.extra.plot($('#dashboard-plot'), 300);
 
         var renderer = host_renderer($("#dashboard-hosts .list-group"));
         $(shell.hosts).on("added.dashboard", renderer);
@@ -419,4 +421,4 @@ function PageDashboard() {
 
 shell.pages.push(new PageDashboard());
 
-})(jQuery, cockpit, shell);
+})(jQuery, cockpit, shell, modules);

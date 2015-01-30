@@ -12,6 +12,8 @@ base_DATA = \
 	pkg/base/cockpit.css \
 	pkg/base/cockpit.js \
 	pkg/base/cockpit.min.js \
+	pkg/base/extra.js \
+	pkg/base/extra.min.js \
 	pkg/base/jquery.js \
 	pkg/base/jquery.min.js \
 	pkg/base/mustache.js \

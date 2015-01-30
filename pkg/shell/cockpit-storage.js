@@ -783,7 +783,7 @@ PageStorage.prototype = {
         var text = $('<td style="text-align:right">');
 
         if (block.MountedAt && block.MountedAt.length > 0) {
-            bar_row = shell.BarRow();
+            bar_row = modules.extra.BarRow();
             for (var i = 0; i < block.MountedAt.length; i++) {
                 this.mount_bar_rows[block.MountedAt[i]] = bar_row;
                 this.mount_texts[block.MountedAt[i]] = text;

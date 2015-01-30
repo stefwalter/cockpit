@@ -65,9 +65,11 @@ function maybe_init() {
 
 /* HACK: Until all of the shell is loaded via AMD */
 require([
+    "latest/extra",
     "server/server",
     "docker/docker"
-], function(server, docker) {
+], function(extra, server, docker) {
+    modules.extra = extra;
     modules.server = server;
     modules.docker = docker;
     modules.loaded = true;

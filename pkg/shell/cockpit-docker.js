@@ -412,7 +412,7 @@ function render_container (client, $panel, filter_button, prefix, id, container,
             $('<td class="container-col-image">'),
             $('<td class="container-col-command">'),
             $('<td class="container-col-cpu">'),
-            $('<td class="container-col-memory-graph">').append(shell.BarRow("containers-containers")),
+            $('<td class="container-col-memory-graph">').append(modules.extra.BarRow("containers-containers")),
             $('<td class="container-col-memory-text">'),
             $('<td class="container-col-danger cell-buttons">').append(btn_delete, img_waiting),
             $('<td class="container-col-actions cell-buttons">').append(btn_play, btn_stop, img_waiting.clone()));
