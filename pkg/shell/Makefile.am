@@ -46,11 +46,13 @@ shelldebug_DATA = \
 	pkg/shell/machines.js \
 	pkg/shell/shell.css \
 	pkg/shell/shell.html \
+	pkg/shell/users.js \
 	$(NULL)
 
 shell_BUNDLE = \
 	pkg/shell/index.min.js \
 	pkg/shell/machines.min.js \
+	pkg/shell/users.min.js \
 	$(NULL)
 
 pkg/shell/bundle.min.js: $(shell_BUNDLE)

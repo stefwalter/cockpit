@@ -64,10 +64,12 @@ function maybe_init() {
 require([
     "system/server",
     "shell/machines",
+    "shell/users",
     "manifests"
-], function(server, machines, manifests) {
+], function(server, machines, users, manifests) {
     modules.server = server;
     modules.machines = machines;
+    modules.users = users;
     if (manifests["docker"]) {
         require([ "docker/docker" ], function (docker) {
             modules.docker = docker;

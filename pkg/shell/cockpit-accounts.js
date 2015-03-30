@@ -23,7 +23,10 @@
 /* global C_       */
 
 var shell = shell || { };
-(function($, cockpit, shell) {
+var modules = modules || { };
+(function($, cockpit, shell, modules) {
+
+var users = modules.users;
 
 function update_accounts_privileged() {
     shell.update_privileged_ui(
@@ -162,47 +165,6 @@ function off_account_changes(client, id) {
     $(client).off("." + id);
 }
 
-function parse_passwd_content(content) {
-    var ret = [ ];
-    var lines = content.split('\n');
-    var column;
-
-    for (var i = 0; i < lines.length; i++) {
-        if (! lines[i])
-            continue;
-        column = lines[i].split(':');
-        ret[i] = [];
-        ret[i]["name"] = column[0];
-        ret[i]["password"] = column[1];
-        ret[i]["uid"] = column[2];
-        ret[i]["gid"] = column[3];
-        ret[i]["gecos"] = column[4];
-        ret[i]["home"] = column[5];
-        ret[i]["shell"] = column[6];
-    }
-
-    return ret;
-}
-
-function parse_group_content(content) {
-    var ret = [ ];
-    var lines = content.split('\n');
-    var column;
-
-    for (var i = 0; i < lines.length; i++) {
-        if (! lines[i])
-            continue;
-        column = lines[i].split(':');
-        ret[i] = [];
-        ret[i]["name"] = column[0];
-        ret[i]["password"] = column[1];
-        ret[i]["gid"] = column[2];
-        ret[i]["userlist"] = column[3].split(',');
-    }
-
-    return ret;
-}
-
 function is_user_in_group(user, group) {
     for (var i = 0; group["userlist"] && i < group["userlist"].length; i++) {
         if (group["userlist"][i] === user)
@@ -232,7 +194,7 @@ PageAccounts.prototype = {
         var self = this;
 
         function parse_accounts(content) {
-            self.accounts = parse_passwd_content(content);
+            self.accounts = users.PasswdFile.parse(content);
             self.update();
         }
 
@@ -453,7 +415,7 @@ PageAccount.prototype = {
     get_user: function() {
        var self = this;
        function parse_user(content) {
-            var accounts = parse_passwd_content(content);
+            var accounts = users.PasswdFile.parse(content);
 
             for (var i = 0; i < accounts.length; i++) {
                if (accounts[i]["name"] !== shell.get_page_param('id'))
@@ -478,7 +440,7 @@ PageAccount.prototype = {
 
         function parse_groups(content) {
             var i, j;
-            self.groups = parse_group_content(content);
+            self.groups = users.GroupFile.parse(content);
             while (self.roles.length > 0)
                 self.roles.pop();
             for (i = 0, j = 0; i < self.groups.length; i++) {
