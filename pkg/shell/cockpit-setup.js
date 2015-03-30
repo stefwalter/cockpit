@@ -447,6 +447,7 @@ PageSetupServer.prototype = {
     prepare_setup: function() {
         var me = this;
 
+        
         function get_role_accounts(client, roles) {
             var i;
             var accounts = client.getInterfacesFrom("/com/redhat/Cockpit/Accounts/",
@@ -472,11 +473,6 @@ PageSetupServer.prototype = {
                                                "com.redhat.Cockpit.Accounts");
         var local = get_role_accounts(this.local_client, manager.Roles);
         var remote = get_role_accounts(this.client, null);
-
-        function needs_update(l) {
-            // XXX
-            return true;
-        }
 
         function update_account(templ, task, done) {
 
@@ -565,6 +561,21 @@ PageSetupServer.prototype = {
             };
         }
 
+        this.add_task(_("Synchronize administator passwords"), function(task, done) {
+            cockpit.spawn(["/usr/sbin/chpasswd"], { superuser: true, err: out })
+                .fail(function(ex, output) {
+                    task.error(output || String(ex));
+                })
+                .always(function() {
+                    done();
+                });
+        }
+        for (ent in shaddow) {
+            this.add
+        }
+
+        for (
+        xxxxx;
         for (var l in local) {
             if (needs_update(l))
                 this.add_task("Synchronize administrator " + local[l].UserName,

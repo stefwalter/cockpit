@@ -1220,13 +1220,13 @@ function full_scope(cockpit, $, po) {
 
         $(channel).
             on("close", function(event, options) {
+                var data = buffer.squash();
                 spawn_debug("process closed:", JSON.stringify(options));
                 if (options.problem) {
-                    dfd.reject(new ProcessError(options.problem));
+                    dfd.reject(new ProcessError(options.problem), data);
                 } else if (options["exit-status"] || options["exit-signal"]) {
-                    dfd.reject(new ProcessError(options["exit-status"], options["exit-signal"]));
+                    dfd.reject(new ProcessError(options["exit-status"], options["exit-signal"]), data);
                 } else {
-                    var data = buffer.squash();
                     spawn_debug("process output:", data);
                     dfd.resolve(data);
                 }

@@ -447,10 +447,12 @@ PageAccount.prototype = {
                 if (self.groups[i]["name"] == "wheel" || self.groups[i]["name"] == "docker") {
                    self.roles[j] = { };
                    self.roles[j]["name"] = self.groups[i]["name"];
+xxxxxx;
                    self.roles[j]["desc"] = self.groups[i]["name"] == "wheel" ?
                                            _("Server Administrator") :
                                            _("Container Administrator");
                    self.roles[j]["id"] = self.groups[i]["gid"];
+xxxxxx;
                    self.roles[j]["member"] = is_user_in_group(shell.get_page_param('id'), self.groups[i]);
                    j++;
                 }
