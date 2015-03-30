@@ -49,7 +49,7 @@ define([
             ret[i]["name"] = column[0];
             ret[i]["password"] = column[1];
             ret[i]["gid"] = column[2];
-            ret[i]["userlist"] = column[3].split(',');
+            ret[i]["members"] = column[3].split(',');
         }
 
         return ret;

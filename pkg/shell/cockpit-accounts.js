@@ -166,12 +166,12 @@ function off_account_changes(client, id) {
 }
 
 function is_user_in_group(user, group) {
-    for (var i = 0; group["userlist"] && i < group["userlist"].length; i++) {
-        if (group["userlist"][i] === user)
+    for (var i = 0; group["members"] && i < group["members"].length; i++) {
+        if (group["members"][i] === user)
             return true;
     }
 
-    return false;
+    return false;:e p
 }
 
 PageAccounts.prototype = {

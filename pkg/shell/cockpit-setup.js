@@ -25,6 +25,86 @@
 var shell = shell || { };
 (function($, cockpit, shell) {
 
+function load_accounts(host, groups) {
+    var dfd = $.Deferred();
+    var passwd = null;
+    var group = null;
+
+    cockpit.file("/etc/passwd", { host: host, syntax: modules.users.PasswdFile })
+        .done(function(data) {
+            passwd = data;
+            process();
+        })
+        .fail(function(ex) {
+            dfd.reject(ex);
+        });
+
+    cockpit.file("/etc/group", { host: host, syntax: modules.users.GroupFile })
+        .done(function(data) {
+            group = data;
+            process();
+        })
+        .fail(function(ex) {
+            dfd.reject(ex);
+        });
+
+    function process() {
+        if (passwd === null && group === null)
+            return;
+
+        var gids = { };
+        var users = { };
+
+        /* First resolve the groups */
+        var i, ilen = group.length;
+        var j, jlen = groups.length;
+        var k, klen;
+        for (i = 0; i < ilen; i++) {
+            for (j = 0; j < jlen; j++) {
+                if (group[i]["name"] === groups[j]) {
+                    gids[group[i]["gid"]] = true;
+                    klen = group[i]["members"].length;
+                    for (k = 0; k < klen; k++)
+                        users[group[i]["members"][k]] = true;
+                }
+            }
+        }
+
+        var result = [ ];
+
+        /* Now go through the users */
+        ilen = passwd.length;
+        for (i = 0; i < ilen; i++) {
+            if (passwd[i]["name"] in users || passwd[i]["gid"] in gids)
+                result.push(passwd[i]);
+        }
+
+        dfd.resolve(result);
+    }
+}
+
+function load_shadow(host, users) {
+    cockpit.file("/etc/shadow", { host: host, syntax: modules.users.ShadowFile })
+        .fail(function(ex) {
+            dfd.reject(ex);
+        })
+        .done(function(shadow) {
+            var i, ilen = users.length;
+            var j, jlen = shadow.length;
+
+            var result = [ ];
+
+            for (i = 0; i < ilen; i++) {
+                for (j = 0; j < jlen; j++) {
+                    if (shadow[j]["name"] === users[i])
+                        result.push(shadow[j]);
+                }
+            }
+
+            dfd.resolve(result);
+        });
+}
+
 PageSetupServer.prototype = {
     _init: function() {
         this.id = "dashboard_setup_server_dialog";
@@ -445,10 +525,12 @@ PageSetupServer.prototype = {
     },
 
     prepare_setup: function() {
-        var me = this;
+        var self = this;
 
-        
-        function get_role_accounts(client, roles) {
+        var loader = load_accounts("localhost", [ "root", "wheel" ]);
+
+            passwd.read(
+            
             var i;
             var accounts = client.getInterfacesFrom("/com/redhat/Cockpit/Accounts/",
                                                     "com.redhat.Cockpit.Account");
@@ -570,6 +652,7 @@ PageSetupServer.prototype = {
                     done();
                 });
         }
+
         for (ent in shaddow) {
             this.add
         }
