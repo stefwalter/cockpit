@@ -2539,7 +2539,223 @@ function full_scope(cockpit, $, po) {
         return new Permission(arg);
     };
 
-    /*
+    /* ---------------------------------------------------------------------
+     * Metrics
+     *
+     */
+
+    function DataSink(interval) {
+        var self = this;
+
+        self.interval = interval;
+
+        /*
+         * Used to populate grids, the keys are grid ids and
+         * the values are objects: { grid, rows, notify }
+         *
+         * The rows field is an object indexed by paths
+         * container aliases, and the values are: [ row, path ]
+         */
+        var registered = { };
+
+        /* An undocumented function called by DataGrid */
+        self._register = function _register(grid, id) {
+            if (grid.interval != interval)
+                throw "mismatched metric interval between grid and sink";
+            var gdata = registered[id];
+            if (!gdata) {
+                gdata = registered[id] = { grid: grid, links: [ ] };
+                gdata.links.remove = function remove() {
+                    delete registered[id];
+                };
+            }
+            return gdata.links;
+        };
+
+        self.timestamp = function timestamp(when) {
+            if (typeof when == "number")
+                return when * interval;
+            else if (typeof when == "string")
+                when = new Date(when);
+            if (when instanceof Date)
+                return when.getTime();
+            else
+                throw "invalid date or offset";
+        };
+
+        self.offset = function offset(when) {
+            if (typeof when == "number")
+                return when;
+            else if (typeof when == "string")
+                when = new Date(when);
+            if (when instanceof Date)
+                return Math.floor(when.getTime() / interval);
+            else
+                throw "invalid date or offset";
+        };
+
+        self.process = function process(offset, items, mapping) {
+            var i, j, jlen, k, klen;
+            var data, path, row, map;
+            var id, gdata, grid;
+            var x, n;
+
+            for (id in registered) {
+                gdata = registered[id];
+                grid = gdata.grid;
+
+                /* Does this grid overlap the bounds of item? */
+                if (offset < grid.offset + (grid.limit || items.length) && grid.offset < offset + items.length) {
+
+                    /* Where and how many to place */
+                    x = offset - grid.offset;
+                    n = items.length;
+                    if (grid.limit)
+                        n = Math.min(grid.limit - x, items.length);
+
+                    for (i = 0; i < n; i++) {
+                        klen = gdata.links.length;
+                        for (k = 0; k < klen; k++) {
+                            path = gdata.links[k][0];
+                            row = gdata.links[k][1];
+
+                            /* Calulate the data field to fill in */
+                            data = items[i];
+                            map = mapping;
+                            jlen = path.length;
+                            for (j = 0; data !== undefined && j < jlen; j++) {
+                                if (!data) {
+                                    data = undefined;
+                                } else if (map !== undefined && map !== null) {
+                                    map = map[path[j]];
+                                    if (map)
+                                        data = data[map[""]];
+                                    else
+                                        data = data[path[j]];
+                                } else {
+                                    data = data[path[j]];
+                                }
+                            }
+
+                            row[i + x] = data;
+                        }
+                    }
+
+                    /* Notify the grid, so it can call any functions */
+                    grid.notify(x, n);
+                }
+            }
+        };
+    }
+
+    cockpit.sink = function sink(interval) {
+        return new DataSink(interval);
+    };
+
+    var unique = 1;
+
+    function DataGrid(interval, offset, limit) {
+        var self = this;
+
+        self.interval = interval;
+        self.offset = offset;
+        self.limit = limit || null;
+        self.rows = [];
+
+        /*
+         * Used to populate table data, the values are:
+         * [ callback, row ]
+         */
+        var callbacks = [ ];
+
+        var linked = [ ];
+
+        var id = "grid:" + unique;
+        unique += 1;
+
+        self.notify = function notify(x, n) {
+            if (self.limit && x + n > self.limit)
+                n = self.limit - x;
+            if (n <= 0)
+                return;
+            var j, jlen = callbacks.length;
+            var callback, row;
+            for (j = 0; j < jlen; j++) {
+                callback = callbacks[j][0];
+                row = callbacks[j][1];
+                callback.call(self, row, x, n);
+            }
+
+            $(self).triggerHandler("notify", [ x, n ]);
+        };
+
+        self.add = function add(/* sink, path */) {
+            var row = [];
+            self.rows.push(row);
+
+            var registered, sink, path, links;
+
+            /* Called as add(sink, path) */
+            if (typeof (arguments[0]) === "object") {
+                sink = arguments[0];
+                sink = sink["sink"] || sink;
+
+                /* The path argument can be an array, or a dot separated string */
+                path = arguments[1];
+                if (typeof (path) === "string")
+                    path = path.split(".");
+                if (!path)
+                    path = [];
+
+                links = sink._register(self, id);
+                links.push([path, row]);
+                linked.push(links);
+
+            /* Called as add(callback) */
+            } else if (typeof (arguments[0]) === "function") {
+                callbacks.push([ arguments[0], row ]);
+
+            /* Not called as add() */
+            } else if (arguments.length !== 0) {
+                throw "invalid args to grid.add()";
+            }
+
+            return row;
+        };
+
+        self.remove = function remove(row) {
+            var j, i, ilen, jlen;
+            ilen = linked.length;
+            for (i = 0; i < ilen; i++) {
+                jlen = linked[i].length;
+                for (j = 0; j < jlen; j++) {
+                    if (linked[i][j][1] === row) {
+                        linked[i].splice(j, 1);
+                        return;
+                    }
+                }
+            }
+        };
+
+        self.shift = function shift(n) {
+            if (n === undefined)
+                n = 1;
+            var i, ilen = self.rows.length;
+            for (i = 0; i < ilen; i++)
+                self.rows[i].splice(0, n);
+        };
+
+        self.close = function close() {
+            while (linked.length)
+                (linked.pop()).remove();
+        };
+    }
+
+    cockpit.grid = function grid(interval, offset, limit) {
+        return new DataGrid(interval, offset, limit);
+    };
+
+    /* ---------------------------------------------------------------------
      * If we're embedded, send oops to parent frame. Since everything
      * could be broken at this point, just do it manually, without
      * involving cockpit.transport or any of that logic.
