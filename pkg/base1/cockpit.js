@@ -2544,10 +2544,158 @@ function full_scope(cockpit, $, po) {
      *
      */
 
-    function DataSink(interval) {
+    function SeriesSink(interval, cache, fetch) {
         var self = this;
 
         self.interval = interval;
+
+        /*
+         * Index entries are in the following format:
+         *
+         * [ beg, end ]
+         *
+         * They are stored in sorted order, and normalized
+         * in store() to guarantee that none of them overlap.
+         *
+         * Various blocks are stored like this:
+         *
+         * { items: [ ... ], mapping: { ... } }
+         */
+
+        var cid, iid;
+        var index_data;
+
+        var storage = { };
+        // var storage = window.sessionStorage;
+
+        if (cache) {
+            cid = "c1-" + cache + "-";
+            iid = cid + "index";
+
+            $(window).on("storage", function(ev) {
+                var block, beg;
+                if (ev.key == iid) {
+                    index = null;
+                } else if (ev.key.indexOf(cid) === 0 && ev.newValue) {
+                    beg = parseInt(ev.key.substring(cid.length), 10);
+                    block = JSON.parse(ev.newValue);
+                    self.process(beg, block.items, block.mapping);
+                }
+            });
+        }
+
+        function index() {
+            if (!index_data)
+                index_data = JSON.parse(storage[iid] || "[]");
+            return index_data;
+        }
+
+        function search(index, beg) {
+            var low = 0;
+            var high = index.length - 1;
+            var mid, val;
+
+            while (low <= high) {
+                mid = (low + high) / 2 | 0;
+                val = index[mid][0];
+                if (val < beg)
+                    low = mid + 1;
+                else if (val > beg)
+                    low = mid - 1;
+                else
+                    return mid; /* key found */
+            }
+            return low + 1;
+        }
+
+        self.load = function load(beg, end, misses) {
+            if (end <= beg)
+                return;
+
+            if (!cache) {
+                misses(beg, end);
+                return;
+            }
+
+            var idx = index();
+            var at = search(idx, beg);
+
+            var key, block;
+            var b, e, i, len = idx.length;
+            var last = beg;
+
+            /* Data relevant to this range can be at the found index, or earlier */
+            for (i = at > 0 ? at - 1 : at; i < len; i++) {
+                key = idx[i][0];
+                b = Math.max(key, beg);
+                e = Math.min(idx[i][1], end);
+
+                if (b < e) {
+                    block = JSON.parse(storage[cid + key] || "null");
+                    if (block) {
+                        if (b > last)
+                            misses(last, b);
+                        self.process(b, block.items.slice(b - key, e - key), block.mapping);
+                        last = e;
+                    }
+                } else if (i >= at) {
+                    break; /* no further intersections */
+                }
+            }
+
+            if (last != end)
+                misses(last, end);
+        };
+
+        self.store = function store(beg, items, mapping) {
+            if (!cache || !items.length)
+                return;
+
+            var idx = index();
+            var at = search(idx, beg);
+
+            var end = beg + items.length;
+            var remove = [ ];
+            var off, lim;
+
+            var b, e, i, len = idx.length;
+            for (i = at > 0 ? at - 1 : at; i < len; i++) {
+                b = idx[i][0];
+                e = idx[i][1];
+
+                /*
+                 * We currently drop blocks that intersect with this one.
+                 *
+                 * We could adjust them, but in general the loaders are
+                 * intelligent enough to only load the required data, so
+                 * not doing this optimization yet.
+                 */
+
+                if (beg < e && b < end) {
+                    if (beg != b)
+                        remove.push(cid + b);
+                    if (i < at)
+                        at = i;
+                } else if (i >= at) {
+                    break; /* no further intersections */
+                }
+            }
+
+            /* Write the new data first, try and be consitent */
+            storage[cid + beg] = JSON.stringify({
+                items: items,
+                mapping: mapping
+            });
+
+            /* Next update the index */
+            idx.splice(at, at - i, [beg, end]);
+            storage[iid] = JSON.stringify(idx);
+
+            /* And lastly remove the old items */
+            len = remove.length;
+            for (i = 0; i < len; i++)
+                delete storage[remove[i]];
+        };
 
         /*
          * Used to populate grids, the keys are grid ids and
@@ -2572,6 +2720,74 @@ function full_scope(cockpit, $, po) {
             return gdata.links;
         };
 
+        self.process = function process(beg, items, mapping) {
+            var i, j, jlen, k, klen;
+            var data, path, row, map;
+            var id, gdata, grid;
+            var f, t, n, b, e;
+
+            var end = beg + items.length;
+
+            for (id in registered) {
+                gdata = registered[id];
+                grid = gdata.grid;
+
+                b = Math.max(beg, grid.beg);
+                e = Math.min(end, grid.end);
+
+                /* Does this grid overlap the bounds of item? */
+                if (b < e) {
+
+                    /* Where in the items to take from */
+                    f = b - beg;
+
+                    /* Where and how many to place */
+                    t = b - grid.beg;
+
+                    /* How many to process */
+                    n = e - b;
+
+                    for (i = 0; i < n; i++) {
+                        klen = gdata.links.length;
+                        for (k = 0; k < klen; k++) {
+                            path = gdata.links[k][0];
+                            row = gdata.links[k][1];
+
+                            /* Calulate the data field to fill in */
+                            data = items[f + i];
+                            map = mapping;
+                            jlen = path.length;
+                            for (j = 0; data !== undefined && j < jlen; j++) {
+                                if (!data) {
+                                    data = undefined;
+                                } else if (map !== undefined && map !== null) {
+                                    map = map[path[j]];
+                                    if (map)
+                                        data = data[map[""]];
+                                    else
+                                        data = data[path[j]];
+                                } else {
+                                    data = data[path[j]];
+                                }
+                            }
+
+                            row[t + i] = data;
+                        }
+                    }
+
+                    /* Notify the grid, so it can call any functions */
+                    grid.notify(t, n);
+                }
+            }
+        };
+
+        self.fetch = fetch || function() { };
+
+        self.input = function input(beg, items, mapping) {
+            self.process(beg, items, mapping);
+            self.store(beg, items, mapping);
+        };
+
         self.timestamp = function timestamp(when) {
             if (typeof when == "number")
                 return when * interval;
@@ -2593,74 +2809,23 @@ function full_scope(cockpit, $, po) {
             else
                 throw "invalid date or offset";
         };
-
-        self.process = function process(offset, items, mapping) {
-            var i, j, jlen, k, klen;
-            var data, path, row, map;
-            var id, gdata, grid;
-            var x, n;
-
-            for (id in registered) {
-                gdata = registered[id];
-                grid = gdata.grid;
-
-                /* Does this grid overlap the bounds of item? */
-                if (offset < grid.offset + (grid.limit || items.length) && grid.offset < offset + items.length) {
-
-                    /* Where and how many to place */
-                    x = offset - grid.offset;
-                    n = items.length;
-                    if (grid.limit)
-                        n = Math.min(grid.limit - x, items.length);
-
-                    for (i = 0; i < n; i++) {
-                        klen = gdata.links.length;
-                        for (k = 0; k < klen; k++) {
-                            path = gdata.links[k][0];
-                            row = gdata.links[k][1];
-
-                            /* Calulate the data field to fill in */
-                            data = items[i];
-                            map = mapping;
-                            jlen = path.length;
-                            for (j = 0; data !== undefined && j < jlen; j++) {
-                                if (!data) {
-                                    data = undefined;
-                                } else if (map !== undefined && map !== null) {
-                                    map = map[path[j]];
-                                    if (map)
-                                        data = data[map[""]];
-                                    else
-                                        data = data[path[j]];
-                                } else {
-                                    data = data[path[j]];
-                                }
-                            }
-
-                            row[i + x] = data;
-                        }
-                    }
-
-                    /* Notify the grid, so it can call any functions */
-                    grid.notify(x, n);
-                }
-            }
-        };
     }
 
-    cockpit.sink = function sink(interval) {
-        return new DataSink(interval);
+    cockpit.sink = function sink(interval, cache, fetch) {
+        return new SeriesSink(interval, cache, fetch);
     };
 
     var unique = 1;
 
-    function DataGrid(interval, offset, limit) {
+    function SeriesGrid(interval, beg, end) {
         var self = this;
 
+        var rows = [];
+
         self.interval = interval;
-        self.offset = offset;
-        self.limit = limit || null;
-        self.rows = [];
+        self.beg = 0;
+        self.end = 0;
+        self.rows = rows;
 
         /*
          * Used to populate table data, the values are:
@@ -2668,14 +2833,18 @@ function full_scope(cockpit, $, po) {
          */
         var callbacks = [ ];
 
-        var linked = [ ];
+        var sinks = [ ];
 
-        var id = "grid:" + unique;
+        var suppress = 0;
+
+        var id = "g1-" + unique;
         unique += 1;
 
         self.notify = function notify(x, n) {
-            if (self.limit && x + n > self.limit)
-                n = self.limit - x;
+            if (suppress)
+                return;
+            if (x + n > self.end - self.beg)
+                n = (self.end - self.beg) - x;
             if (n <= 0)
                 return;
             var j, jlen = callbacks.length;
@@ -2691,7 +2860,7 @@ function full_scope(cockpit, $, po) {
 
         self.add = function add(/* sink, path */) {
             var row = [];
-            self.rows.push(row);
+            rows.push(row);
 
             var registered, sink, path, links;
 
@@ -2709,7 +2878,10 @@ function full_scope(cockpit, $, po) {
 
                 links = sink._register(self, id);
                 links.push([path, row]);
-                linked.push(links);
+                sinks.push({ sink: sink, links: links });
+
+                /* TODO: Can we wait until all rows are added? */
+                sink.load(self.beg, self.end, sink.fetch);
 
             /* Called as add(callback) */
             } else if (typeof (arguments[0]) === "function") {
@@ -2725,34 +2897,71 @@ function full_scope(cockpit, $, po) {
 
         self.remove = function remove(row) {
             var j, i, ilen, jlen;
-            ilen = linked.length;
+
+            /* Remove from the sinks */
+            ilen = sinks.length;
             for (i = 0; i < ilen; i++) {
-                jlen = linked[i].length;
+                jlen = sinks[i].links.length;
                 for (j = 0; j < jlen; j++) {
-                    if (linked[i][j][1] === row) {
-                        linked[i].splice(j, 1);
+                    if (sinks[i].links[j][1] === row) {
+                        sinks[i].links.splice(j, 1);
                         return;
                     }
                 }
             }
+
+            /* Remove from our list of rows */
+            ilen = rows.length;
+            for (i = 0; i < ilen; i++) {
+                if (rows[i] === row) {
+                    rows[i].splice(i, 1);
+                    return;
+                }
+            }
         };
 
-        self.shift = function shift(n) {
-            if (n === undefined)
-                n = 1;
-            var i, ilen = self.rows.length;
-            for (i = 0; i < ilen; i++)
-                self.rows[i].splice(0, n);
+        self.adjust = function adjust(beg, end) {
+            self.beg = beg || 0;
+            self.end = end || beg;
+
+            if (self.end < self.beg)
+                self.beg = self.end;
+
+            if (!rows.length)
+                return;
+
+            rows.forEach(function(row) {
+                row.length = 0;
+            });
+
+            $(self).triggerHandler("adjust", [self.beg, self.end]);
+
+            /* Suppress notifications */
+            suppress++;
+
+            /* Ask all sinks to load data */
+            var sink, i, len = sinks.length;
+            for (i = 0; i < len; i++) {
+                sink = sinks[i].sink;
+                sink.load(self.beg, self.end, sink.fetch);
+            }
+
+            suppress--;
+
+            /* Notify for all rows */
+            self.notify(0, self.end - self.beg);
         };
 
         self.close = function close() {
-            while (linked.length)
-                (linked.pop()).remove();
+            while (sinks.length)
+                (sinks.pop()).links.remove();
         };
+
+        self.adjust(beg, end);
     }
 
-    cockpit.grid = function grid(interval, offset, limit) {
-        return new DataGrid(interval, offset, limit);
+    cockpit.grid = function grid(interval, beg, end) {
+        return new SeriesGrid(interval, beg, end);
     };
 
     /* ---------------------------------------------------------------------

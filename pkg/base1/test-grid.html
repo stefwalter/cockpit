@@ -44,28 +44,33 @@ test("public api", function() {
 
     var grid = cockpit.grid(555, 3, 8);
     strictEqual(grid.interval, 555, "grid.interval");
-    strictEqual(grid.offset, 3, "grid.offset");
-    strictEqual(grid.limit, 8, "grid.limit");
+    strictEqual(grid.beg, 3, "grid.beg");
+    strictEqual(grid.end, 8, "grid.end");
     deepEqual(grid.rows, [], "grid.rows");
     equal(typeof grid.add, "function", "grid.add()");
-    equal(typeof grid.shift, "function", "grid.shift()");
+    equal(typeof grid.remove, "function", "grid.remove()");
     equal(typeof grid.close, "function", "grid.close()");
     equal(typeof grid.notify, "function", "grid.notify()");
+    equal(typeof grid.adjust, "function", "grid.adjust()");
 
     grid = cockpit.grid(555, 3);
-    strictEqual(grid.offset, 3, "not-null grid.offset");
-    strictEqual(grid.limit, null, "null grid.limit");
+    strictEqual(grid.beg, 3, "not-null grid.beg");
+    strictEqual(grid.end, 3, "same grid.end");
 
     grid = cockpit.grid(555, 0);
-    strictEqual(grid.limit, null, "null for zero grid.limit");
+    strictEqual(grid.end, 0, "zero grid.end");
 
     var sink = cockpit.sink(888);
     strictEqual(sink.interval, 888, "sink.interval");
+    equal(typeof sink.input, "function", "sink.input()");
     equal(typeof sink.process, "function", "sink.process()");
+    equal(typeof sink.load, "function", "sink.load()");
+    equal(typeof sink.store, "function", "sink.store()");
+    equal(typeof sink.fetch, "function", "sink.fetch()");
 });
 
 test("empty row", function() {
-    var grid = cockpit.grid(1000, 3, 5);
+    var grid = cockpit.grid(1000, 3, 8);
     var row = grid.add();
 
     equal(grid.rows.length, 1, "rows length");
@@ -73,7 +78,7 @@ test("empty row", function() {
 });
 
 test("calculated row", function() {
-    var grid = cockpit.grid(1000, 3, 5);
+    var grid = cockpit.grid(1000, 3, 8);
     var calculated = grid.add(function(row, x, n) {
         for (var i = 0; i < n; i++)
              row[i + x] = i;
@@ -87,7 +92,7 @@ test("calculated row", function() {
 });
 
 test("calculated order", function() {
-    var grid = cockpit.grid(1000, 3, 5);
+    var grid = cockpit.grid(1000, 3, 8);
 
     var calculated = grid.add(function(row, x, n) {
         for (var i = 0; i < n; i++)
@@ -109,7 +114,7 @@ test("calculated order", function() {
 });
 
 test("notify limit", function() {
-    var grid = cockpit.grid(1000, 5, 10);
+    var grid = cockpit.grid(1000, 5, 15);
 
     var called = -1;
     grid.add(function(row, x, n) {
@@ -127,7 +132,7 @@ test("notify limit", function() {
 });
 
 test("shift one", function() {
-    var grid = cockpit.grid(1000, 5, 10);
+    var grid = cockpit.grid(1000, 5, 15);
 
     var row = grid.add();
     row.push.apply(row, [1, 2, 3, 4, 5]);
@@ -142,7 +147,7 @@ test("shift one", function() {
 });
 
 test("shift n", function() {
-    var grid = cockpit.grid(1000, 5, 10);
+    var grid = cockpit.grid(1000, 5, 15);
 
     var row = grid.add();
     row.push.apply(row, [1, 2, 3, 4, 5]);
@@ -157,7 +162,7 @@ test("shift n", function() {
 });
 
 test("sink row", function() {
-    var grid = cockpit.grid(1000, 5, 10);
+    var grid = cockpit.grid(1000, 5, 15);
     var sink = cockpit.sink(1000);
 
     var row1 = grid.add(sink, "one.sub.2");
@@ -199,7 +204,7 @@ test("sink row", function() {
 });
 
 test("sink no path", function() {
-    var grid = cockpit.grid(1000, 5, 10);
+    var grid = cockpit.grid(1000, 5, 15);
     var sink = cockpit.sink(1000);
 
     var row = grid.add(sink);
@@ -212,7 +217,7 @@ test("sink no path", function() {
 });
 
 test("sink after close", function() {
-    var grid = cockpit.grid(1000, 5, 10);
+    var grid = cockpit.grid(1000, 5, 15);
     var sink = cockpit.sink(1000);
 
     var row = grid.add(sink);
@@ -232,7 +237,7 @@ test("sink after close", function() {
 });
 
 test("sink mapping", function() {
-    var grid = cockpit.grid(1000, 5, 10);
+    var grid = cockpit.grid(1000, 5, 15);
     var sink = cockpit.sink(1000);
 
     var row1 = grid.add(sink, "two.sub.1");
