@@ -1084,6 +1084,90 @@ define([
         };
     }
 
+    /**
+     * NuleculeClient
+     *
+     */
+    function NuleculeClient() {
+        var self = this;
+
+        self.install = function install(image) {
+            var deferred = $.Deferred();
+            var status = '';
+            var timer = window.setInterval(function() { 
+                var http = cockpit.http(5000);
+                var req = http.get("/atomicapp-run/api/v1.0/status")
+                    .done(function(data) {
+                        req = null;
+
+                        var response;
+                        try {
+                            response = JSON.parse(data);
+                            status = response.items[response.items.length-1];
+                            console.log("status = " + JSON.stringify(status));
+                            deferred.notify(status);
+                        } catch(ex) {
+                            debug("not an api endpoint without JSON data on:");
+                            return;
+                        }
+
+                    })
+                    .fail(function(ex) {
+                        req = null;
+                        deferred.reject(ex);
+                    });                   
+
+                }, 1000);
+
+            var args = ['atomicapp', '-d', 'install', image];
+
+            deferred.notify(_("Installing Application..."));
+
+            var process = cockpit.spawn(args);
+
+            var promise;
+            var buffer = '';
+            process.always(function() {
+                    console.log("....always.....");
+                    window.clearInterval(timer);
+                })
+                .stream(function(text) {
+                    buffer += text;
+                    console.log("buf = "+buffer);
+                })
+                .done(function(output) {
+                    deferred.resolve();
+                    console.log("....done.....");
+                })
+                .fail(function(ex) {
+                    console.log("....fail.....");
+                    var message;
+                    if (ex.problem === "cancelled") {
+                        deferred.reject(ex);
+                        return;
+                    }
+
+                    if (!message) {
+                        message = _("Image failed to Install");
+                        console.warn(ex.message);
+                    }
+                    var error = new Error(message);
+                    error.reason = reason;
+                    deferred.reject(error);
+                });
+
+            promise = deferred.promise();
+            promise.cancel = function cancel() {
+                console.log("....cancelled.....");
+                window.clearInterval(timer);
+                process.close("cancelled");
+            };
+
+            return promise;
+        };
+    }
+
+    
     /*
      * Returns a new instance of Constructor for each
      * key passed into the returned function. Multiple
@@ -1125,6 +1209,7 @@ define([
 
     kubernetes.k8client = singleton(KubernetesClient);
     kubernetes.etcdclient = singleton(EtcdClient);
+    kubernetes.nuleculeclient = singleton(NuleculeClient);
 
     function CAdvisor(node) {
         var self = this;
