@@ -21,9 +21,10 @@ define([
     "jquery",
     "base1/cockpit",
     "kubernetes/client",
+    "kubernetes/nulecule",
     "base1/mustache",
     "base1/patterns"
-], function(jQuery, cockpit, kubernetes, Mustache, patterns) {
+], function(jQuery, cockpit, kubernetes, nulecule, Mustache, patterns) {
     "use strict";
 
     var _ = cockpit.gettext;
@@ -102,6 +103,7 @@ define([
                         $("#deploy-app-dialog").dialog("failure", ex);
                     });
                     console.log("wait");
+                    console.log( promise.state());
                     /* Display a spinner while this is happening */
                     $("#deploy-app-dialog").dialog("wait", promise);
             });
@@ -214,7 +216,7 @@ define([
             } else {
                 $("#deploy-app-nulecule-image").show();
                 $('label[for="deploy-app-nulecule"]').show();
-                $('#deploy-app-manifest-file-button').hide()
+                $('#deploy-app-manifest-file-button').hide();
                 $('label[for="deploy-app-manifest"]').hide();
             }
         });
@@ -232,7 +234,7 @@ define([
             $('#deploy-app-manifest-file-button').show();
             $('label[for="deploy-app-manifest"]').show();
             client = kubernetes.k8client();
-            nulecule_client = kubernetes.nuleculeclient();
+            nulecule_client = nulecule.nuleculeclient();
             $(client).on("namespaces", namespaces_changed);
             namespaces_changed();
         });

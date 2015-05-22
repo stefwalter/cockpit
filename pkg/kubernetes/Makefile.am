@@ -7,6 +7,7 @@ kubernetes_DATA = \
 	pkg/kubernetes/manifest.json \
 	pkg/kubernetes/tool.min.html.gz \
 	pkg/kubernetes/deploy.min.js.gz \
+	pkg/kubernetes/nulecule.min.js.gz \
 	$(NULL)
 
 kubernetesdebugdir = $(DBGDIR)$(kubernetesdir)
@@ -25,6 +26,7 @@ kubernetesdebug_DATA = \
 	pkg/kubernetes/node.js \
 	pkg/kubernetes/tool.html \
 	pkg/kubernetes/deploy.js \
+	pkg/kubernetes/nulecule.js \
 	$(NULL)
 
 kubernetes_BUNDLE = \
@@ -37,6 +39,7 @@ kubernetes_BUNDLE = \
 	pkg/kubernetes/deploy.min.js \
 	pkg/kubernetes/d3.min.js \
 	pkg/kubernetes/graphs.min.js \
+        pkg/kubernetes/nulecule.min.js \
 	pkg/kubernetes/node.min.js \
 	$(NULL)
 
