@@ -91,7 +91,8 @@ define([
             var cmd = "/usr/bin/atomicapp -d install --destination " + tmp_dir + " " +image;
             console.log(cmd);
             //var process = cockpit.spawn(['/bin/sh', '-s']).input(cmd);
-            var process = cockpit.spawn(["/usr/bin/atomicapp", "-d", "install", "--destination", tmp_dir, image]);
+            var process = cockpit.spawn(["/usr/bin/atomicapp", "-d", "install", "--destination", tmp_dir, image],
+                    { err: "out" });
 
             console.log("installing image: " + image + " in folder "+tmp_dir);
             deferred.notify(_("Installing Application..."));

@@ -103,7 +103,9 @@ define([
                         });
                         console.log("wait");
                         console.log( promise.state());
+
                         /* Display a spinner while this is happening */
+                        $("#deploy-app-dialog").dialog("wait", promise);
                     })
                     .fail(function(ex, response) {
                         console.log("tmp fail");
