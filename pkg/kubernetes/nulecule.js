@@ -43,6 +43,7 @@ define([
     function NuleculeClient() {
         var self = this;
         var http = cockpit.http(5000);
+        var status = "";
 
         self.get_status = function get_status() {
             var req = http.get("/atomicapp-run/api/v1.0/status")
@@ -70,7 +71,7 @@ define([
         self.create_tmp = function create_tmp() {
             var dfd = $.Deferred();
             var promise;
-            var process = cockpit.spawn(['/bin/sh', '-s']).input("mktemp -p $XDG_RUNTIME_DIR -d APP_ENTITY.XXXXXX")
+            var process = cockpit.spawn(['/bin/sh', '-s']).input("mktemp -p $XDG_RUNTIME_DIR -d APP_ENTITY.XXXXXX");
             process.done(function(data){
                     dfd.resolve(data);
                 })
@@ -92,7 +93,7 @@ define([
             //var process = cockpit.spawn(['/bin/sh', '-s']).input(cmd);
             var process = cockpit.spawn(["/usr/bin/atomicapp", "-d", "install", "--destination", tmp_dir, image]);
 
-            console.log("installing image: " + image + " in folder "+tmp_dir)
+            console.log("installing image: " + image + " in folder "+tmp_dir);
             deferred.notify(_("Installing Application..."));
 
             process.always(function() {

@@ -37,9 +37,12 @@ kubernetes_BUNDLE = \
 	pkg/kubernetes/config.min.js \
 	pkg/kubernetes/dashboard.min.js \
 	pkg/kubernetes/deploy.min.js \
+<<<<<<< HEAD
 	pkg/kubernetes/d3.min.js \
 	pkg/kubernetes/graphs.min.js \
+=======
 	pkg/kubernetes/nulecule.min.js \
+>>>>>>> 31339be... create nulecule.js
 	pkg/kubernetes/node.min.js \
 	$(NULL)
 

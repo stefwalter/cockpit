@@ -1083,7 +1083,6 @@ define([
             });
         };
     }
-
     
     /*
      * Returns a new instance of Constructor for each
