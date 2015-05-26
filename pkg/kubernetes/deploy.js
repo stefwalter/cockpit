@@ -80,32 +80,42 @@ define([
     }
 
     function deploy_nulecule() {
-        console.log("deploy_nulecule");
         var promise = validate()
             .fail(function(exs) {
                 console.log("validated failed");
                 $("#deploy-app-dialog").dialog("failure", exs);
             })
             .done(function(fields) {
-                console.log("validated");
-                promise = nulecule_client.install(fields.nulecule_image)
-                    .done(function() {
-                        /* code gets run when everything is created */
-                        //$('#deploy-app-dialog').modal('hide');
-                        console.log("done");
+                promise = nulecule_client.create_tmp().done(function(tmp){
+                        console.log(tmp +" created");
+                        promise = nulecule_client.install(tmp, fields.nulecule_image).done(function() {
+                                /* code gets run when everything is created */
+                                //$('#deploy-app-dialog').modal('hide');
+                                console.log("install done");
+                            })
+                            .fail(function(ex, response) {
+                                console.log("install fail");
+                                var target;
+                                var msg;
+
+                                /* Display the error appropriately in the dialog */
+                                $("#deploy-app-dialog").dialog("failure", ex);
+                        });
+                        console.log("wait");
+                        console.log( promise.state());
+                        /* Display a spinner while this is happening */
                     })
                     .fail(function(ex, response) {
-                        console.log("fail");
+                        console.log("tmp fail");
                         var target;
                         var msg;
 
                         /* Display the error appropriately in the dialog */
                         $("#deploy-app-dialog").dialog("failure", ex);
                     });
-                    console.log("wait");
-                    console.log( promise.state());
-                    /* Display a spinner while this is happening */
-                    $("#deploy-app-dialog").dialog("wait", promise);
+
+                $("#deploy-app-dialog").dialog("wait", promise);
+
             });
 
         /* Display a spinner while this is happening */
@@ -195,7 +205,6 @@ define([
             if (type_selector.val().trim() === _("Kubernetes Manifest")) {
                 deploy_app();
             } else {
-                console.log("deploy_nulecule");
                 deploy_nulecule();
             }
         });
@@ -227,7 +236,8 @@ define([
 
             $("#deploy-app-namespace").val('');
             nulecule_image.val('');
-            manifest_type.text( _("Kubernetes Manifest"));
+            type_selector.val( _("Kubernetes Manifest"));
+            type_selector.selectpicker('refresh');
 
             $("#deploy-app-nulecule-image").hide();
             $('label[for="deploy-app-nulecule"]').hide();
@@ -237,6 +247,8 @@ define([
             nulecule_client = nulecule.nuleculeclient();
             $(client).on("namespaces", namespaces_changed);
             namespaces_changed();
+            //nulecule_client.get_version();
+            //nulecule_client.create_tmp();
         });
 
         dlg.on('hide.bs.modal', function() {
