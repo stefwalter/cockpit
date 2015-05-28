@@ -74,9 +74,11 @@ EXTRA_DIST += \
 update-lib:: update-bower
 	$(JSMODULE) -m -a window.angular -o $(srcdir)/pkg/kubernetes/angular.js \
 	    $(BOWER)/angular/angular.js \
+	    $(BOWER)/angular-animate/angular-animate.js \
 	    $(BOWER)/angular-route/angular-route.js
 	$(JSMODULE) -m -a window.angular -o $(srcdir)/pkg/kubernetes/angular.min.js \
 	    $(BOWER)/angular/angular.min.js \
+	    $(BOWER)/angular-animate/angular-animate.min.js \
 	    $(BOWER)/angular-route/angular-route.min.js
 	$(JSMODULE) -m -o $(srcdir)/pkg/kubernetes/angular-bootstrap.js \
 	    $(BOWER)/angular-bootstrap/ui-bootstrap.js
