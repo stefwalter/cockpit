@@ -138,7 +138,8 @@ along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
 
   <script type="text/ng-template" id="details.html">
     <div class="kube-details">
-      <div ng-repeat="item in selection" ng-if="item.kind == 'Pod'">
+      <div ng-repeat="item in selection" ng-if="item.kind == 'Pod'"
+            ng-animate="{enter: 'animate-enter', leave: 'animate-leave'}">
         <kube-pod ng-init="pod = item">
           <kube-container ng-repeat="container in client.containers(pod)"></kube-container>
         </kube-pod>

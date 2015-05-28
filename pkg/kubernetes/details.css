@@ -164,6 +164,19 @@ div.kube-ports .kube-port:after {
     min-height: 310px;
 }
 
+.animate-leave {
+    -webkit-transition: 1s linear all; /* Chrome */
+    transition: 1s linear all;
+    opacity: 1;
+    overflow: hidden;
+    text-overflow: clip;
+}
+
+.animate-leave.animate-leave-active {
+    opacity: 0;
+    height: 0px;
+}
+
 @media(min-width: 768px) {
     .kube-details .kube-pod {
 	 padding-right: 0px;

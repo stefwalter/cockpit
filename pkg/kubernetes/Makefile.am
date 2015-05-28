@@ -19,6 +19,7 @@ kubernetesdebug_DATA = \
 	pkg/kubernetes/config.js \
 	pkg/kubernetes/d3.js \
 	pkg/kubernetes/dashboard.js \
+	pkg/kubernetes/details.css \
 	pkg/kubernetes/details.js \
 	pkg/kubernetes/graphs.js \
 	pkg/kubernetes/kubernetes.js \
