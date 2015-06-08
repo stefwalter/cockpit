@@ -27,6 +27,9 @@ define([
     var kubernetes = { };
     var _ = cockpit.gettext;
 
+    /* kubernetes and cAdvisor have second intervals */
+    var interval = 1000;
+
     function debug() {
         if (window.debugging == "all" || window.debugging == "kubernetes")
             console.debug.apply(console, arguments);
@@ -1418,9 +1421,6 @@ define([
 
     function CAdvisor(node) {
         var self = this;
-
-        /* cAdvisor has second intervals */
-        var interval = 1000;
 
         var kube = kubernetes.k8client();
 
