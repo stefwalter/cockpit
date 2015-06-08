@@ -559,6 +559,18 @@ define([
         }
     }
 
+    function items_trigger(items, name, data) {
+        items.data.flat = null;
+        var $items = $(items);
+        $items.triggerHandler(name, data);
+        if (!items.data.timer) {
+            items.data.timer = window.setTimeout(function() {
+                items.data.timer = null;
+                $items.triggerHandler("changed");
+            }, 100);
+        }
+    }
+
     Object.defineProperties(KubeList.prototype, {
         remove: {
             enumerable: false,
@@ -566,7 +578,7 @@ define([
             value: function remove(key, item) {
                 if (key in this) {
                     delete this[key];
-                    this.trigger("removed", item);
+                    items_trigger(items, "removed", item);
                 }
             }
         },
@@ -578,29 +590,13 @@ define([
                 var have = (key in this);
                 if (!have && matched) {
                     this[key] = item;
-                    this.trigger("added", item);
+                    items_trigger(items, "added", item);
                 } else if (have && !matched) {
                     delete this[key];
-                    this.trigger("removed", item);
+                    items_trigger(items, "removed", item);
                 } else if (have && matched) {
                     this[key] = item;
-                    this.trigger("updated", item);
-                }
-            }
-        },
-        trigger: {
-            enumerable: false,
-            writable: false,
-            value: function(name, data) {
-                var self = this;
-                self.data.flat = null;
-                var $self = $(self);
-                $self.triggerHandler(name, data);
-                if (!self.data.timer) {
-                    self.data.timer = window.setTimeout(function() {
-                        self.data.timer = null;
-                        $self.triggerHandler("changed");
-                    }, 100);
+                    items_trigger(items, "updated", item);
                 }
             }
         },
