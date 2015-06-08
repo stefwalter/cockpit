@@ -35,11 +35,17 @@ define([
         self.hosts = { };
         self.services = { };
 
+        var services = kube.select("Service");
+        kube.track(services);
+
+        var pods = kube.select("Pod");
+        kube.track(pods);
+
         function update() {
             var changed = false;
 
             /* Lookup all the services */
-            kube.services.forEach(function(service) {
+            angular.forEach(services, function(service) {
                 var spec = service.spec;
                 var meta = service.metadata;
                 var name = meta.name;
@@ -50,7 +56,7 @@ define([
                 var uid = meta.uid;
 
                 /* Lookup all the pods for each service */
-                kube.select("Pod", meta.namespace, spec.selector).items.forEach(function(pod) {
+                angular.forEach(kube.select("Pod", meta.namespace, spec.selector), function(pod) {
                     var status = pod.status || { };
                     var spec = pod.spec || { };
                     var host = spec.host;
@@ -85,11 +91,12 @@ define([
                 $(self).triggerHandler("changed");
         }
 
-        $(kube).on("services pods", update);
+        $([services, pods]).on("changed", update);
         update();
 
         self.close = function close() {
-            $(kube).off("services pods", update);
+            kube.track(services, false);
+            kube.track(pods, false);
         };
     }
 
@@ -119,6 +126,11 @@ define([
 
         /* All the cadvisors that have been opened */
         var cadvisors = [ ];
+
+        var events = kube.select("Event");
+        kube.track(events);
+        $(events).on("changed", fill_events);
+        fill_events();
 
         /* Gives us events when kube does something */
         var service_map = new ServiceMap(kube);
@@ -277,6 +289,10 @@ define([
             rows_sum(subset, row, x, n);
         }
 
+        function fill_events() {
+            events.slice(self.beg, self.end);
+        }
+
         self.metric = function metric(type) {
             if (type === undefined)
                 return current_metric;
@@ -305,6 +321,7 @@ define([
             });
 
             service_map.close();
+            kube.track(events, false);
             kube.close();
             base_close.apply(self);
         };
@@ -499,13 +516,28 @@ define([
             jump();
         }
 
-        function notified() {
+        function events(ev) {
+            /*
+            var data = d3.nest()
+                .key(function(d) { return d.lastTimestamp; });
+                .entries(grid.events);
+            */
+
+            var events = stage.select("circle.event")
+                .data(grid.events, function(d) { return d.lastTimestamp });
+
+            events
+                .attr("y", 0)
+                .attr("x", xxxx);
+        }
+
+        function notified(ev) {
             var rows = grid.rows;
 
             var series = stage.selectAll("path.line")
                 .data(rows, function(d, i) { return i; });
 
-            var trans = series
+            series
                 .style("stroke", function(d, i) { return colors(i); })
                 .attr("d", function(d) { return line(d); })
                 .classed("highlight", function(d) { return d.uid === highlighted; });
@@ -519,10 +551,20 @@ define([
                     highlighter(null);
                 });
             series.exit().remove();
+
+            events
+                .attr("x", function...)
+                .attr("y", function...);
+
+            events.enter().append("circle")
+                .attr("class", "event")
+                .append("title", function ...);
+            events.exit().remove();
         }
 
         $(grid).on("changed", adjust);
         $(grid).on("notify changed", notified);
+        $(grid).on("events", notified);
 
         function resized() {
             width = $(selector).outerWidth() - 10;

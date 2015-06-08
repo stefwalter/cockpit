@@ -1076,10 +1076,10 @@ define([
                 tracked = tracked.filter(function(l) {
                     return items !== l;
                 });
-                return null;
             } else {
                 tracked.push(items);
             }
+            return items;
         };
 
         function DataError(message, ex) {
@@ -1341,7 +1341,6 @@ define([
 
         self.connect();
 
-
         /*
          * TODO: Remove this old compatibility stuff
          */
@@ -1440,7 +1439,7 @@ define([
             var va = a.lastTimestamp || "";
             var vb = b.lastTimestamp || "";
             return (va < vb) ? -1 : ((va > vb) ? 1 : 0);
-        };
+        }
 
         /* Called to feed events into series */
         function input_events(begin, end) {
