@@ -47,17 +47,25 @@ define([
         return Math.abs(h);
     }
 
-    function search(arr, val) {
+    function search(arr, val, func) {
         var low = 0;
         var high = arr.length - 1;
-        var mid, v;
+        var mid, v, r;
 
         while (low <= high) {
             mid = (low + high) / 2 | 0;
             v = arr[mid];
-            if (v < val)
-                low = mid + 1;
+            if (func)
+                r = func(v, val);
+            else if (v < val)
+                r = -1;
             else if (v > val)
+                r = 1;
+            else
+                r = 0;
+            if (r < 0)
+                low = mid + 1;
+            else if (r > 0)
                 high = mid - 1;
             else
                 return mid; /* key found */
