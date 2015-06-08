@@ -1427,6 +1427,106 @@ define([
 
     kubernetes.k8client = singleton(KubernetesClient);
 
+    function KubeEvents() {
+        var kube = kubernetes.k8client();
+
+        /* Track the Event items */
+        var self = kube.select("Event");
+        kube.track(events);
+
+        var array = [ ];
+
+        function sorter(a, b) {
+            var va = a.lastTimestamp || "";
+            var vb = b.lastTimestamp || "";
+            return (va < vb) ? -1 : ((va > vb) ? 1 : 0);
+        };
+
+        /* Called to feed events into series */
+        function input_events(begin, end) {
+            var items = array.slice(search(array, begin, sorter),
+                                    search(array, end, sorter));
+
+            var i, len;
+            var last_offset, last_timestamp;
+            var beginning;
+            var values = [];
+            var current;
+
+            for (i = 0, len = items.length; i < len; i++) {
+                item = items[i];
+                if (item.lastTimestamp != last_timestamp) {
+                    last_offset = Math.floor(new Date(item.lastTimestamp).getTime() / interval);
+                    if (beginning === undefined)
+                        beginning = last_offset;
+                    current = [ ];
+                    values[last_offset - beginning] = { "events": current };
+                }
+                current.push(item);
+            }
+
+            if (beginning !== undefined)
+                self.series.input(beginning, values);
+        }
+
+        /* The actual series that we feed data into */
+        self.series = cockpit.series(interval, "k8ev1", function(beg, end) {
+            input_events(new Date(beg * interval).toISOString(),
+                         new Date(end * interval).toISOString());
+        });
+
+
+        /* The earliest event to batch update */
+        var batch = null;
+        var earliest = null;
+        var latest = null;
+
+        function item_update(ev, item) {
+            /* Find position of this event in array */
+            var pos = search(array, item, sorter);
+            var prev = array[pos];
+
+            /* Represents the same item, replace it */
+            if (prev && prev.metadata.uid === item.metadata.uid)
+                array[pos] = item;
+
+            /* Insert at the appropriate position */
+            else
+                array.splice(pos, item);
+
+            /* Start scheduling a batch update */
+            if (batch != null) {
+                earliest = latest = item;
+                batch = window.setTimeout(function() {
+                    batch = null;
+
+                    /* Specify latest as a value that comes after the latest timestamp */
+                    input_events(earliest, latest + "~");
+                }, 200);
+
+            /* Add to the current batch update */
+            } else if (item.lastTimestamp < earliest)
+                earliest = item.lastTimestamp;
+            } else if (item.lastTimestamp > latest)
+                latest = item.lastTimestamp;
+            }
+        }
+
+        $(self).on("added modified", item_update)
+
+        self.close = function close() {
+            $(self).off("added modified", item_update)
+            window.clearTimeout(batch);
+            kube.track(self, false);
+            kube.close();
+            kube = null;
+        };
+
+        return self;
+    };
+
+    kubernetes.events = singleton(KubeEvents);
+
     function CAdvisor(node) {
         var self = this;
 
