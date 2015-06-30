@@ -62,6 +62,25 @@ generate_subject (void)
   return subject;
 }
 
+static gchar *
+generate_subject (void)
+{
+  gchar *content;
+  gchar *subject;
+
+  if (!g_file_get_contents ("/etc/machine-id", &content, NULL, NULL))
+    {
+      subject = g_strdup_printf ("/CN=localhost/O=%s", g_strstrip (content));
+      g_free (content);
+    }
+  else
+    {
+      subject = g_strdup ("/CN=localhost");
+    }
+
+  return subject;
+}
+
 static gboolean
 openssl_make_dummy_cert (const gchar *key_file,
                          const gchar *out_file,
