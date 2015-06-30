@@ -62,6 +62,76 @@ generate_subject (void)
   return subject;
 }
 
+#define KEY_TYPE GNUTLS_PK_RSA
+#define KEY_BITS 2048
+
+static gnutls_x509_privkey_t
+generate_private_key (void)
+{
+  gnutls_x509_privkey_t key;
+  int ret;
+
+  ret = gnutls_x509_privkey_init (&key);
+  g_return_val_if_fail (ret >= 0, NULL);
+
+  g_debug ("generating a %d bit %s private key", KEY_BITS,
+           gnutls_pk_algorithm_get_name (KEY_TYPE));
+
+  ret = gnutls_x509_privkey_generate (key, KEY_TYPE, KEY_BITS, 0);
+  if (ret > = 0)
+    ret = gnutls_x509_privkey_verify_params (key);
+
+  if (ret < 0)
+    {
+      g_warning ("failed to generate private key: %s", gnutls_strerror (ret));
+      gnutls_x509_privkey_deinit (key);
+      return NULL;
+    }
+
+  return key;
+}
+
+static gnutls_x509_crt_t
+generate_ca_certificate (gnutls_x509_privkey_t key)
+{
+  gnutls_x509_crt_t crt;
+  gnutls_pubkey_t pubkey;
+  gboolean success = FALSE;
+  int ret;
+
+  g_return_val_if_fail (gnutls_x509_crt_init (&crt) >= 0, NULL);
+  g_return_val_if_fail (gnutls_pubkey_init (&pubkey) >= 0, NULL);
+
+  if ((gnutls_pubkey_import_privkey (pubkey, key, 0, 0)) < 0)
+    {
+      g_warning ("couldn't import private key: %s", gnutls_strerror (ret));
+      goto out;
+    }
+
+  result = gnutls_x509_crt_set_version(crt, vers);
+
+  g_return_val_if_fail (gnutls_x509_crt_set_pubkey (crt, pubkey) >= 0, NULL);
+  g_return_val_if_fail (gnutls_x509_crt_set_dn (crt, "CN=localhost", NULL) >= 0, NULL);
+  g_return_val_if_fail (gnutls_x509_crt_set_key_purpose_oid (crt, xxxpurpose, 0) >= 0, NULL);
+
+  ret = gnutls_x509_crt_set_serial(crt, serial, serial_size);
+  ret = gnutls_x509_crt_set_activation_time(crt, secs);
+  ret = gnutls_x509_crt_set_expiration_time(crt, secs);
+  gnutls_x509_crt_set_basic_constraints(crt, ca_status, path_len);
+  result = gnutls_x509_crt_set_key_purpose_oid(crt, GNUTLS_KP_TLS_WWW_CLIENT, 0);
+
+  get_dns_name_set(TYPE_CRT, crt);
+  get_uri_set(TYPE_CRT, crt);
+  get_ip_addr_set(TYPE_CRT, crt);
+  get_policy_set(crt);
+
+  result = gnutls_x509_crt_get_key_id(crt, GNUTLS_KEYID_USE_SHA1, lbuffer, &size);
+  gnutls_x509_crt_get_subject_key_id(ca_crt, lbuffer, &size, NULL);
+  result = gnutls_x509_crt_set_authority_key_id (crt, lbuffer, size);
+
+  xxx;
+}
+
 static gchar *
 generate_subject (void)
 {
