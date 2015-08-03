@@ -5,6 +5,7 @@ set -e
 make_rpms_opts=
 cockpit_create_opts=
 install_selinux=yes
+install_opts=
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -13,6 +14,9 @@ while [ $# -gt 0 ]; do
             cockpit_create_opts="--force --no-save"
             install_selinux=no
 	    ;;
+    -v)
+        install_opts="-v"
+        ;;
     esac
     shift
 done
@@ -64,4 +68,4 @@ fi
 TEST_OS=fedora-22 ./vm-create -v -f stock
 TEST_OS=centos-7  ./vm-create -v -f stock
 
-./vm-install -f cockpit $rpms
+./vm-install $install_opts -f cockpit $rpms

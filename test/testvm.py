@@ -230,6 +230,10 @@ class Machine:
         if not rpms:
             raise Failure("Please specify packages to install")
 
+        # Force a new one to be created
+        if os.path.exists(self._image_image):
+            os.unlink(self._image_image)
+
         self.start(maintain=True)
         try:
             self.wait_boot()
@@ -250,8 +254,11 @@ class Machine:
             self.upload([self.install_packages_script], self.target_install_script)
             script_to_run = INSTALL_SCRIPT % (self.target_install_script)
             self.execute(script=script_to_run, environment=env)
+            self.execute("sync; sync; sync")
+            self._monitor_qemu("stop\nsavevm running\ninfo snapshots\ncommit all\nquit")
+            self.wait_poweroff()
         finally:
-            self.stop()
+            self.kill()
 
     def execute(self, command=None, script=None, input=None, environment={}, quiet=False):
         """Execute a shell command in the test machine and return its output.
@@ -458,15 +465,6 @@ class Machine:
         if len(messages) == 1 and "Cannot assign requested address" in messages[0]:
             messages = [ ]
         return messages
-
-def highest_version(names, os):
-    # XXX - maybe use the "rpm" module.
-
-    names = filter(lambda n: not "rescue" in n, names)
-    sorted = subprocess.check_output("echo '%s' | rpmdev-sort" % "\n".join(names),
-                                     shell=True).split("\n")
-    sorted = filter(lambda n: not n == "", sorted)
-    return sorted[len(sorted)-1]
 
 class QemuMachine(Machine):
     macaddr_prefix = "52:54:00:9e:00"
@@ -705,21 +703,22 @@ class QemuMachine(Machine):
             raise Failure("Already running this image: %s" % self.image)
 
         if maintain:
-            snapshot = "off"
             selinux = "enforcing=0"
         else:
-            snapshot = "on"
             selinux = ""
         self.macaddr = self._choose_macaddr()
         cmd = [
             self._locate_qemu_kvm(),
             "-m", str(MEMORY_MB),
-            "-drive", "if=virtio,file=%s,index=0,serial=ROOT,snapshot=%s" % (self._image_image, snapshot),
+            "-drive", "if=virtio,file=%s,index=0,serial=ROOT,snapshot=off" % (self._image_image),
             "-net", "nic,model=virtio,macaddr=%s" % self.macaddr,
             "-net", "bridge,vlan=0,br=cockpit0",
             "-device", "virtio-scsi-pci,id=hot",
             "-nographic"
         ]
+
+        if not maintain:
+            cmd += [ "-loadvm", "running" ]
 
         if os.path.exists(self._image_additional_iso):
             """ load an iso image if one exists with the same basename as the image
@@ -729,8 +728,8 @@ class QemuMachine(Machine):
         if monitor:
             cmd += ["-monitor", monitor]
 
-        if not tty:
-            cmd += ["-display", "none"]
+        #if not tty:
+        #    cmd += ["-display", "none"]
 
         self.message(*cmd)
 
