@@ -379,7 +379,7 @@ define([
                         return;
 
                     update_error_message(ex, response);
-                    var msg = "watching kubernetes " + type + " failed: " + ex.message;
+                    var msg = uri + JSON.stringify(params) + " watching kubernetes " + type + " failed: " + ex.message;
                     if (ex.problem !== "disconnected")
                         console.warn(msg);
                     else
