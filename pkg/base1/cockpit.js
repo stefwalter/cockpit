@@ -2612,26 +2612,30 @@ function full_scope(cockpit, $, po) {
     };
 
     /* ---------------------------------------------------------------------
-     * Shared data cache.
-     *
-     * We cannot use sessionStorage when keeping lots of data in memory and
-     * sharing it between frames. It has a rather paltry limit on the amount
-     * of data it can hold ... so we use window properties instead.
+     * Shared data.
      */
 
-    function lookup_storage(win) {
-        var storage;
+    function lookup_shared(win) {
+        var shared;
         if (win.parent && win.parent !== win)
-            storage = lookup_storage(win.parent);
-        if (!storage) {
+            shared = lookup_shared(win.parent);
+        if (!shared) {
             try {
-                storage = win["cv1-storage"];
-                if (!storage)
-                    win["cv1-storage"] = storage = { };
+                shared = win["cv1-shared"];
+                if (!shared)
+                    win["cv1-shared"] = shared = { };
             } catch(ex) { }
         }
-        return storage;
+        return shared;
     }
+
+    cockpit.shared = function shared() {
+        
+    };
+
+    cockpit.shared.invoke = function(callback) {
+        
+    };
 
     function StorageCache(key, provider, consumer) {
         var self = this;
