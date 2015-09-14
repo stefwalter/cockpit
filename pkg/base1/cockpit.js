@@ -2612,30 +2612,39 @@ function full_scope(cockpit, $, po) {
     };
 
     /* ---------------------------------------------------------------------
-     * Shared data.
+     * Shared data
+     *
+     * Data shared between multiple components on the same host.
      */
 
-    function lookup_shared(win) {
-        var shared;
-        if (win.parent && win.parent !== win)
-            shared = lookup_shared(win.parent);
-        if (!shared) {
-            try {
-                shared = win["cv1-shared"];
-                if (!shared)
-                    win["cv1-shared"] = shared = { };
-            } catch(ex) { }
+    (function() {
+        var base = [ "cv1" ];
+        base.push.apply(base, document.baseURI.split("/").slice(2, -2));
+        base.push(window.name.split("/")[0]);
+        base = base.join(":") + ":";
+
+        function lookup(win, key) {
+            var shared;
+            if (win.parent && win.parent !== win)
+                shared = lookup_shared(win.parent, key);
+            if (!shared) {
+                try {
+                    shared = win[key];
+                    if (!shared)
+                        win[key] = shared = { };
+                } catch(ex) { }
+            }
+            return shared;
         }
-        return shared;
-    }
 
-    cockpit.shared = function shared() {
-        
-    };
+        cockpit.shared = function shared(key) {
+            return lookup(window, base + key);
+        };
+    }());
 
-    cockpit.shared.invoke = function(callback) {
-        
-    };
+    /* ---------------------------------------------------------------------
+     * Storage cache.
+     */
 
     function StorageCache(key, provider, consumer) {
         var self = this;
@@ -2644,7 +2653,7 @@ function full_scope(cockpit, $, po) {
         var trigger = window.sessionStorage;
         var last;
 
-        var storage = lookup_storage(window);
+        var storage = cockpit.shared("cache");
 
         var claimed = false;
         var source;
@@ -2955,7 +2964,7 @@ function full_scope(cockpit, $, po) {
                 return [];
 
             /* Try and find a good place to cache data */
-            var storage = lookup_storage(window);
+            var storage = cockpit.shared("series");
 
             var index = storage[id];
             if (!index)

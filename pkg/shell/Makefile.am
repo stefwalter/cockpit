@@ -22,7 +22,6 @@ shelldebug_DATA = \
 	pkg/shell/bundle.js \
 	pkg/shell/index.html \
 	pkg/shell/index.js \
-	pkg/shell/machines.js \
 	pkg/shell/shell.css \
 	pkg/shell/shell.html \
 	pkg/shell/dbus.js \
@@ -44,7 +43,6 @@ shelldebug_DATA = \
 # shell_BUNDLEFILES are included in files to be cleaned
 shell_BUNDLEFILES = \
 	pkg/shell/index.min.js \
-	pkg/shell/machines.min.js \
 	$(NULL)
 
 shell_BUNDLE = \

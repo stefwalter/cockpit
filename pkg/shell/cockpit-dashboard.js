@@ -23,10 +23,9 @@ define([
     "base1/mustache",
     "shell/controls",
     "shell/shell",
-    "shell/machines",
     "base1/patterns",
     "shell/cockpit-main"
-], function($, cockpit, Mustache, controls, shell, machines) {
+], function($, cockpit, Mustache, controls, shell) {
 "use strict";
 
 var _ = cockpit.gettext;
@@ -227,6 +226,7 @@ PageDashboard.prototype = {
     setup: function() {
         var self = this;
 
+        
         self.machines = machines.instance();
 
         function make_color_div(c) {
