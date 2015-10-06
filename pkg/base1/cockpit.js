@@ -2373,22 +2373,7 @@ function full_scope(cockpit, $, po) {
             console.debug.apply(console, arguments);
     }
 
-    function find_header(headers, name) {
-        if (!headers)
-            return undefined;
-        name = name.toLowerCase();
-        for (var head in headers) {
-            if (head.toLowerCase() == name)
-                return headers[head];
-        }
-        return undefined;
-    }
-
-    function HttpClient(endpoint, options) {
-        var self = this;
-
-        options.payload = "http-stream1";
-
+    function http_options(endpoint, options) {
         if (endpoint !== undefined) {
             if (endpoint.indexOf && endpoint.indexOf("/") === 0) {
                 options.unix = endpoint;
@@ -2406,6 +2391,24 @@ function full_scope(cockpit, $, po) {
                 options.capabilities = [];
             options.capabilities.push("address");
         }
+    }
+
+    function find_header(headers, name) {
+        if (!headers)
+            return undefined;
+        name = name.toLowerCase();
+        for (var head in headers) {
+            if (head.toLowerCase() == name)
+                return headers[head];
+        }
+        return undefined;
+    }
+
+    function HttpClient(endpoint, options) {
+        var self = this;
+
+        options.payload = "http-stream1";
+        http_options(endpoint, options);
 
         self.request = function request(req) {
             var dfd = new $.Deferred();
@@ -2587,6 +2590,238 @@ function full_scope(cockpit, $, po) {
             endpoint = undefined;
         }
         return new HttpClient(endpoint, options || { });
+    };
+
+    /* ---------------------------------------------------------------------
+     * WebSocket
+     */
+
+    function WebSocketClient(endpoint, options) {
+        var self = this;
+
+        options.payload = "websocket-stream1";
+        http_options(endpoint, options);
+
+        var channel = cockpit.channel(options);
+        channel
+            .on("control", function(ev, options) {
+                xxx status xxx;
+            })
+            .on("close", function(ev, options) {
+                if (options.problem) {
+                    dfd.reject(new BasicError(options.problem));
+                }
+            })
+            .on("message", function(ev, data) {
+                xxxx status xxx;
+            });
+
+            /*
+        self.binaryType (readonly)
+        self.bufferedAmount (readonly)
+        self.extensions (empty)
+        self.protocol
+        self.readyState 
+            CONNECTING 0
+            OPEN 1
+            CLOSING 2
+            CLOSED 3
+        self.url
+
+        events
+        self.onclose
+        self.onerror
+        self.onmessage
+        self.onopen
+
+        self.close(code, reason)
+            number, string
+        self.send(data)
+            string
+            arraybuffer
+            blob
+
+        */
+        self.request = function request(req) {
+            var dfd = new $.Deferred();
+
+            if (!req.path)
+                req.path = "/";
+            if (!req.method)
+                req.method = "GET";
+            if (req.params) {
+                if (req.path.indexOf("?") === -1)
+                    req.path += "?" + $.param(req.params);
+                else
+                    req.path += "&" + $.param(req.params);
+            }
+            delete req.params;
+
+            var input = req.body;
+            delete req.body;
+
+            var headers = req.headers;
+            delete req.headers;
+
+            $.extend(req, options);
+
+            /* Combine the headers */
+            if (options.headers && headers)
+                req.headers = $.extend({ }, options.headers, headers);
+            else if (options.headers)
+                req.headers = options.headers;
+            else
+                req.headers = headers;
+
+            http_debug("http request:", JSON.stringify(req));
+
+            /* We need a channel for the request */
+            var channel = cockpit.channel(req);
+
+            if (input !== undefined) {
+                if (input !== "") {
+                    http_debug("http input:", input);
+                    channel.send(input);
+                }
+                http_debug("http done");
+                channel.control({ command: "done" });
+            }
+
+            /* Callbacks that want to stream or get headers */
+            var streamer = null;
+            var responsers = null;
+
+            var count = 0;
+            var resp = null;
+
+            var buffer = channel.buffer(function(data) {
+                count += 1;
+
+                if (count === 1) {
+                    if (channel.binary)
+                        data = cockpit.utf8_decoder().decode(data);
+                    resp = JSON.parse(data);
+
+                    /* Anyone looking for response details? */
+                    if (responsers) {
+                        resp.headers = resp.headers || { };
+                        responsers.fire(resp.status, resp.headers);
+                    }
+                    return true;
+                }
+
+                /* Fire any streamers */
+                if (resp.status >= 200 && resp.status <= 299 && streamer)
+                    return streamer(data);
+
+                return 0;
+            });
+
+            $(channel).on("close", function(event, options) {
+                if (options.problem) {
+                    http_debug("http problem: ", options.problem);
+                    dfd.reject(new BasicError(options.problem));
+
+                } else {
+                    var body = buffer.squash();
+
+                    /* An error, fail here */
+                    if (resp && (resp.status < 200 || resp.status > 299)) {
+                        var message;
+                        var type = find_header(resp.headers, "Content-Type");
+                        if (type && !channel.binary) {
+                            if (type.indexOf("text/plain") === 0)
+                                message = body;
+                        }
+                        http_debug("http status: ", resp.status);
+                        dfd.reject(new HttpError(resp.status, resp.reason, message), body);
+
+                    } else {
+                        http_debug("http done");
+                        dfd.resolve(body);
+                    }
+                }
+
+                $(channel).off();
+            });
+
+            var jpromise = dfd.promise;
+            dfd.promise = function mypromise() {
+                var ret = $.extend(jpromise.apply(this, arguments), {
+                    stream: function(callback) {
+                        streamer = callback;
+                        return this;
+                    },
+                    response: function(callback) {
+                        if (responsers === null)
+                            responsers = $.Callbacks("" /* no flags */);
+                        responsers.add(callback);
+                        return this;
+                    },
+                    input: function(message, stream) {
+                        if (message !== null && message !== undefined) {
+                            http_debug("http input:", message);
+                            channel.send(message);
+                        }
+                        if (!stream) {
+                            http_debug("http done");
+                            channel.control({ command: "done" });
+                        }
+                        return this;
+                    },
+                    close: function(problem) {
+                        http_debug("http closing:", problem);
+                        channel.close(problem);
+                        $(channel).off("message");
+                        return this;
+                    },
+                    promise: this.promise
+                });
+                return ret;
+            };
+
+            return dfd.promise();
+        };
+
+        self.get = function get(path, params, headers) {
+            return self.request({
+                "method": "GET",
+                "params": params,
+                "path": path,
+                "body": "",
+                "headers": headers
+            });
+        };
+
+        self.post = function post(path, body, headers) {
+            headers = headers || { };
+
+            if ($.isPlainObject(body) || $.isArray(body)) {
+                body = JSON.stringify(body);
+                if (find_header(headers, "Content-Type") === undefined)
+                    headers["Content-Type"] = "application/json";
+            } else if (body === undefined || body === null) {
+                body = "";
+            } else if (typeof body !== "string") {
+                body = String(body);
+            }
+
+            return self.request({
+                "method": "POST",
+                "path": path,
+                "body": body,
+                "headers": headers
+            });
+        };
+    }
+
+    /* public */
+    cockpit.websocket = function(url, options) {
+        if ($.isPlainObject(endpoint) && options === undefined) {
+            options = url;
+            url = undefined;
+        }
+        return new WebSocketClient(url, options || { });
     };
 
     /* ---------------------------------------------------------------------
