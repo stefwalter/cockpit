@@ -49,6 +49,7 @@ pkg/systemd/server.js
 pkg/users/authorized-keys.js
 [type: gettext/glade] pkg/users/index.html
 pkg/users/local.js
+src/common/cockpitconnect.c
 src/bridge/cockpitdbussetup.c
 src/ws/cockpit.appdata.xml.in
 src/ws/cockpit.desktop.in
