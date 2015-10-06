@@ -65,6 +65,8 @@ libcockpit_bridge_a_SOURCES = \
 	src/bridge/cockpitfswatch.h \
 	src/bridge/cockpitfslist.c \
 	src/bridge/cockpitfslist.h \
+	src/bridge/cockpitwebsocketstream.c \
+	src/bridge/cockpitwebsocketstream.h \
 	src/bridge/deprecated/cockpitdbusjson1.c \
 	src/bridge/deprecated/cockpitdbusjson1.h \
 	$(NULL)

@@ -558,6 +558,13 @@ the following fields:
 Any data to be sent should be sent via the channel, and then the channel
 should be closed without a problem.
 
+Payload: websocket1
+-------------------
+
+xxxx
+
+First packet response is headers.
+
 Payload: stream
 ---------------
 
