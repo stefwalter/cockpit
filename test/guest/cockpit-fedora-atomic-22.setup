@@ -34,6 +34,7 @@ docker pull busybox:latest
 docker pull busybox:buildroot-2014.02
 docker pull submod/helloapache
 docker pull submod/atomicapp
+docker pull gcr.io/google_containers/pause:0.8.0
 
 # Final tweaks
 
