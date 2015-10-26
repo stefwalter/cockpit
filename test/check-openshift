@@ -31,10 +31,12 @@ class TestOpenshift(MachineCase):
         self.openshift.wait_boot()
 
         MachineCase.setUp(self)
+        self.machine.upload(["files/block-docker-registry.hosts"], "/etc/hosts")
 
         tmpfile = os.path.join(self.tmpdir, "config")
         self.openshift.download("/root/.kube/config", tmpfile)
         self.openshift.upload(["files/mock-app-openshift.json"], "/tmp")
+        self.openshift.upload(["files/block-docker-registry.hosts"], "/etc/hosts")
 
         m = self.machine
         with open(tmpfile, "r") as f:
