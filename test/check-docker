@@ -25,6 +25,10 @@ import sys
 import unittest
 
 class TestDocker(MachineCase):
+    def setUp(self):
+        MachineCase.setUp(self)
+        self.machine.upload(["files/block-docker-registry.hosts"], "/etc/hosts")
+
     def confirm(self):
         b = self.browser
         b.wait_popup("confirmation-dialog")

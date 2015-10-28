@@ -63,6 +63,7 @@ class TestKubernetes(KubernetesCase):
         m.execute("systemctl start etcd kube-apiserver kube-controller-manager kube-scheduler docker kube-proxy kubelet")
 
         m.upload(["files/mock-k8s-tiny-app.json"], "/tmp")
+        m.upload(["files/block-docker-registry.hosts"], "/etc/hosts")
         self.wait_api_server()
 
     def testDelete(self):
@@ -360,6 +361,7 @@ class TestNulecule(KubernetesCase):
         m = self.machine
 
         self.fix_apiserver_config()
+        m.upload(["files/block-docker-registry.hosts"], "/etc/hosts")
         m.execute("systemctl start etcd kube-apiserver kube-controller-manager kube-scheduler docker kube-proxy kubelet")
 
         self.wait_api_server()
