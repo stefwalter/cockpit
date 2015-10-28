@@ -90,6 +90,7 @@ class Machine:
         self.vm_username = "root"
         self.vm_password = "foobar"
         self.address = address
+        self.control = address
         self.mac = None
         self.label = label or "UNKNOWN"
 
@@ -108,19 +109,12 @@ class Machine:
         self.message("Not shutting down already running machine")
 
     # wait for ssh port 22 to be open in the machine
-    # get_new_address is an optional function to acquire a new ip address for each try
-    #   it is expected to raise an exception on failure and return a valid address otherwise
-    def wait_ssh(self, timeout_sec = 120, get_new_address = None):
-        """Try to connect to self.address on port 22"""
+    def wait_ssh(self, timeout_sec=120):
+        """Try to connect to machine port 22"""
         start_time = time.time()
+        addrinfo = socket.getaddrinfo(self.control or self.address, 22, 0, socket.SOCK_STREAM)
+        (family, socktype, proto, canonname, sockaddr) = addrinfo[0]
         while (time.time() - start_time) < timeout_sec:
-            if get_new_address:
-                try:
-                    self.address = get_new_address()
-                except:
-                    continue
-            addrinfo = socket.getaddrinfo(self.address, 22, 0, socket.SOCK_STREAM)
-            (family, socktype, proto, canonname, sockaddr) = addrinfo[0]
             sock = socket.socket(family, socktype, proto)
             sock.settimeout(1)
             try:
@@ -133,7 +127,7 @@ class Machine:
             time.sleep(0.5)
         return False
 
-    def wait_user_login(self):
+    def wait_condition(self, condition="! test -f /run/nologin"):
         """Wait until logging in as non-root works.
 
            Most tests run as the "admin" user, so we make sure that
@@ -143,13 +137,12 @@ class Machine:
         tries_left = 60
         while (tries_left > 0):
             try:
-                self.execute("! test -f /run/nologin")
-                return
+                return self.execute(condition)
             except:
                 pass
             tries_left = tries_left - 1
             time.sleep(1)
-        raise Failure("Timed out waiting for /run/nologin to disappear")
+        raise RepeatableFailure("Timed out waiting system to be ready with condition: " + condition)
 
     def wait_boot(self):
         """Wait for a machine to boot"""
@@ -181,7 +174,7 @@ class Machine:
             The command/script output as a string.
         """
         assert command or script
-        assert self.address
+        assert self.address or self.control
 
         cmd = [
             "ssh",
@@ -190,7 +183,7 @@ class Machine:
             "-o", "UserKnownHostsFile=/dev/null",
             "-o", "BatchMode=yes",
             "-l", self.vm_username,
-            self.address
+            self.control or self.address
         ]
 
         if command:
@@ -258,14 +251,15 @@ class Machine:
             dest: the file path in the machine to upload to
         """
         assert sources and dest
-        assert self.address
+        assert self.address or self.control
 
+        address = self.control or self.address
         cmd = [
             "scp", "-B",
             "-i", self._calc_identity(),
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
-        ] + sources + [ "%s@[%s]:%s" % (self.vm_username, self.address, dest), ]
+        ] + sources + [ "%s@[%s]:%s" % (self.vm_username, address, dest), ]
 
         self.message("Uploading", " ,".join(sources))
         self.message(" ".join(cmd))
@@ -279,14 +273,15 @@ class Machine:
         """Download a file from the test machine.
         """
         assert source and dest
-        assert self.address
+        assert self.address or self.control
 
+        address = self.control or self.address
         cmd = [
             "scp", "-B",
             "-i", self._calc_identity(),
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
-            "%s@[%s]:%s" % (self.vm_username, self.address, source), dest
+            "%s@[%s]:%s" % (self.vm_username, address, source), dest
         ]
 
         self.message("Downloading", source)
@@ -298,15 +293,16 @@ class Machine:
         """Download a directory from the test machine, recursively.
         """
         assert source and dest
-        assert self.address
+        assert self.address or self.control
 
+        address = self.control or self.address
         cmd = [
             "scp", "-B",
             "-i", self._calc_identity(),
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
             "-r",
-            "%s@[%s]:%s" % (self.vm_username, self.address, source), dest
+            "%s@[%s]:%s" % (self.vm_username, address, source), dest
         ]
 
         self.message("Downloading", source)
@@ -326,7 +322,6 @@ class Machine:
             dest: The file name in the machine to write to
         """
         assert dest
-        assert self.address
 
         cmd = "cat > '%s'" % dest
         self.execute(command=cmd, input=content)
@@ -730,7 +725,7 @@ class VirtMachine(Machine):
 
         raise Failure("Couldn't find unused mac address for '%s'" % (self.flavor))
 
-    def _start_qemu(self, maintain=False, macaddr=None, wait_for_ip=True):
+    def _start_qemu(self, maintain=False, macaddr=None):
         # make sure we have a clean slate
         self._cleanup()
 
@@ -811,16 +806,25 @@ class VirtMachine(Machine):
         macs = self._qemu_network_macs()
         if not macs:
             raise Failure("no mac addresses found for created machine")
-        self.message("available mac addresses: %s" % (", ".join(macs)))
+        self.message("mac address is %s" % (", ".join(macs)))
         self.macaddr = macs[0]
-        if wait_for_ip:
-            self.address = self._ip_from_mac(self.macaddr)
+
+        # A link local address we can use for VM access initially
+        parts = self.macaddr.split(":")
+        assert len(parts) == 6
+        parts[0] = '{:02X}'.format(int(parts[0], 16) ^ 2) # Flip bit 6 of first octet
+        parts.append(self.network_name)
+        self.control = "fe80::{0}{1}:{2}ff:fe{3}:{4}{5}%{6}".format(*parts)
+        self.message("v6 address is " + self.control)
+
+        if not self.address:
+            self.address = self.control
 
     # start virsh console
     def qemu_console(self, maintain=True, macaddr=None):
         try:
-            self._start_qemu(maintain=maintain, macaddr=macaddr, wait_for_ip=False)
-            self.message("started machine %s with address %s" % (self._domain.name(), self.address))
+            self._start_qemu(maintain=maintain, macaddr=macaddr)
+            self.message("started machine %s with address %s" % (self._domain.name(), ))
             if maintain:
                 self.message("Changes are written to the image file.")
                 self.message("WARNING: Uncontrolled shutdown can lead to a corrupted image.")
@@ -873,7 +877,7 @@ class VirtMachine(Machine):
                 return { "ip":   h.get("ip"), "name": h.get("name") }
         return None
 
-    def _diagnose_no_address(self):
+    def _diagnose_not_available(self):
         SCRIPT = """
             spawn virsh -c qemu:///session console $argv
             set timeout 300
@@ -891,28 +895,24 @@ class VirtMachine(Machine):
         expect = subprocess.Popen(["expect", "--", "-", str(self._domain.ID())], stdin=subprocess.PIPE)
         expect.communicate(SCRIPT)
 
-    def _ip_from_mac(self, mac, timeout_sec=300):
-        # Get address from the arp arp output looks like this.
+    def wait_login_and_address(self):
+        # We want to be able to login, and to have an ip address with a link route
+        command = "! test -f /run/nologin && ip -f inet route show scope link | grep src"
+        output = self.wait_condition(command)
+
+        # Output looks like this:
         #
-        # IP address     HW type  Flags  HW address         Mask  Device
-        # 10.111.118.45  0x1      0x0    9e:00:03:72:00:04  *     cockpit1
-        # ...
+        # 10.111.112.0/20 dev eth0  proto kernel  src 10.111.112.250  metric 100
+        parts = re.split(' +', output)
+        while parts:
+            part = parts.pop(0)
+            if part == "src":
+                self.address = parts[0]
+                self.message("v4 address is " + self.address)
+                break
 
-        output = ""
-        start_time = time.time()
-        while (time.time() - start_time) < timeout_sec:
-            with open("/proc/net/arp", "r") as fp:
-                output = fp.read()
-            for line in output.split("\n"):
-                parts = re.split(' +', line)
-                if len(parts) > 5 and parts[3].lower() == mac.lower() and parts[5] == self.network_name:
-                    return parts[0]
-            time.sleep(1)
-
-        message = "{0}: [{1}]\n{2}\n".format(mac, ", ".join(self._qemu_network_macs()), output)
-        sys.stderr.write(message)
-        self._diagnose_no_address()
-        raise RepeatableFailure("Can't resolve IP of " + mac)
+        sys.stderr.write(output)
+        raise RepeatableFailure("Can't address for machine")
 
     def reset_reboot_flag(self):
         self.event_handler.reset_domain_reboot_status(self._domain)
@@ -920,20 +920,19 @@ class VirtMachine(Machine):
     def wait_reboot(self):
         if not self.event_handler.wait_for_reboot(self._domain):
             raise Failure("system didn't notify us about a reboot")
-        # we may have to check for a new dhcp lease, but the old one can be active for a bit
-        if not self.wait_ssh(timeout_sec = 60, get_new_address = lambda: self._ip_from_mac(self.macaddr, timeout_sec=5)):
+        if not self.wait_ssh(timeout_sec=60):
+            self._diagnose_not_available()
             raise Failure("system didn't reboot properly")
-        self.wait_user_login()
+        self.wait_login_and_address()
 
-    def wait_boot(self, wait_for_running_timeout = 120):
+    def wait_boot(self, wait_for_running_timeout=120):
         # we should check for selinux relabeling in progress here
         if not self.event_handler.wait_for_running(self._domain, timeout_sec=wait_for_running_timeout ):
-            raise Failure("Machine %s didn't start." % (self.address))
-
-        if not Machine.wait_ssh(self, get_new_address = lambda: self._ip_from_mac(self.macaddr, timeout_sec=5)):
-            self._diagnose_no_address()
-            raise Failure("Unable to reach machine %s via ssh." % (self.address))
-        self.wait_user_login()
+            raise Failure("Machine didn't start")
+        if not Machine.wait_ssh(self, timeout_sec=wait_for_running_timeout / 2):
+            self._diagnose_not_available()
+            raise Failure("Unable to reach machine via ssh")
+        self.wait_login_and_address()
 
     def stop(self, timeout_sec=120):
         if self._maintaining:
@@ -955,6 +954,7 @@ class VirtMachine(Machine):
                 self.event_handler.forbid_domain_debug_output(self._domain.name())
 
             self._domain = None
+            self.control = None
             self.address = None
             self.macaddr = None
             if hasattr(self, '_transient_image') and self._transient_image and os.path.exists(self._transient_image):

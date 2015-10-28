@@ -23,9 +23,6 @@ import time
 import os
 
 class TestNetworking(MachineCase):
-    def setUp(self):
-        MachineCase.setUp(self)
-
     def get_iface(self, m, mac):
         def getit():
             path = m.execute("grep -li '%s' /sys/class/net/*/address" % mac)
