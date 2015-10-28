@@ -481,8 +481,6 @@ class MachineCase(unittest.TestCase):
     def setUp(self, macaddr=None):
         self.machine = self.new_machine()
         self.machine.start(macaddr=macaddr)
-        if arg_trace:
-            print "starting machine %s" % (self.machine.address)
         self.machine.wait_boot()
         self.browser = self.new_browser()
         self.tmpdir = tempfile.mkdtemp()
