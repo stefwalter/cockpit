@@ -859,14 +859,16 @@ class VirtMachine(Machine):
         SCRIPT = """
             eval virsh -c qemu:///session console $argv
             set timeout -1
-            expect {
-                " login: " { send_user "root\n" }
-                "Password: " { send_user "foobar\n" }
-                " ~]# " { send_user "ip addr; echo ALL DONE\n" }
-                "ALL DONE" { exit 0 }
-            }
+            expect " login: "
+            send_user "root\r"
+            expect "Password: "
+            send_user "foobar\r"
+            expect " ~]# "
+            send_user "ip addr; echo ALL DONE\r"
+            expect "ALL DONE"
+            exit 0
         """
-        expect = subprocess.Popen(["expect", "--", self._domain.ID()], stdin.subprocess.PIPE)
+        expect = subprocess.Popen(["expect", "--", self._domain.ID()], stdin=subprocess.PIPE)
         expect.communicate(SCRIPT)
 
     def _ip_from_mac(self, mac, timeout_sec = 300):
@@ -917,6 +919,7 @@ class VirtMachine(Machine):
             raise Failure("Machine %s didn't start." % (self.address))
 
         if not Machine.wait_ssh(self, get_new_address = lambda: self._ip_from_mac(self.macaddr, timeout_sec=5)):
+            self._diagnose_no_address()
             raise Failure("Unable to reach machine %s via ssh." % (self.address))
         self.wait_user_login()
 
