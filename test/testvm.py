@@ -706,16 +706,6 @@ class VirtMachine(Machine):
 
     def _choose_macaddr(self):
         mac = None
-
-        # Check if this has a forced mac address
-        for h in self._network_description.find(".//dhcp"):
-            flavor = h.get("{urn:cockpit-project.org:cockpit}flavor")
-            if flavor == self.flavor:
-                mac = h.get("mac")
-                if mac:
-                    return mac
-
-        # Now try to lock that address
         pid = os.getpid()
         for seed in range(1, 64 * 1024):
             if not mac:
@@ -759,14 +749,6 @@ class VirtMachine(Machine):
         if not macaddr:
             macaddr = self._choose_macaddr()
 
-        # if we have a static ip, this implies a singleton instance
-        # make sure we don't randomize the libvirt domain name in those cases
-        static_domain_name = None
-        if macaddr:
-            lease = self._static_lease_from_mac(macaddr)
-            if lease:
-                static_domain_name = self.image + "_" + lease['name']
-
         # domain xml
         test_domain_desc_original = ""
         with open("./files/test_domain.xml", "r") as dom_desc:
@@ -782,11 +764,8 @@ class VirtMachine(Machine):
             mac_desc = "<mac address='%(mac)s'/>" % {'mac': macaddr}
         while not dom_created:
             try:
-                if static_domain_name:
-                    domain_name = static_domain_name
-                else:
-                    rand_extension = '-' + ''.join(random.choice(string.digits + string.ascii_lowercase) for i in range(4))
-                    domain_name = self.image + rand_extension
+                rand_extension = '-' + ''.join(random.choice(string.digits + string.ascii_lowercase) for i in range(4))
+                domain_name = self.image + rand_extension
                 test_domain_desc = test_domain_desc_original % {
                                                 "name": domain_name,
                                                 "arch": self.arch,
@@ -804,10 +783,7 @@ class VirtMachine(Machine):
                 self.event_handler.forbid_domain_debug_output(domain_name)
                 # be ready to try again
                 if 'already exists with uuid' in le.message and tries_left > 0:
-                    if static_domain_name:
-                        self.message("domain exists, but we can't pick a different name (static ip)")
-                    else:
-                        self.message("domain exists, trying with different name")
+                    self.message("domain exists, trying with different name")
                     tries_left = tries_left - 1
                     time.sleep(2)
                     continue
@@ -848,13 +824,6 @@ class VirtMachine(Machine):
             self.kill()
             raise
 
-    def _static_lease_from_mac(self, mac):
-        for h in self._network_description.find(".//dhcp"):
-            netmac = h.get("mac") or ""
-            if netmac.lower() == mac.lower():
-                return { "ip":   h.get("ip"), "name": h.get("name") }
-        return None
-
     def _diagnose_no_address(self):
         SCRIPT = """
             eval virsh -c qemu:///session console $argv
@@ -868,15 +837,10 @@ class VirtMachine(Machine):
             expect "ALL DONE"
             exit 0
         """
-        expect = subprocess.Popen(["expect", "--", self._domain.ID()], stdin=subprocess.PIPE)
+        expect = subprocess.Popen(["expect", "--", str(self._domain.ID())], stdin.subprocess.PIPE)
         expect.communicate(SCRIPT)
 
     def _ip_from_mac(self, mac, timeout_sec = 300):
-        # first see if we use a mac address defined in the network description
-        static_lease = self._static_lease_from_mac(mac)
-        if static_lease:
-            return static_lease["ip"]
-
         # we didn't find it in the network description, so get it from the arp
         # arp output looks like this.
         #
