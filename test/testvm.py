@@ -92,7 +92,7 @@ class Machine:
         self.vm_username = "root"
         self.vm_password = "foobar"
         self.address = address
-        self.private = address
+        self.control = address
         self.mac = None
         self.label = label or "UNKNOWN"
 
@@ -114,7 +114,7 @@ class Machine:
     def wait_ssh(self, timeout_sec=120):
         """Try to connect to machine port 22"""
         start_time = time.time()
-        addrinfo = socket.getaddrinfo(self.private or self.address, 22, 0, socket.SOCK_STREAM)
+        addrinfo = socket.getaddrinfo(self.control or self.address, 22, 0, socket.SOCK_STREAM)
         (family, socktype, proto, canonname, sockaddr) = addrinfo[0]
         while (time.time() - start_time) < timeout_sec:
             sock = socket.socket(family, socktype, proto)
@@ -176,7 +176,7 @@ class Machine:
             The command/script output as a string.
         """
         assert command or script
-        assert self.address or self.private
+        assert self.address or self.control
 
         cmd = [
             "ssh",
@@ -185,7 +185,7 @@ class Machine:
             "-o", "UserKnownHostsFile=/dev/null",
             "-o", "BatchMode=yes",
             "-l", self.vm_username,
-            self.private or self.address
+            self.control or self.address
         ]
 
         if command:
@@ -253,9 +253,9 @@ class Machine:
             dest: the file path in the machine to upload to
         """
         assert sources and dest
-        assert self.address or self.private
+        assert self.address or self.control
 
-        address = self.private or self.address
+        address = self.control or self.address
         cmd = [
             "scp", "-B",
             "-i", self._calc_identity(),
@@ -275,9 +275,9 @@ class Machine:
         """Download a file from the test machine.
         """
         assert source and dest
-        assert self.address or self.private
+        assert self.address or self.control
 
-        address = self.private or self.address
+        address = self.control or self.address
         cmd = [
             "scp", "-B",
             "-i", self._calc_identity(),
@@ -295,9 +295,9 @@ class Machine:
         """Download a directory from the test machine, recursively.
         """
         assert source and dest
-        assert self.address or self.private
+        assert self.address or self.control
 
-        address = self.private or self.address
+        address = self.control or self.address
         cmd = [
             "scp", "-B",
             "-i", self._calc_identity(),
@@ -819,11 +819,11 @@ class VirtMachine(Machine):
         assert len(parts) == 6
         parts[0] = '{:02X}'.format(int(parts[0], 16) ^ 2) # Flip bit 6 of first octet
         parts.append(self.network_name)
-        self.private = "fe80::{0}{1}:{2}ff:fe{3}:{4}{5}%{6}".format(*parts)
-        self.message("v6 address is " + self.private)
+        self.control = "fe80::{0}{1}:{2}ff:fe{3}:{4}{5}%{6}".format(*parts)
+        self.message("v6 address is " + self.control)
 
         if not self.address:
-            self.address = self.private
+            self.address = self.control
 
     # start virsh console
     def qemu_console(self, snapshot=False, macaddr=None):
@@ -910,7 +910,7 @@ class VirtMachine(Machine):
                 self.event_handler.forbid_domain_debug_output(self._domain.name())
 
             self._domain = None
-            self.private = None
+            self.control = None
             self.address = None
             self.macaddr = None
             if hasattr(self, '_transient_image') and self._transient_image and os.path.exists(self._transient_image):
