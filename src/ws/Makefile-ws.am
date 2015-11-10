@@ -59,6 +59,7 @@ EXTRA_DIST += \
 	src/ws/mock-static \
 	src/ws/mock-config.conf \
 	src/ws/mock-auth-command \
+	src/ws/dbus-test.conf \
 	$(NULL)
 
 # ----------------------------------------------------------------------------------------------------

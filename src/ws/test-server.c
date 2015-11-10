@@ -23,6 +23,7 @@
 #include "cockpitchannelresponse.h"
 #include "cockpitchannelsocket.h"
 
+#include "common/cockpitdbussession.h"
 #include "common/cockpitpipe.h"
 #include "common/cockpitconf.h"
 #include "common/cockpitpipetransport.h"
@@ -39,7 +40,7 @@ static GMainLoop *loop = NULL;
 static int exit_code = 0;
 static gint server_port = 0;
 static gchar **bridge_argv;
-static const gchar *bus_address;
+static gchar *bus_address;
 static const gchar *direct_address;
 
 /* ---------------------------------------------------------------------------------------------------- */
@@ -658,7 +659,6 @@ int
 main (int argc,
       char *argv[])
 {
-  GTestDBus *bus;
   GError *error = NULL;
   GOptionContext *context;
   guint sig_term;
@@ -666,6 +666,7 @@ main (int argc,
   int i;
   gchar *guid = NULL;
   GDBusServer *direct_dbus_server = NULL;
+  GPid dbus_pid;
 
   GOptionEntry entries[] = {
     { NULL }
@@ -684,8 +685,8 @@ main (int argc,
 
   g_log_set_always_fatal (G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR);
 
-  sig_term = g_unix_signal_add (SIGTERM, on_signal_done, NULL);
-  sig_int = g_unix_signal_add (SIGINT, on_signal_done, NULL);
+  /* This isolates us from affecting other processes during tests */
+  dbus_pid = cockpit_dbus_session_launch (SRCDIR "/src/ws/dbus-test.conf", &bus_address);
 
   // System cockpit configuration file should not be loaded
   cockpit_config_file = NULL;
@@ -754,6 +755,9 @@ main (int argc,
   g_dbus_server_start (direct_dbus_server);
   direct_address = g_dbus_server_get_client_address (direct_dbus_server);
 
+  sig_term = g_unix_signal_add (SIGTERM, on_signal_done, NULL);
+  sig_int = g_unix_signal_add (SIGINT, on_signal_done, NULL);
+
   g_main_loop_run (loop);
 
   g_source_remove (sig_term);
@@ -767,8 +771,10 @@ main (int argc,
   g_clear_object (&direct_b);
   g_main_loop_unref (loop);
 
-  g_test_dbus_down (bus);
-  g_object_unref (bus);
+  g_free (bus_address);
+  if (dbus_pid)
+    kill (dbus_pid, SIGTERM);
+
   g_free (bridge_argv);
   g_free (guid);
 
