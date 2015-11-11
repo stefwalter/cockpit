@@ -27,7 +27,7 @@ var child = require("child_process");
 
 var url = null;
 var server = [];
-var proc;
+var proc = null;
 
 /*
  * Strip prefix from url
@@ -83,7 +83,14 @@ if (!failed) {
 
 function usage(code) {
     sys.stderr.write('usage: tap-phantom [--strip=../] -- [server ...] file\n');
-    phantom.exit(code === undefined ? 2 : code);
+    exit(code === undefined ? 2 : code);
+}
+
+function exit(code) {
+    if (proc)
+        proc.kill("SIGTERM");
+    proc = null;
+    phantom.exit(code);
 }
 
 function calc_srcdir()
@@ -140,29 +147,29 @@ function run(url) {
 
     page.onResourceError = function(ex) {
         console.error('Unable to load resource: ' + ex.url + ': ' + ex.errorString);
-        phantom.exit(1);
+        exit(1);
     };
 
     phantom.onError = function(msg, trace) {
         print_error(msg, trace, sys.stderr, "");
-        phantom.exit(1);
+        exit(1);
     };
 
     page.onError = function(msg, trace) {
         print_error(msg, trace, sys.stdout, "# ");
-        phantom.exit(1);
+        exit(1);
     };
 
     page.open(url, function(status) {
         if (status !== "success") {
             console.log("Unable to load:", url);
-            phantom.exit(1);
+            exit(1);
         }
 
         page.evaluate(function() {
             if (typeof tests_included === "undefined") {
                 console.log("Tests not properly included");
-                phantom.exit(1);
+                exit(1);
             }
         });
     });
@@ -175,7 +182,7 @@ function launch() {
     proc = child.spawn(server[0], server.slice(1));
     if (proc.pid === 0) {
        console.log("tap-phantom: couldn't spawn: " + server[0]);
-       phantom.exit(127);
+       exit(127);
        return;
     }
     proc.stdout.on("data", function(data) {
