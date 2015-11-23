@@ -41,7 +41,7 @@ var proc = null;
 var strip = "";
 
 var failed = false;
-
+sys.stderr.write(sys.args.join(" ") + "\n");
 var args = sys.args.slice(1);
 var arg, optmode = true;
 
@@ -186,6 +186,7 @@ function launch() {
        return;
     }
     proc.stdout.on("data", function(data) {
+	sys.stderr.write(data);
         if (running)
             return;
         buffer = buffer + data;

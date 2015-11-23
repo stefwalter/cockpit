@@ -629,7 +629,6 @@ setup_path (const char *argv0)
   g_free (dir);
 }
 
-<<<<<<< HEAD
 static void
 on_bridge_done (CockpitPipe *pipe,
                 const gchar *problem,
@@ -656,8 +655,6 @@ on_signal_done (gpointer data)
   return TRUE;
 }
 
-=======
->>>>>>> 9748a8d... ws: Properly kill test-server from phantom-driver
 int
 main (int argc,
       char *argv[])
@@ -748,6 +745,19 @@ main (int argc,
                          on_name_lost,
                          loop,
                          NULL);
+
+  guid = g_dbus_generate_guid ();
+  direct_dbus_server = g_dbus_server_new_sync ("unix:tmpdir=/tmp/dbus-tests",
+                                               G_DBUS_SERVER_FLAGS_NONE,
+                                               guid,
+                                               NULL,
+                                               NULL,
+                                               &error);
+  if (direct_dbus_server == NULL)
+    {
+      g_printerr ("test-server: %s\n", error->message);
+      exit (3);
+    }
 
   g_signal_connect_object (direct_dbus_server,
                            "new-connection",

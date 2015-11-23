@@ -39,7 +39,7 @@ setup_dbus_daemon (gpointer addrfd)
 static void
 setup_dbus_testing (gpointer addrfd)
 {
-  prctl (PR_SET_PDEATHSIG, SIGINT);
+  prctl (PR_SET_PDEATHSIG, SIGKILL);
   setup_dbus_daemon (addrfd);
 }
 
@@ -51,7 +51,6 @@ cockpit_dbus_session_launch (const gchar *test_config,
   gchar *config_arg = NULL;
   GError *error = NULL;
   GString *address = NULL;
-  gchar *line;
   gsize len;
   gssize ret;
   GPid pid = 0;
@@ -77,13 +76,13 @@ cockpit_dbus_session_launch (const gchar *test_config,
   dbus_argv[1] = print_address;
 
   /* The DBus daemon produces useless messages on stderr mixed in */
-  flags = G_SPAWN_LEAVE_DESCRIPTORS_OPEN | G_SPAWN_SEARCH_PATH;
+  flags = G_SPAWN_LEAVE_DESCRIPTORS_OPEN | G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD;
 
   if (test_config)
     {
       setup = setup_dbus_testing;
-      config_arg = g_strdup_printf ("--config-file=%s", test_config);
-      dbus_argv[2] = config_arg;
+      /* config_arg = g_strdup_printf ("--config-file=%s", test_config);
+      dbus_argv[2] = config_arg; */
     }
   else
     {
@@ -128,25 +127,15 @@ cockpit_dbus_session_launch (const gchar *test_config,
           g_string_set_size (address, len);
           break;
         }
-      else
-        {
-          g_string_set_size (address, len + ret);
-          line = strchr (address->str, '\n');
-          if (line != NULL)
-            {
-              *line = '\0';
-              break;
-            }
-        }
     }
 
   if (address->str[0] == '\0')
     {
-      g_warning ("dbus-daemon didn't send us a dbus address");
+      g_warning ("dbus-daemon didn't send us a dbus address: %s", address->str);
     }
   else
     {
-      g_debug ("session bus address: %s", address->str);
+      g_message ("session bus address: %s", address->str);
       g_setenv ("DBUS_SESSION_BUS_ADDRESS", address->str, TRUE);
       if (out_address)
         {
