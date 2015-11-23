@@ -683,9 +683,6 @@ main (int argc,
 
   g_log_set_always_fatal (G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR);
 
-  /* This isolates us from affecting other processes during tests */
-  dbus_pid = cockpit_dbus_session_launch (SRCDIR "/src/ws/dbus-test.conf", &bus_address);
-
   // System cockpit configuration file should not be loaded
   cockpit_config_file = NULL;
 
@@ -699,9 +696,24 @@ main (int argc,
     }
 
   /* This isolates us from affecting other processes during tests */
-  bus = g_test_dbus_new (G_TEST_DBUS_NONE);
-  g_test_dbus_up (bus);
-  bus_address = g_test_dbus_get_bus_address (bus);
+  dbus_pid = cockpit_dbus_session_launch (SRCDIR "/src/ws/dbus-test.conf", &bus_address);
+
+  guid = g_dbus_generate_guid ();
+  direct_dbus_server = g_dbus_server_new_sync ("unix:tmpdir=/tmp/dbus-tests",
+                                               G_DBUS_SERVER_FLAGS_NONE,
+                                               guid,
+                                               NULL,
+                                               NULL,
+                                               &error);
+  if (direct_dbus_server == NULL)
+    {
+      g_printerr ("test-server: %s\n", error->message);
+      exit (3);
+    }
+
+  /* Skip the program name */
+  argc--;
+  argv++;
 
   guid = g_dbus_generate_guid ();
   direct_dbus_server = g_dbus_server_new_sync ("unix:tmpdir=/tmp/dbus-tests",
@@ -745,19 +757,6 @@ main (int argc,
                          on_name_lost,
                          loop,
                          NULL);
-
-  guid = g_dbus_generate_guid ();
-  direct_dbus_server = g_dbus_server_new_sync ("unix:tmpdir=/tmp/dbus-tests",
-                                               G_DBUS_SERVER_FLAGS_NONE,
-                                               guid,
-                                               NULL,
-                                               NULL,
-                                               &error);
-  if (direct_dbus_server == NULL)
-    {
-      g_printerr ("test-server: %s\n", error->message);
-      exit (3);
-    }
 
   g_signal_connect_object (direct_dbus_server,
                            "new-connection",
