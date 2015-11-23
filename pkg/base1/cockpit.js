@@ -58,9 +58,11 @@ var filters = [ ];
 
 var have_array_buffer = !!window.ArrayBuffer;
 
-var origin = window.location.origin;
-if (!origin) {
-    origin = window.location.protocol + "//" + window.location.hostname +
+var transport_origin = window.location.origin;
+var transport_options = { };
+
+if (!transport_origin) {
+    transport_origin = window.location.protocol + "//" + window.location.hostname +
         (window.location.port ? ':' + window.location.port: '');
 }
 
@@ -241,7 +243,7 @@ function ParentWebSocket(parent) {
     self.readyState = 0;
 
     window.addEventListener("message", function receive(event) {
-        if (event.origin !== origin || event.source !== parent)
+        if (event.origin !== transport_origin || event.source !== parent)
             return;
         var data = event.data;
         if (data === undefined || data.length === undefined)
@@ -255,12 +257,12 @@ function ParentWebSocket(parent) {
     }, false);
 
     self.send = function send(message) {
-        parent.postMessage(message, origin);
+        parent.postMessage(message, transport_origin);
     };
 
     self.close = function close() {
         self.readyState = 3;
-        parent.postMessage("", origin);
+        parent.postMessage("", transport_origin);
         self.onclose();
     };
 
@@ -476,15 +478,14 @@ function Transport() {
             channel_seed = String(options["channel-seed"]);
         if (options["host"])
             default_host = options["host"];
-        cockpit.transport.options = options;
+
+        if (init_callback)
+            init_callback(options);
 
         if (waiting_for_init) {
             waiting_for_init = false;
             ready_for_channels();
         }
-
-        if (init_callback)
-            init_callback(options);
     }
 
     function process_control(data) {
@@ -960,26 +961,18 @@ function basic_scope(cockpit) {
             filters.push(callback);
         },
         close: function close(problem) {
-            if (!default_transport)
-                return;
             var options;
             if (problem)
                 options = {"problem": problem };
-            default_transport.close(options);
+            if (default_transport)
+                default_transport.close(options);
             default_transport = null;
             this.options = { };
         },
-        origin: origin,
+        origin: transport_origin,
         options: { },
         uri: calculate_url,
     };
-
-    Object.defineProperty(cockpit.transport, "host", {
-        enumerable: true,
-        get: function user_get() {
-            return default_host;
-        }
-    });
 }
 
 
@@ -1003,6 +996,8 @@ function full_scope(cockpit, $, po) {
             $.extend(cockpit.info, options.system);
         if (options.system)
             $(cockpit.info).trigger("changed");
+        cockpit.transport.options = options;
+        cockpit.transport.host = default_host;
     };
 
     function User() {
@@ -3533,7 +3528,7 @@ function full_scope(cockpit, $, po) {
 
     cockpit.oops = function oops() {
         if (window.parent !== window && window.name.indexOf("cockpit1:") === 0)
-            window.parent.postMessage("\n{ \"command\": \"oops\" }", origin);
+            window.parent.postMessage("\n{ \"command\": \"oops\" }", transport_origin);
     };
 
     var old_onerror;
