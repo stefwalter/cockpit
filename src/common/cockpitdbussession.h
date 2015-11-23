@@ -24,7 +24,7 @@
 
 G_BEGIN_DECLS
 
-GPid        cockpit_dbus_session_launch   (const gchar *config,
+GPid        cockpit_dbus_session_launch   (const gchar *test_config,
                                            gchar **address);
 
 G_END_DECLS

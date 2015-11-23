@@ -36,10 +36,18 @@ setup_dbus_daemon (gpointer addrfd)
   cockpit_unix_fd_close_all (3, GPOINTER_TO_INT (addrfd));
 }
 
+static void
+setup_dbus_testing (gpointer addrfd)
+{
+  prctl (PR_SET_PDEATHSIG, SIGINT);
+  setup_dbus_daemon (addrfd);
+}
+
 GPid
-cockpit_dbus_session_launch (const gchar *config,
+cockpit_dbus_session_launch (const gchar *test_config,
                              gchar **out_address)
 {
+  GSpawnChildSetupFunc setup;
   gchar *config_arg = NULL;
   GError *error = NULL;
   GString *address = NULL;
@@ -55,14 +63,9 @@ cockpit_dbus_session_launch (const gchar *config,
       "dbus-daemon",
       "--print-address=X",
       "--session",
+      "--nofork",
       NULL
   };
-
-  if (config)
-    {
-      config_arg = g_strdup_printf ("--config-file=%s", config);
-      dbus_argv[2] = config_arg;
-    }
 
   if (pipe (addrfd))
     {
@@ -76,11 +79,21 @@ cockpit_dbus_session_launch (const gchar *config,
   /* The DBus daemon produces useless messages on stderr mixed in */
   flags = G_SPAWN_LEAVE_DESCRIPTORS_OPEN | G_SPAWN_SEARCH_PATH;
 
-  if (!g_getenv ("G_MESSAGES_DEBUG"))
-    flags |= G_SPAWN_STDERR_TO_DEV_NULL | G_SPAWN_STDOUT_TO_DEV_NULL;
+  if (test_config)
+    {
+      setup = setup_dbus_testing;
+      config_arg = g_strdup_printf ("--config-file=%s", test_config);
+      dbus_argv[2] = config_arg;
+    }
+  else
+    {
+      if (!g_getenv ("G_MESSAGES_DEBUG"))
+        flags |= G_SPAWN_STDERR_TO_DEV_NULL | G_SPAWN_STDOUT_TO_DEV_NULL;
+      setup = setup_dbus_daemon;
+    }
 
   g_spawn_async_with_pipes (NULL, dbus_argv, NULL, flags,
-                            setup_dbus_daemon, GINT_TO_POINTER (addrfd[1]),
+                            setup, GINT_TO_POINTER (addrfd[1]),
                             &pid, NULL, NULL, NULL, &error);
 
   close (addrfd[1]);
