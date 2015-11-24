@@ -99,7 +99,7 @@ cockpit_channel_inject_perform (CockpitChannelInject *inject,
 
 typedef struct {
   const gchar *logname;
-  const gchar *channel;
+  gchar *channel;
   JsonObject *open;
 
   CockpitWebResponse *response;
@@ -209,6 +209,7 @@ cockpit_channel_response_close (CockpitChannelResponse *chesp,
   g_hash_table_unref (chesp->headers);
   cockpit_channel_inject_free (chesp->inject);
   json_object_unref (chesp->open);
+  g_free (chesp->channel);
   g_free (chesp);
 }
 
@@ -410,20 +411,17 @@ on_transport_closed (CockpitTransport *transport,
 }
 
 static CockpitChannelResponse *
-cockpit_channel_response_create (CockpitWebResponse *response,
+cockpit_channel_response_create (CockpitWebService *service,
+                                 CockpitWebResponse *response,
                                  CockpitTransport *transport,
                                  const gchar *logname,
                                  GHashTable *headers,
                                  JsonObject *open)
 {
   CockpitChannelResponse *chesp;
-  const gchar *channel;
   const gchar *payload;
   JsonObject *done;
   GBytes *bytes;
-
-  channel = json_object_get_string_member (open, "channel");
-  g_return_val_if_fail (channel != NULL, NULL);
 
   payload = json_object_get_string_member (open, "payload");
 
@@ -431,9 +429,12 @@ cockpit_channel_response_create (CockpitWebResponse *response,
   chesp->response = g_object_ref (response);
   chesp->transport = g_object_ref (transport);
   chesp->headers = g_hash_table_ref (headers);
-  chesp->channel = channel;
-  chesp->logname = logname ? logname : channel;
+  chesp->channel = cockpit_web_service_unique_channel (service);
+  chesp->logname = logname ? logname : chesp->channel;
   chesp->open = json_object_ref (open);
+
+  json_object_set_string_member (open, "command", "open");
+  json_object_set_string_member (open, "channel", chesp->channel);
 
   /* Special handling for http-stream1, splice in headers, handle injection */
   if (g_strcmp0 (payload, "http-stream1") == 0)
@@ -608,7 +609,7 @@ cockpit_channel_response_serve (CockpitWebService *service,
   json_object_set_string_member (heads, "Host", host);
   json_object_set_object_member (object, "headers", heads);
 
-  chesp = cockpit_channel_response_create (response, transport,
+  chesp = cockpit_channel_response_create (service, response, transport,
                                            cockpit_web_response_get_path (response),
                                            out_headers, object);
 
@@ -637,43 +638,43 @@ cockpit_channel_response_open (CockpitWebService *service,
 {
   CockpitTransport *transport;
   WebSocketDataType data_type;
-  JsonObject *external;
   GHashTable *headers;
-  const gchar *value;
+  const gchar *content_type;
+  const gchar *content_disposition;
+
+  /* Parse the external */
+  if (!cockpit_web_service_parse_external (open, &content_type, &content_disposition, NULL))
+    {
+      cockpit_web_response_error (response, 400, NULL, "Bad channel request");
+      return;
+    }
 
   transport = cockpit_web_service_ensure_transport (service, open);
   if (!transport)
     {
-      cockpit_web_response_error (response, 502, NULL, NULL);
+      cockpit_web_response_error (response, 502, NULL, "Failed to open channel transport");
       return;
     }
 
   headers = cockpit_web_server_new_table ();
 
-  external = json_object_get_object_member (open, "external");
-  g_return_if_fail (external != NULL);
+  if (content_disposition)
+    g_hash_table_insert (headers, g_strdup ("Content-Disposition"), g_strdup (content_disposition));
 
-  if (!cockpit_json_get_string (external, "disposition", NULL, &value))
-    g_return_if_reached ();
-  if (value)
-    g_hash_table_insert (headers, g_strdup ("Content-Disposition"), g_strdup (value));
-
-  if (!cockpit_json_get_string (external, "type", NULL, &value))
-    g_return_if_reached ();
-  if (!value)
+  if (!content_type)
     {
       if (!cockpit_web_service_parse_binary (open, &data_type))
         g_return_if_reached ();
       if (data_type == WEB_SOCKET_DATA_TEXT)
-        value = "text/plain";
+        content_type = "text/plain";
       else
-        value = "application/octet-stream";
+        content_type = "application/octet-stream";
     }
-  g_hash_table_insert (headers, g_strdup ("Content-Type"), g_strdup (value));
+  g_hash_table_insert (headers, g_strdup ("Content-Type"), g_strdup (content_type));
 
   /* We shouldn't need to send this part further */
   json_object_remove_member (open, "external");
 
-  cockpit_channel_response_create (response, transport, NULL, headers, open);
+  cockpit_channel_response_create (service, response, transport, NULL, headers, open);
   g_hash_table_unref (headers);
 }
