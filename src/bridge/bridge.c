@@ -34,6 +34,7 @@
 #include "cockpitinternalmetrics.h"
 #include "cockpitpolkitagent.h"
 #include "cockpitportal.h"
+#include "cockpitwebsocketstream.h"
 
 #include "common/cockpitassets.h"
 #include "common/cockpitjson.h"
@@ -111,6 +112,7 @@ static struct {
   { "null", cockpit_null_channel_get_type },
   { "echo", cockpit_echo_channel_get_type },
   { "metrics1", cockpit_internal_metrics_get_type },
+  { "websocket-stream1", cockpit_web_socket_stream_get_type },
   { NULL },
 };
 
