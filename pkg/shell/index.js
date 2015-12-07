@@ -876,7 +876,7 @@ define([
         }
 
         function on_unload(ev) {
-            var source = source_by_name[ev.target.defaultView.name];
+            var source = source_by_name[ev.target.name];
             if (source)
                 unregister(source);
         }
