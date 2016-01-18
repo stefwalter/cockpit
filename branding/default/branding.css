@@ -1,3 +1,6 @@
+.navbar-pf {
+    border-color: #cc0000 !important;
+}
 
 /* When showing our own brand, be humble. */
 .login-note {
@@ -6,7 +9,7 @@
 }
 
 .login-note:after {
-    content: "Not ready for use on production servers.";
+    content: " ";
     color: white;
     position: absolute;
     top: 0px;
@@ -27,13 +30,16 @@ body.login-pf {
 }
 
 #brand {
-    width: 486px;
-    height: 18px;
-    background-image: url("brand-large.png");
-    background-repeat: no-repeat;
+    content: "Atomic Image Registry";
+    font-size: 18pt;
+    text-transform: uppercase;
 }
 
 #index-brand {
-    content: "Cockpit";
+    content: "Atomic Image Registry";
     font-weight: bold;
+}
+
+#content-navbar {
+    display: none;
 }
