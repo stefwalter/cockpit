@@ -121,6 +121,18 @@ define([
 
         var dialog = null;
 
+        function create_dialog(profiles) {
+            if (dialog)
+                dialog.remove();
+            dialog = $(mustache.render(dialog_tmpl, { Profiles: profiles }));
+            dialog.appendTo("body");
+            dialog.on('hide.bs.modal', function() {
+                dialog.remove();
+                dialog = null;
+            });
+            return dialog;
+        }
+
         function open_dialog() {
             var tuned;
 
@@ -151,9 +163,7 @@ define([
                            };
                 });
 
-                dialog = $(mustache.render(dialog_tmpl, { Profiles: profiles_model }));
-                dialog.appendTo("body").modal('show');
-
+                dialog = create_dialog(profiles_model);
                 dialog.find('[data-profile="' + active + '"]').addClass('active');
                 dialog.find('[data-profile]').on('click', function () {
                     dialog.dialog('failure', null);
@@ -181,15 +191,12 @@ define([
                         });
                     dialog.dialog('wait', promise);
                 });
+
+                dialog.modal('show');
             }
 
             function show_error(error) {
-                if (dialog)
-                    dialog.remove();
-
-                dialog = $(mustache.render(dialog_tmpl, { Profiles: [ ] }));
-                dialog.appendTo("body").modal('show');
-
+                dialog = create_dialog([ ]);
                 dialog.dialog('failure', error);
 
                 dialog.find('.cancel').on('click', function () {
@@ -197,6 +204,7 @@ define([
                 });
 
                 dialog.find('.apply').prop('disabled', true);
+                dialog.modal('show');
             }
 
             function with_tuned() {
