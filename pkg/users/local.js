@@ -19,13 +19,15 @@
 
 define([
     "jquery",
+    "react",
+    "react-dom",
     "base1/cockpit",
     "base1/mustache",
     "shell/controls",
     "shell/shell",
     "users/authorized-keys",
     "base1/patterns",
-], function($, cockpit, Mustache, controls, shell, authorized_keys) {
+], function($, React, ReactDOM, cockpit, Mustache, controls, shell, authorized_keys) {
 "use strict";
 
 var _ = cockpit.gettext;
@@ -276,6 +278,30 @@ function is_user_in_group(user, group) {
     return false;
 }
 
+var AccountItem = React.createClass({
+    displayName: 'AccountItem',
+    click: function() {
+        cockpit.location.go([this.props.name]);
+    },
+    render: function() {
+        return React.createElement('div', {className: "cockpit-account", onClick: this.click },
+            React.createElement('div', {className: "cockpit-account-pic pficon pficon-user"}),
+            React.createElement('div', {className: "cockpit-account-real-name"}, this.props.gecos),
+            React.createElement('div', {className: "cockpit-account-user-name"}, this.props.name)
+        );
+    }
+});
+
+var AccountList = React.createClass({
+    displayName: 'AccountList',
+    render: function() {
+        var i, items = [];
+        for (i in this.props)
+            items.push(React.createElement(AccountItem, this.props[i]));
+        return React.createElement('div', null, items);
+    }
+});
+
 function log_unexpected_error(error) {
     console.warn("Unexpected error", error);
 }
@@ -329,19 +355,29 @@ PageAccounts.prototype = {
                                 else return a["gecos"].localeCompare(b["gecos"]);
                             });
 
-        list.empty();
-        for (var i = 0; i < this.accounts.length; i++) {
+        var i, accounts = [];
+        for (i = 0; i < this.accounts.length; i++) {
             if ((this.accounts[i]["uid"] < 1000 && this.accounts[i]["uid"] !== 0) ||
                   this.accounts[i]["shell"] == "/sbin/nologin")
                 continue;
+            accounts.push(this.accounts[i]);
+        }
+
+        ReactDOM.render(
+                React.createElement(AccountList, accounts),
+                document.getElementById('accounts-react')
+        );
+
+        list.empty();
+        for (i = 0; i < accounts.length; i++) {
             var img =
                 $('<div/>', { 'class': "cockpit-account-pic pficon pficon-user" });
             var div =
                 $('<div/>', { 'class': "cockpit-account" }).append(
                     img,
-                    $('<div/>', { 'class': "cockpit-account-real-name" }).text(this.accounts[i]["gecos"]),
-                    $('<div/>', { 'class': "cockpit-account-user-name" }).text(this.accounts[i]["name"]));
-            div.on('click', $.proxy(this, "go", this.accounts[i]["name"]));
+                    $('<div/>', { 'class': "cockpit-account-real-name" }).text(accounts[i]["gecos"]),
+                    $('<div/>', { 'class': "cockpit-account-user-name" }).text(accounts[i]["name"]));
+            div.on('click', $.proxy(this, "go", accounts[i]["name"]));
             list.append(div);
         }
     },
