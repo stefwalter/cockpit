@@ -116,14 +116,18 @@ AM_LDFLAGS = -Wl,--as-needed
 LOG_DRIVER = $(top_srcdir)/tools/tap-driver
 LOG_COMPILER = $(top_srcdir)/tools/tap-gtester
 
-TEST_EXTENSIONS = .html .sh
+TEST_EXTENSIONS = .html .sh .stub
 SH_LOG_DRIVER = $(top_srcdir)/tools/tap-driver
 HTML_LOG_DRIVER = $(top_srcdir)/tools/tap-driver
 HTML_TEST_SERVER = $(builddir)/test-server
+STUB_LOG_DRIVER = $(top_srcdir)/tools/tap-driver
+STUB_LOG_FLAGS="cockpit-stub"
 if WITH_PHANTOMJS
 HTML_LOG_COMPILER = $(top_srcdir)/tools/tap-phantom --strip=$(top_srcdir)/ -- $(HTML_TEST_SERVER)
+STUB_LOG_COMPILER = $(HTML_LOG_COMPILER)
 else
 HTML_LOG_DRIVER_FLAGS = --missing=phantomjs
+STUB_LOG_DRIVER_FLAGS = $(HTML_LOG_DRIVER_FLAGS)
 endif
 
 VALGRIND_ARGS = --trace-children=no --quiet --error-exitcode=33 \
@@ -147,10 +151,12 @@ valgrind-suppressions: $(VALGRIND_SUPPRESSIONS)
 check-memory: valgrind-suppressions
 	$(MAKE) LOG_FLAGS="-- valgrind $(VALGRIND_ARGS)" \
 	        HTML_LOG_FLAGS="valgrind $(VALGRIND_ARGS) cockpit-bridge" \
+	        STUB_LOG_FLAGS="valgrind $(VALGRIND_ARGS) cockpit-stub" \
 		$(AM_MAKEFLAGS) check
 recheck-memory: valgrind-suppressions
 	$(MAKE) LOG_FLAGS="-- valgrind $(VALGRIND_ARGS)" \
 	        HTML_LOG_FLAGS="valgrind $(VALGRIND_ARGS) cockpit-bridge" \
+	        STUB_LOG_FLAGS="valgrind $(VALGRIND_ARGS) cockpit-stub" \
 		$(AM_MAKEFLAGS) recheck
 
 SED_SUBST = sed \
