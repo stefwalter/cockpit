@@ -111,7 +111,7 @@ base_TESTS = \
 	pkg/base1/test-cache.html \
 	pkg/base1/test-framed-cache.html \
 	pkg/base1/test-websocket.html \
-	pkg/base1/test-channels.stub \
+	pkg/base1/test-stub.html \
 	$(NULL)
 
 TESTS += $(base_TESTS)
