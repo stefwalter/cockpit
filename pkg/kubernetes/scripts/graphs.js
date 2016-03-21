@@ -271,7 +271,7 @@
         "kubeSelect",
         "kubeLoader",
         function ServiceGrid(CAdvisorSeries, CockpitMetrics, select, loader) {
-            function CockpitServiceGrid() {
+            function CockpitServiceGrid(until) {
                 var self = CockpitMetrics.grid(1000, 0, 0);
 
                 /* All the cadvisors that have been opened, one per host */
@@ -371,10 +371,10 @@
                     /* Notify for all rows */
                     if (changed)
                         self.sync();
-                });
+                }, until);
 
-                loader.watch("Pod");
-                loader.watch("Service");
+                loader.watch("Pod", until);
+                loader.watch("Service", until);
 
                 function add_container(cadvisor, id) {
                     var cpu = self.add(cadvisor, [ id, "cpu", "usage", "total" ]);
@@ -570,8 +570,8 @@
             }
 
             return {
-                new_grid: function () {
-                    return new CockpitServiceGrid();
+                new_grid: function(until) {
+                    return new CockpitServiceGrid(until);
                 }
             };
         }

@@ -311,7 +311,7 @@
      * Tell the loader about a objects that has been loaded
      * or removed elsewhere.
      *
-     * loader.listen(callback)
+     * loader.listen(callback, until)
      *
      * Register a callback to be invoked some time after new
      * objects have been loaded. Returns an object with a
@@ -349,7 +349,7 @@
      *
      * A dict of all loaded objects.
      *
-     * promise = loader.watch(type)
+     * promise = loader.watch(type, until)
      *
      * Start watching the given resource type. The returned promise
      * will be resolved when an initial set of objects have been
@@ -586,8 +586,24 @@
                 });
             }
 
+            function connectUntil(ret, until) {
+                if (!until) {
+                    if (until.$on) {
+                        until.$on("destroy", function() {
+                            ret.cancel();
+                        });
+                    } else {
+                        console.warn("invalid until passed to watch", until);
+                    }
+                }
+            }
+
             var self = {
-                watch: ensureWatches,
+                watch: function watch(what, until) {
+                    var ret = ensureWatches(what, true);
+                    connectUntil(ret, until);
+                    return ret;
+                },
                 load: function load(/* ... */) {
                     return loadObjects.apply(this, arguments);
                 },
@@ -596,8 +612,8 @@
                         adjustNamespace(options.namespace);
                 },
                 reset: resetLoader,
-                listen: function listen(callback, before) {
-                    if (before)
+                listen: function listen(callback, until) {
+                    if (callback.early)
                         callbacks.unshift(callback);
                     else
                         callbacks.push(callback);
@@ -605,7 +621,7 @@
                         timeout = null;
                         callback.call(self, objects);
                     }, 0);
-                    return {
+                    var ret = {
                         cancel: function() {
                             var i, len;
                             $timeout.cancel(timeout);
@@ -616,6 +632,8 @@
                             }
                         }
                     };
+                    connectUntil(ret, until);
+                    return ret;
                 },
                 handle: function handle(objects, removed, kind) {
                     if (!angular.isArray(objects))
@@ -691,7 +709,7 @@
             var weakmap = new SimpleWeakMap();
             var version = 1;
 
-            loader.listen(function(present, removed) {
+            function listener(present, removed) {
                 version += 1;
 
                 /* Get called like this when reset */
@@ -702,7 +720,10 @@
                 } else if (index) {
                     indexObjects(present);
                 }
-            }, true);
+            }
+
+            listener.early = true;
+            loader.listen(listener);
 
             /* Create a new index and populate */
             function indexCreate() {

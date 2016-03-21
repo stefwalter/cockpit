@@ -109,29 +109,25 @@
         function($scope, containers, loader, select, discoverSettings,
                  ListingState, $routeParams, $location, actions) {
 
-            var c = loader.listen(function() {
+            loader.listen(function() {
                 $scope.pods = select().kind("Pod");
                 $scope.services = select().kind("Service");
                 $scope.nodes = select().kind("Node");
                 $scope.replicationcontrollers = select().kind("ReplicationController");
                 $scope.deploymentconfigs = select().kind("DeploymentConfig");
                 $scope.routes = select().kind("Route");
-            });
+            }, $scope);
 
-            loader.watch("Pod");
-            loader.watch("Service");
-            loader.watch("Node");
-            loader.watch("ReplicationController");
-            loader.watch("Endpoints");
-
-            $scope.$on("$destroy", function() {
-                c.cancel();
-            });
+            loader.watch("Pod", $scope);
+            loader.watch("Service", $scope);
+            loader.watch("Node", $scope);
+            loader.watch("ReplicationController", $scope);
+            loader.watch("Endpoints", $scope);
 
             discoverSettings().then(function(settings) {
                 if (settings.flavor === "openshift") {
-                    loader.watch("DeploymentConfig");
-                    loader.watch("Route");
+                    loader.watch("DeploymentConfig", $scope);
+                    loader.watch("Route", $scope);
                 }
             });
 

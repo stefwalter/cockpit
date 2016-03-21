@@ -106,7 +106,7 @@
             /* When the loader changes digest */
             loader.listen(function() {
                 $rootScope.$applyAsync();
-            });
+            }, $rootScope);
         }
     ])
 
@@ -164,9 +164,8 @@
             discoverSettings().then(function(settings) {
                 if (settings.flavor === "openshift")
                     loader.load("projects");
-
                 if (settings.isAdmin)
-                    loader.watch("namespaces");
+                    loader.watch("namespaces", $rootScope);
             });
 
             /*

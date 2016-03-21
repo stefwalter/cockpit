@@ -67,13 +67,9 @@
                     pods.label(selector);
 
                 $scope.pods = pods;
-            });
+            }, $scope);
 
-            $scope.$on("$destroy", function() {
-                c.cancel();
-            });
-
-            loader.watch("Pod");
+            loader.watch("Pod", $scope);
 
             $scope.listing = new ListingState($scope);
             $scope.listing.forceInline = true;

@@ -53,9 +53,9 @@
         'projectActions',
         'ListingState',
         function($scope, $routeParams, $location, select, loader, projectData, projectAction, ListingState) {
-            loader.watch("users");
-            loader.watch("groups");
-            loader.watch("policybindings");
+            loader.watch("users", $scope);
+            loader.watch("groups", $scope);
+            loader.watch("policybindings", $scope);
 
             var namespace = $routeParams["namespace"] || "";
             if (namespace) {

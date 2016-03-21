@@ -49,16 +49,12 @@
             $scope.services = select().kind("Service");
             $scope.nodes = select().kind("Node");
             $scope.pods = select().kind("Pod");
-        });
+        }, $scope);
 
-        $scope.$on("$destroy", function() {
-            c.cancel();
-        });
-
-        loader.watch("Node");
-        loader.watch("Service");
-        loader.watch("ReplicationController");
-        loader.watch("Pod");
+        loader.watch("Node", $scope);
+        loader.watch("Service", $scope);
+        loader.watch("ReplicationController", $scope);
+        loader.watch("Pod", $scope);
 
         $scope.editServices = false;
         $scope.toggleServiceChange = function toggleServiceChange() {
