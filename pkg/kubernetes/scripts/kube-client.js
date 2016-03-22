@@ -368,7 +368,7 @@
             var limits = { namespace: null };
 
             /* All the current watches */
-            var watches = { };
+            var watching = { };
 
             /* All the loaded objects */
             var objects = { };
@@ -377,30 +377,60 @@
             var batch = null;
             var batchTimeout = null;
 
-            function ensureWatch(what, namespace) {
+            function ensureWatch(what, namespace, increment) {
                 var schema = SCHEMA[what] || SCHEMA[""];
-                var path = schema.api;
+                var watch, path = schema.api;
                 if (!schema.global && namespace)
                     path += "/namespaces/" + namespace;
                 path += "/" + schema.type;
-                if (!(what in watches)) {
-                    watches[path] = new KubeWatch(path, handleFrames);
-                    watches[path].params = { what: what, global: schema.global, namespace: namespace };
+
+                if (!(path in watching)) {
+                    watch = new KubeWatch(path, handleFrames);
+
+                    /* Note what we're watching */
+                    watching[path] = {
+                        watch: watch,
+                        what: what,
+                        global: schema.global,
+                        namespace: namespace,
+                        references: 0,
+                        cancel: watch.cancel
+                    };
+
+                    /* Replace the cancel function with one that does ref counting */
+                    watch.cancel = function() {
+                        var w = watching[path];
+                        if (w) {
+                            w.references -= 1;
+                            if (w.references <= 0) {
+                                w.cancel();
+                                delete watching[path];
+                            }
+                        }
+                    };
                 }
-                return watches[path];
+
+                /* Increase the references here */
+                watching[path].references += increment;
+                return watching[path];
             }
 
-            function ensureWatches(what) {
-                var parts, namespace = limits.namespace;
-                if (angular.isArray(namespace)) {
-                    parts = [];
-                    angular.forEach(namespace, function(val) {
-                        parts.push(ensureWatch(what, val));
+            function ensureWatches(what, increment) {
+                var namespace = limits.namespace;
+                if (!angular.isArray(namespace))
+                    return ensureWatch(what, namespace, increment);
+
+                var parts = [];
+                angular.forEach(namespace, function(val) {
+                    parts.push(ensureWatch(what, val, increment));
+                });
+                var ret = $q.all(parts);
+                ret.cancel = function() {
+                    angular.forEach(parts, function(val) {
+                        val.cancel();
                     });
-                    return $q.all(parts);
-                } else {
-                    return ensureWatch(what, namespace);
-                }
+                };
+                return ret;
             }
 
             function handleFrames(frames) {
@@ -475,10 +505,10 @@
                 batch = null;
 
                 /* Cancel all the watches  */
-                var old = watches;
-                watches = { };
-                angular.forEach(old, function(watch) {
-                    watch.cancel();
+                var old = watching;
+                watching = { };
+                angular.forEach(old, function(w) {
+                    w.watch.cancel();
                 });
 
                 /* Clear out everything */
@@ -567,13 +597,12 @@
                 }
 
                 /* Cancel any watches not applicable to these namespaces */
-                var path, watch, reconnect = [ ];
-                for (path in watches) {
-                    watch = watches[path];
-                    if ((!only && watch.params.namespace) ||
-                        (only && !watch.params.global && !(watch.params.namespace in only))) {
-                        watches[path].cancel();
-                        reconnect.push(watch);
+                var path, w, reconnect = [ ];
+                for (path in watching) {
+                    w = watching[path];
+                    if ((!only && w.namespace) || (only && !w.global && !(w.namespace in only))) {
+                        w.watch.cancel();
+                        reconnect.push(w);
                     }
                 }
 
@@ -581,8 +610,9 @@
                 invokeCallbacks(present, removed);
 
                 /* Reconnect all the watches we cancelled with proper namespace */
-                angular.forEach(reconnect, function(watch) {
-                    ensureWatches(watch.params.what);
+                angular.forEach(reconnect, function(w) {
+                    ensureWatches(w.what, w.references);
+                    xxxxx references
                 });
             }
 
@@ -600,7 +630,7 @@
 
             var self = {
                 watch: function watch(what, until) {
-                    var ret = ensureWatches(what, true);
+                    var ret = ensureWatches(what, 1);
                     connectUntil(ret, until);
                     return ret;
                 },
