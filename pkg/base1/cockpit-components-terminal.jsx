@@ -35,6 +35,8 @@ define([
  *
  * If the 'onTitleChanged' callback property is set, it will be called whenever
  * the title of the terminal changes.
+ *
+ * Call focus() to set the input focus on the terminal.
  */
 var Terminal = React.createClass({
     propTypes: {
@@ -123,6 +125,11 @@ var Terminal = React.createClass({
             this.props.channel.removeEventListener('message', this.onChannelMessage);
             this.props.channel.removeEventListener('close', this.onChannelClose);
         }
+    },
+
+    focus: function () {
+        if (this.state.terminal)
+            this.state.terminal.focus();
     }
 });
 
