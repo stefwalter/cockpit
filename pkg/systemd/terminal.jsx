@@ -1,4 +1,4 @@
-require([
+define([
     "react",
     "base1/cockpit",
     "base1/cockpit-components-terminal",
