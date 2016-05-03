@@ -100,9 +100,6 @@ var UserTerminal = React.createClass({displayName: "UserTerminal",
     }
 });
 
-document.addEventListener('DOMContentLoaded', function () {
-    console.log('here we are');
     React.render(<UserTerminal />, document.getElementById('terminal'));
-});
 
 });
