@@ -102,4 +102,7 @@ var UserTerminal = React.createClass({displayName: "UserTerminal",
 
     React.render(<UserTerminal />, document.getElementById('terminal'));
 
+    /* And show the body */
+    document.body.removeAttribute("hidden");
+
 });
