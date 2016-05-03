@@ -1,5 +1,5 @@
 define([
-    "react",
+    "base1/react",
     "base1/cockpit",
     "base1/cockpit-components-terminal",
     "translated!base1/po",
