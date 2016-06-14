@@ -97,9 +97,12 @@ def build_and_install(install_image, build_image, args):
     args.setdefault("containers", False)
     args.setdefault("address", None)
     try:
-        skip = "cockpit-ostree"
-        if install_image and "fedora-atomic" in install_image:
-            skip = None
+        skips = [ ]
+        if install_image and "fedora-atomic" not in install_image:
+            skips.append("cockpit-ostree")
+        if args["address"]:
+            skips.append("cockpit-test-assets")
+        skip = "\n".join(skips)
 
         if not args["address"] and build_image and build_image == install_image:
             build_and_maybe_install(build_image, do_install=True, skip=skip, args=args)
