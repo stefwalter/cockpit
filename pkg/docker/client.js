@@ -573,14 +573,7 @@ define([
             var command = "echo '" + value.toFixed(0) + "' > " + path;
             util.docker_debug("changing cgroup:", command);
 
-            /*
-             * TODO: We need a sane UI for showing that the resources can't be changed
-             * Showing unexpected error isn't it.
-             */
-            cockpit.spawn(["sh", "-c", command]).
-                fail(function(ex) {
-                    console.warn(ex);
-                });
+            return cockpit.spawn(["sh", "-c", command], { "superuser": "try", "err": "message" });
         }
 
         this.change_memory_limit = function change_memory_limit(id, value) {
