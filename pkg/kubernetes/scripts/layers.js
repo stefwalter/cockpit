@@ -30,6 +30,10 @@
                 last = cmd[cmd.length - 1];
                 if (last.indexOf("#(nop)") === 0)
                     return last.substring(6).trim();
+                else if (cmd.length == 1 && cmd[0].indexOf("/bin/sh -c #(nop)") === 0)
+                    return cmd[0].substring(17).trim();
+                else
+                    return cmd.join(" ");
             }
         }
 
@@ -95,14 +99,6 @@
                             return bytes + " B";
                     };
 
-                    /*
-                    element.css("display", "block");
-
-                    var outer = angular.element("<div/>");
-                    element.append(outer);
-
-                    var graph;
-                    */
                     $scope.$watch('data', function(layers) {
                         if (layers && layers.length)
                             layers = layers.map(prepareLayer).reverse();
