@@ -308,6 +308,12 @@ class TestDashboard(MachineCase):
         b = self.browser
         m = self.machine
 
+        # HACK: https://bugzilla.redhat.com/show_bug.cgi?id=1242656
+        # Trying to diagnose this SELinux bug
+        m.execute("auditctl -w /proc/net/unix -p r")
+        m.upload(["verify/files/auditbt.stp"], "/var/tmp")
+        m.execute("stap auditbt.stp -d /usr/libexec/cockpit-ws --ldd")
+
         def fake_machines(amount):
             # build a machine json manually
             d = {

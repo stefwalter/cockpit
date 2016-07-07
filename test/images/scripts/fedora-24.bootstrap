@@ -18,4 +18,5 @@
 # 02110-1301 USA.
 
 BASE=$(dirname $0)
-$BASE/virt-builder-fedora "$1" fedora-24 x86_64
+# HACK: 12G file size for https://bugzilla.redhat.com/show_bug.cgi?id=1242656
+BOOTSTRAP_VOLUME_SIZE=12G $BASE/virt-builder-fedora "$1" fedora-24 x86_64

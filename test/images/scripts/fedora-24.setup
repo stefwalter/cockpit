@@ -95,6 +95,12 @@ docker build -t cockpit/base /var/tmp/cockpit-base
 # Configure kubernetes
 /var/lib/testvm/kubernetes.setup
 
+# HACK: https://bugzilla.redhat.com/show_bug.cgi?id=1242656
+# Make auditing and using systemtap work
+dnf $DNF_OPTS -y install kernel-devel
+dnf $DNF_OPTS --releasever=rawhide --nogpgcheck install systemtap-devel systemtap-devel
+debuginfo-install -y kernel-core
+
 # reduce image size
 dnf clean all
 /var/lib/testvm/zero-disk.setup
@@ -110,4 +116,4 @@ touch /.autorelabel
 
 # Audit events to the journal
 rm -f '/etc/systemd/system/multi-user.target.wants/auditd.service'
-rm -rf /var/log/audit/
+rm -rf /var/log/audit/*
