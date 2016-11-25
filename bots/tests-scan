@@ -28,6 +28,7 @@ DEFAULT_VERIFY = {
     'container/kubernetes': BRANCHES,
     'selenium/firefox': BRANCHES,
     'selenium/chrome': BRANCHES,
+    'selenium/explorer': BRANCHES,
     'verify/centos-7': BRANCHES,
     'verify/continuous-atomic': [ ],
     'verify/debian-stable': [ 'master' ],
