@@ -52,18 +52,37 @@
  * should be included here.
  */
 
-static CockpitPackages *packages;
-
 extern gboolean cockpit_dbus_json_allow_external;
 
-static CockpitPayloadType payload_types[] = {
-  { "http-stream1", cockpit_http_stream_get_type },
-  { "http-stream2", cockpit_http_stream_get_type },
-  { "null", cockpit_null_channel_get_type },
-  { "echo", cockpit_echo_channel_get_type },
-  { "websocket-stream1", cockpit_web_socket_stream_get_type },
-  { "dbus-json3", cockpit_dbus_json_get_type },
-  { NULL },
+static CockpitPackages *packages;
+static GHashTable *payloads;
+
+static void
+payloads_init (void)
+{
+  payloads = g_hash_table_new (g_str_hash, g_str_equal);
+  g_hash_table_insert (payloads, "dbus-json3", cockpit_dbus_json_get_type);
+  g_hash_table_insert (payloads, "http-stream1", cockpit_http_stream_get_type);
+  g_hash_table_insert (payloads, "http-stream2", cockpit_http_stream_get_type);
+  g_hash_table_insert (payloads, "null", cockpit_null_channel_get_type);
+  g_hash_table_insert (payloads, "echo", cockpit_echo_channel_get_type);
+  g_hash_table_insert (payloads, "websocket-stream1", cockpit_web_socket_stream_get_type);
+}
+
+static GType
+payload_types (JsonObject *options)
+{
+  const gchar *payload;
+  GType (* function) (void);
+
+  if (!cockpit_json_get_string (options, "payload", "", &payload))
+    g_return_val_if_reached (0);
+
+  function = g_hash_table_lookup (payloads, payload);
+  if (function)
+    return (function) ();
+
+  return 0;
 };
 
 static void
@@ -187,16 +206,19 @@ run_bridge (const gchar *interactive)
 static void
 print_version (void)
 {
-  gint i, offset, len;
+  GHashTableIter iter;
+  gint offset, len;
+  gpointer name;
 
   g_print ("Version: %s\n", PACKAGE_VERSION);
   g_print ("Protocol: 1\n");
 
   g_print ("Payloads: ");
   offset = 10;
-  for (i = 0; payload_types[i].name != NULL; i++)
+  g_hash_table_iter_init (&iter, payloads);
+  while (g_hash_table_iter_next (&iter, &name, NULL))
     {
-      len = strlen (payload_types[i].name);
+      len = strlen (name);
       if (offset + len > 70)
         {
           g_print ("\n");
@@ -209,7 +231,7 @@ print_version (void)
           offset = 4;
         };
 
-      g_print ("%s ", payload_types[i].name);
+      g_print ("%s ", (gchar *)name);
       offset += len + 1;
     }
 }
@@ -274,6 +296,8 @@ main (int argc,
       g_error_free (error);
       return 1;
     }
+
+  payloads_init ();
 
   if (opt_packages)
     {

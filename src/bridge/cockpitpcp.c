@@ -36,9 +36,18 @@
 
 #include <glib-unix.h>
 
-static CockpitPayloadType payload_types[] = {
-  { "metrics1", cockpit_pcp_metrics_get_type },
-  { NULL },
+static GType
+payload_types (JsonObject *options)
+{
+  const gchar *payload;
+
+  if (!cockpit_json_get_string (options, "payload", "", &payload))
+    g_return_val_if_reached (0);
+
+  if (g_str_equal (payload, "metrics1"))
+    return cockpit_pcp_metrics_get_type ();
+
+  return 0;
 };
 
 /* This program is run on each managed server, with the credentials

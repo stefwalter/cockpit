@@ -34,7 +34,10 @@
 #include <string.h>
 
 /* Mock override from cockpitrouter.c */
-extern guint cockpit_router_bridge_timeout;
+extern guint cockpit_shim_bridge_timeout;
+extern gchar **cockpit_shim_argv;
+
+gchar *payload_arg;
 
 typedef struct {
   MockTransport *transport;
@@ -44,8 +47,23 @@ static void
 setup (TestCase *tc,
        gconstpointer unused)
 {
+  const gchar *data;
+  GBytes *bytes;
+
+  static gchar *argv[] = {
+    BUILDDIR "/mock-bridge", NULL, NULL
+  };
+
   tc->transport = g_object_new (mock_transport_get_type (), NULL);
   while (g_main_context_iteration (NULL, FALSE));
+
+  cockpit_shim_argv = argv;
+
+  /* Pretend to have received an init message */
+  data = "{\"command\":\"init\",\"host\":\"localhost\",\"version\":1}";
+  bytes = g_bytes_new_static (data, strlen (data));
+  cockpit_shim_reset (bytes);
+  g_bytes_unref (bytes);
 }
 
 static void
@@ -57,40 +75,23 @@ teardown (TestCase *tc,
   g_object_add_weak_pointer (G_OBJECT (tc->transport), (gpointer *)&tc->transport);
   g_object_unref (tc->transport);
   g_assert (tc->transport == NULL);
+
+  g_free (payload_arg);
+  payload_arg = cockpit_shim_argv[1] = NULL;
 }
 
-static CockpitChannel *
-mock_shim (CockpitRouter *router,
-           CockpitTransport *transport,
-           const gchar *channel_id,
-           JsonObject *options,
-           gboolean frozen)
+static GType
+mock_shim (JsonObject *options)
 {
-  CockpitChannel *channel = NULL;
-  CockpitTransport *shim_transport = NULL;
   const gchar *payload;
-  gchar *payload_arg = NULL;
-
-  static char *argv[] = {
-    BUILDDIR "/mock-bridge", NULL, NULL
-  };
 
   if (!cockpit_json_get_string (options, "payload", NULL, &payload))
     payload = NULL;
-  payload_arg = g_strdup_printf("--%s", payload);
-  argv[1] = payload_arg;
-
-  shim_transport = cockpit_router_ensure_external_bridge (router, channel_id,
-                                                        NULL, (const gchar **) argv, NULL);
-  channel = COCKPIT_CHANNEL (g_object_new (COCKPIT_TYPE_SHIM,
-                                           "transport", transport,
-                                           "id", channel_id,
-                                           "options", options,
-                                           "frozen", frozen,
-                                           "shim-transport", shim_transport,
-                                           NULL));
   g_free (payload_arg);
-  return channel;
+  payload_arg = g_strdup_printf ("--%s", payload);
+  cockpit_shim_argv[1] = payload_arg;
+
+  return COCKPIT_TYPE_SHIM;
 }
 
 static void
@@ -128,9 +129,8 @@ test_external_bridge (TestCase *tc,
     BUILDDIR "/mock-bridge", "--upper", NULL
   };
 
-  cockpit_router_bridge_timeout = 1;
-  router = cockpit_router_new (COCKPIT_TRANSPORT (tc->transport), NULL, "localhost");
-  cockpit_router_add_channel_function (router, mock_shim);
+  cockpit_shim_bridge_timeout = 1;
+  router = cockpit_router_new (COCKPIT_TRANSPORT (tc->transport), mock_shim, "localhost");
 
   emit_string (tc, NULL, "{\"command\": \"open\", \"channel\": \"a\", \"payload\": \"upper\"}");
   emit_string (tc, NULL, "{\"command\": \"open\", \"channel\": \"b\", \"payload\": \"upper\"}");
@@ -154,9 +154,7 @@ test_external_bridge (TestCase *tc,
   sent = NULL;
 
   /* Get a ref of the shim transport */
-  shim_transport = cockpit_router_ensure_external_bridge (router, "a",
-                                                          NULL, (const gchar **) argv, NULL);
-  g_object_ref (shim_transport);
+  shim_transport = cockpit_shim_ensure (NULL, argv);
   g_signal_connect (shim_transport, "closed", G_CALLBACK (on_transport_closed), &problem);
 
   emit_string (tc, NULL, "{\"command\": \"close\", \"channel\": \"a\" }");
@@ -197,8 +195,7 @@ test_external_fail (TestCase *tc,
   CockpitRouter *router;
   JsonObject *received;
 
-  router = cockpit_router_new (COCKPIT_TRANSPORT (tc->transport), NULL, "localhost");
-  cockpit_router_add_channel_function (router, mock_shim);
+  router = cockpit_router_new (COCKPIT_TRANSPORT (tc->transport), mock_shim, "localhost");
 
   emit_string (tc, NULL, "{\"command\": \"open\", \"channel\": \"a\", \"payload\": \"bad\"}");
   emit_string (tc, "a", "oh marmalade");
@@ -215,42 +212,28 @@ static void
 test_external_ensure_bridge (TestCase *tc,
                              gconstpointer unused)
 {
-  CockpitRouter *router;
-
-  /* All owned by router */
   CockpitTransport *shim_transport1;
   CockpitTransport *shim_transport2;
   CockpitTransport *shim_transport3;
-  CockpitTransport *shim_transport4;
 
-  static char *argv1[] = {
+  static gchar *argv1[] = {
     BUILDDIR "/mock-bridge", "--lower", NULL
   };
 
-  static char *argv2[] = {
+  static gchar *argv2[] = {
     BUILDDIR "/mock-bridge", "--upper", NULL
   };
 
-  static char *env[] = {
-    "VAR=1", NULL
-  };
-
-  router = cockpit_router_new (COCKPIT_TRANSPORT (tc->transport), NULL, "localhost");
-  shim_transport1 = cockpit_router_ensure_external_bridge (router, "1",
-                                                          NULL, (const gchar **) argv1, NULL);
-  shim_transport2 = cockpit_router_ensure_external_bridge (router, "2",
-                                                          NULL, (const gchar **) argv1, NULL);
-  shim_transport3 = cockpit_router_ensure_external_bridge (router, "3",
-                                                          NULL, (const gchar **) argv2, NULL);
-  shim_transport4 = cockpit_router_ensure_external_bridge (router, "4",
-                                                          NULL, (const gchar **) argv1,
-                                                          (const gchar **) env);
+  shim_transport1 = cockpit_shim_ensure (NULL, argv1);
+  shim_transport2 = cockpit_shim_ensure (NULL, argv1);
+  shim_transport3 = cockpit_shim_ensure (NULL, argv2);
 
   g_assert_true (shim_transport1 == shim_transport2);
   g_assert_true (shim_transport1 != shim_transport3);
-  g_assert_true (shim_transport1 != shim_transport4);
-  g_assert_true (shim_transport3 != shim_transport4);
-  g_object_unref (router);
+
+  g_object_unref (shim_transport1);
+  g_object_unref (shim_transport2);
+  g_object_unref (shim_transport3);
 }
 
 int

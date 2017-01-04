@@ -168,7 +168,7 @@ BRIDGE_CHECKS = \
 	test-websocketstream \
 	test-process \
 	test-bridge \
-	test-router \
+	test-shim \
 	$(NULL)
 
 mock_bridge_SOURCES = src/bridge/mock-bridge.c
@@ -210,12 +210,6 @@ test_portal_SOURCES = src/bridge/test-portal.c \
 test_portal_CFLAGS = $(libcockpit_bridge_a_CFLAGS)
 test_portal_LDADD = $(libcockpit_bridge_LIBS)
 
-test_router_SOURCES = src/bridge/test-router.c \
-	src/bridge/mock-transport.c src/bridge/mock-transport.h
-test_router_CFLAGS = $(libcockpit_bridge_a_CFLAGS)
-test_router_LDADD = $(libcockpit_bridge_LIBS)
-
-
 test_rules_SOURCES = src/bridge/test-rules.c
 test_rules_CFLAGS = $(libcockpit_bridge_a_CFLAGS)
 test_rules_LDADD = $(libcockpit_bridge_LIBS)
@@ -223,6 +217,11 @@ test_rules_LDADD = $(libcockpit_bridge_LIBS)
 test_setup_SOURCES = src/bridge/test-setup.c
 test_setup_CFLAGS = $(libcockpit_bridge_a_CFLAGS)
 test_setup_LDADD = $(libcockpit_bridge_LIBS)
+
+test_shim_SOURCES = src/bridge/test-shim.c \
+	src/bridge/mock-transport.c src/bridge/mock-transport.h
+test_shim_CFLAGS = $(libcockpit_bridge_a_CFLAGS)
+test_shim_LDADD = $(libcockpit_bridge_LIBS)
 
 test_stream_CFLAGS = $(libcockpit_bridge_a_CFLAGS)
 test_stream_SOURCES = src/bridge/test-stream.c \

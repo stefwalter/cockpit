@@ -28,6 +28,16 @@ G_BEGIN_DECLS
 
 #define COCKPIT_TYPE_SHIM         (cockpit_shim_get_type ())
 
-GType              cockpit_shim_get_type   (void) G_GNUC_CONST;
+GType              cockpit_shim_get_type        (void) G_GNUC_CONST;
+
+/* Used by implementations and tests */
+
+CockpitTransport * cockpit_shim_ensure          (CockpitChannel *channel,
+                                                 gchar **argv);
+
+void               cockpit_shim_release         (CockpitChannel *channel,
+                                                 CockpitTransport *transport);
+
+void               cockpit_shim_reset           (GBytes *init_message);
 
 #endif /* COCKPIT_SHIM_H__ */

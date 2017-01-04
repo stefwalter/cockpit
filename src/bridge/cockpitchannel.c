@@ -862,13 +862,6 @@ cockpit_channel_get_id (CockpitChannel *self)
   return self->priv->id;
 }
 
-CockpitTransport *
-cockpit_channel_get_transport (CockpitChannel *self)
-{
-  g_return_val_if_fail (COCKPIT_IS_CHANNEL (self), NULL);
-  return self->priv->transport;
-}
-
 /**
  * cockpit_channel_thaw:
  * @self: the channel

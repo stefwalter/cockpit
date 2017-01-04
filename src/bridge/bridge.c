@@ -65,21 +65,51 @@
 */
 
 static CockpitPackages *packages;
+static GHashTable *payloads;
 
-static CockpitPayloadType payload_types[] = {
-  { "dbus-json3", cockpit_dbus_json_get_type },
-  { "http-stream1", cockpit_http_stream_get_type },
-  { "http-stream2", cockpit_http_stream_get_type },
-  { "stream", cockpit_pipe_channel_get_type },
-  { "fsread1", cockpit_fsread_get_type },
-  { "fsreplace1", cockpit_fsreplace_get_type },
-  { "fswatch1", cockpit_fswatch_get_type },
-  { "fslist1", cockpit_fslist_get_type },
-  { "null", cockpit_null_channel_get_type },
-  { "echo", cockpit_echo_channel_get_type },
-  { "metrics1", cockpit_internal_metrics_get_type },
-  { "websocket-stream1", cockpit_web_socket_stream_get_type },
-  { NULL },
+static void
+payloads_init (void)
+{
+  payloads = g_hash_table_new (g_str_hash, g_str_equal);
+  g_hash_table_insert (payloads, "dbus-json3", cockpit_dbus_json_get_type);
+  g_hash_table_insert (payloads, "http-stream1", cockpit_http_stream_get_type);
+  g_hash_table_insert (payloads, "http-stream2", cockpit_http_stream_get_type);
+  g_hash_table_insert (payloads, "stream", cockpit_pipe_channel_get_type);
+  g_hash_table_insert (payloads, "fsread1", cockpit_fsread_get_type);
+  g_hash_table_insert (payloads, "fsreplace1", cockpit_fsreplace_get_type);
+  g_hash_table_insert (payloads, "fswatch1", cockpit_fswatch_get_type);
+  g_hash_table_insert (payloads, "fslist1", cockpit_fslist_get_type);
+  g_hash_table_insert (payloads, "null", cockpit_null_channel_get_type);
+  g_hash_table_insert (payloads, "echo", cockpit_echo_channel_get_type);
+  g_hash_table_insert (payloads, "metrics1", cockpit_internal_metrics_get_type);
+  g_hash_table_insert (payloads, "websocket-stream1", cockpit_web_socket_stream_get_type);
+}
+
+static GType
+payload_types (JsonObject *options)
+{
+  const gchar *payload;
+  const gchar *source;
+  GType (* function) (void);
+
+  if (!cockpit_json_get_string (options, "payload", "", &payload))
+    g_return_val_if_reached (0);
+
+  if (!cockpit_json_get_string (options, "source", NULL, &source))
+    source = NULL;
+
+  /* The shim logic is very simple for now */
+  if (g_strcmp0 (payload, "metrics1") == 0 &&
+      g_strcmp0 (source, "internal") != 0)
+    {
+      return cockpit_shim_get_type ();
+    }
+
+  function = g_hash_table_lookup (payloads, payload);
+  if (function)
+    return (function) ();
+
+  return 0;
 };
 
 static void
@@ -89,6 +119,24 @@ on_closed_set_flag (CockpitTransport *transport,
 {
   gboolean *flag = user_data;
   *flag = TRUE;
+}
+
+static gboolean
+on_transport_control (CockpitTransport *transport,
+                      const char *command,
+                      const gchar *channel_id,
+                      JsonObject *options,
+                      GBytes *message,
+                      gpointer user_data)
+{
+  /* Psas the init message to our shim code for reuse there */
+  if (g_str_equal (command, "init"))
+    {
+      cockpit_shim_reset (message);
+      g_signal_handlers_disconnect_by_func (transport, on_transport_control, NULL);
+    }
+
+  return FALSE;
 }
 
 static void
@@ -368,45 +416,6 @@ getpwuid_a (uid_t uid)
   return ret;
 }
 
-static CockpitChannel *
-pcp_shim (CockpitRouter *router,
-          CockpitTransport *transport,
-          const gchar *channel_id,
-          JsonObject *options,
-          gboolean frozen)
-{
-  CockpitChannel *channel = NULL;
-  CockpitTransport *shim_transport = NULL;
-  const gchar *payload;
-  const gchar *source;
-
-  static const gchar *argv[] = {
-    PACKAGE_LIBEXEC_DIR "/cockpit-pcp",
-    NULL
-  };
-
-  if (!cockpit_json_get_string (options, "payload", NULL, &payload))
-    payload = NULL;
-  if (!cockpit_json_get_string (options, "source", NULL, &source))
-    source = NULL;
-
-  if (g_strcmp0 (payload, "metrics1") == 0 &&
-      g_strcmp0 (source, "internal") != 0)
-    {
-        shim_transport = cockpit_router_ensure_external_bridge (router, channel_id,
-                                                                NULL, argv, NULL);
-        channel = COCKPIT_CHANNEL (g_object_new (COCKPIT_TYPE_SHIM,
-                                                 "transport", transport,
-                                                 "id", channel_id,
-                                                 "options", options,
-                                                 "frozen", frozen,
-                                                 "shim-transport", shim_transport,
-                                                 NULL));
-    }
-
-  return channel;
-}
-
 static int
 run_bridge (const gchar *interactive,
             gboolean privileged_slave)
@@ -515,7 +524,6 @@ run_bridge (const gchar *interactive,
   cockpit_web_failure_resource = "/org/cockpit-project/Cockpit/fail.html";
 
   router = cockpit_router_new (transport, payload_types, init_host);
-  cockpit_router_add_channel_function (router, pcp_shim);
   cockpit_dbus_user_startup (pwd);
   cockpit_dbus_setup_startup ();
   cockpit_dbus_process_startup ();
@@ -523,6 +531,7 @@ run_bridge (const gchar *interactive,
   g_free (pwd);
   pwd = NULL;
 
+  g_signal_connect (transport, "control", G_CALLBACK (on_transport_control), NULL);
   g_signal_connect (transport, "closed", G_CALLBACK (on_closed_set_flag), &closed);
   send_init_command (transport);
 
@@ -533,6 +542,7 @@ run_bridge (const gchar *interactive,
     cockpit_polkit_agent_unregister (polkit_agent);
   if (super)
     g_object_unref (super);
+  cockpit_shim_reset (NULL);
 
   g_object_unref (router);
   g_object_unref (transport);
@@ -559,16 +569,19 @@ run_bridge (const gchar *interactive,
 static void
 print_version (void)
 {
-  gint i, offset, len;
+  GHashTableIter iter;
+  gint offset, len;
+  gpointer name;
 
   g_print ("Version: %s\n", PACKAGE_VERSION);
   g_print ("Protocol: 1\n");
 
   g_print ("Payloads: ");
   offset = 10;
-  for (i = 0; payload_types[i].name != NULL; i++)
+  g_hash_table_iter_init (&iter, payloads);
+  while (g_hash_table_iter_next (&iter, &name, NULL))
     {
-      len = strlen (payload_types[i].name);
+      len = strlen (name);
       if (offset + len > 70)
         {
           g_print ("\n");
@@ -581,7 +594,7 @@ print_version (void)
           offset = 4;
         };
 
-      g_print ("%s ", payload_types[i].name);
+      g_print ("%s ", (gchar *)name);
       offset += len + 1;
     }
   g_print ("\n");
@@ -646,6 +659,8 @@ main (int argc,
       g_error_free (error);
       return 1;
     }
+
+  payloads_init ();
 
   if (opt_packages)
     {

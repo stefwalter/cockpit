@@ -30,8 +30,6 @@
 
 #include <string.h>
 
-gint cockpit_router_bridge_timeout = 30;
-
 struct _CockpitRouter {
   GObjectClass parent;
 
@@ -40,18 +38,12 @@ struct _CockpitRouter {
 
   CockpitTransport *transport;
 
-  GList *channel_functions;
-
-  GHashTable *payloads;
+  CockpitChannelType types;
   GHashTable *channels;
   GHashTable *groups;
 
   GHashTable *fences;
   guint thawing;
-
-  GHashTable *bridges_by_id;
-  GHashTable *bridges_by_transport;
-  GHashTable *bridges_by_channel;
 };
 
 typedef struct _CockpitRouterClass {
@@ -64,73 +56,8 @@ enum {
   PROP_0,
   PROP_TRANSPORT,
   PROP_INIT_HOST,
+  PROP_CHANNEL_TYPES,
 };
-
-typedef GType (* TypeFunction) (void);
-
-typedef struct {
-  CockpitTransport *transport;
-  GHashTable *channels;
-  gchar *id;
-
-  gulong closed_sig;
-  guint timeout;
-} ExternalBridge;
-
-static void
-external_bridge_free (gpointer data)
-{
-  ExternalBridge *b = data;
-  if (b->timeout)
-    g_source_remove (b->timeout);
-
-  if (b->closed_sig)
-    g_signal_handler_disconnect (b->transport, b->closed_sig);
-
-  g_hash_table_destroy (b->channels);
-  g_object_unref (b->transport);
-  g_free (b->id);
-  g_free (b);
-}
-
-static void
-external_bridge_destroy (CockpitRouter *router,
-                         ExternalBridge *bridge)
-{
-  GHashTableIter iter;
-  const gchar *chan;
-
-  g_debug ("destroy bridge: %s", bridge->id);
-
-  g_hash_table_iter_init (&iter, bridge->channels);
-  while (g_hash_table_iter_next (&iter, (gpointer *)&chan, NULL))
-    g_hash_table_remove (router->bridges_by_channel, chan);
-  g_hash_table_remove_all (bridge->channels);
-
-  g_hash_table_remove (router->bridges_by_id, bridge->id);
-
-  /* This owns the bridge */
-  g_hash_table_remove (router->bridges_by_transport, bridge->transport);
-}
-
-static gboolean
-on_timeout_cleanup_bridge (gpointer user_data)
-{
-  ExternalBridge *b = user_data;
-
-  b->timeout = 0;
-  if (g_hash_table_size (b->channels) == 0)
-    {
-      /*
-       * This should cause the transport to immediately be closed
-       * and that will trigger removal from the main router lookup tables.
-       */
-      g_debug ("bridge: (%s) timed out without channels", b->id);
-      cockpit_transport_close (b->transport, "timeout");
-    }
-
-  return FALSE;
-}
 
 static gboolean
 on_idle_thaw (gpointer user_data)
@@ -154,29 +81,11 @@ on_channel_closed (CockpitChannel *channel,
                    gpointer user_data)
 {
   CockpitRouter *self = user_data;
-  ExternalBridge *bridge = NULL;
   const gchar *id;
 
   id = cockpit_channel_get_id (channel);
   g_hash_table_remove (self->channels, id);
   g_hash_table_remove (self->groups, id);
-
-  bridge = g_hash_table_lookup (self->bridges_by_channel, id);
-  if (bridge)
-    {
-      g_hash_table_remove (self->bridges_by_channel, id);
-      g_hash_table_remove (bridge->channels, id);
-      if (g_hash_table_size (bridge->channels) == 0)
-        {
-          /*
-           * Close sessions that are no longer in use after N seconds
-           * of them being that way.
-           */
-          g_debug ("removed last channel %s for bridge %s", id, bridge->id);
-          bridge->timeout = g_timeout_add_seconds (cockpit_router_bridge_timeout,
-                                                   on_timeout_cleanup_bridge, bridge);
-        }
-    }
 
   /*
    * If this was the last channel in the fence group,
@@ -193,7 +102,8 @@ on_channel_closed (CockpitChannel *channel,
 static void
 process_init (CockpitRouter *self,
               CockpitTransport *transport,
-              JsonObject *options)
+              JsonObject *options,
+              GBytes *message)
 {
   const gchar *problem = NULL;
   const gchar *host;
@@ -244,19 +154,6 @@ process_init (CockpitRouter *self,
 }
 
 static void
-on_external_transport_closed (CockpitTransport *transport,
-                              const gchar *problem,
-                              gpointer user_data)
-{
-  CockpitRouter *self = user_data;
-  ExternalBridge *b = NULL;
-
-  b = g_hash_table_lookup (self->bridges_by_transport, transport);
-  if (b)
-    external_bridge_destroy (self, b);
-}
-
-static void
 process_open (CockpitRouter *self,
               CockpitTransport *transport,
               const gchar *channel_id,
@@ -264,9 +161,6 @@ process_open (CockpitRouter *self,
 {
   CockpitChannel *channel = NULL;
   GType channel_type;
-  TypeFunction type_function = NULL;
-  CockpitRouterChannelFunc channel_function = NULL;
-  GList *l;
 
   const gchar *payload = NULL;
   const gchar *host = NULL;
@@ -300,19 +194,12 @@ process_open (CockpitRouter *self,
       channel_type = COCKPIT_TYPE_CHANNEL;
       frozen = g_hash_table_size (self->fences) ? TRUE : FALSE;
 
-      for (l = self->channel_functions; l != NULL; l = g_list_next (l))
+      if (payload)
         {
-          channel_function = l->data;
-          channel = channel_function (self, transport, channel_id, options, frozen);
-          if (channel)
-            break;
-        }
-
-      if (payload && !channel)
-        {
-          type_function = g_hash_table_lookup (self->payloads, payload);
-          if (type_function)
-            channel_type = type_function ();
+          if (self->types)
+            channel_type = (self->types) (options);
+          if (!channel_type)
+            channel_type = COCKPIT_TYPE_CHANNEL;
           if (channel_type == COCKPIT_TYPE_CHANNEL)
             g_warning ("%s: bridge doesn't support 'payload' of type: %s", channel_id, payload);
         }
@@ -393,7 +280,7 @@ on_transport_control (CockpitTransport *transport,
 
   if (g_str_equal (command, "init"))
     {
-      process_init (self, transport, options);
+      process_init (self, transport, options, message);
       return TRUE;
     }
 
@@ -433,35 +320,17 @@ cockpit_router_init (CockpitRouter *self)
   self->channels = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
   self->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
   self->fences = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-  self->payloads = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
-
-  /* Owns the ExternalBridge */
-  self->bridges_by_transport = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, external_bridge_free);
-  self->bridges_by_id = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
-  self->bridges_by_channel = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 }
 
 static void
 cockpit_router_dispose (GObject *object)
 {
   CockpitRouter *self = COCKPIT_ROUTER (object);
-  GHashTableIter iter;
-  ExternalBridge *b = NULL;
 
   if (self->signal_id)
     {
       g_signal_handler_disconnect (self->transport, self->signal_id);
       self->signal_id = 0;
-    }
-
-  g_hash_table_remove_all (self->channels);
-  g_hash_table_remove_all (self->groups);
-  g_hash_table_remove_all (self->fences);
-
-  g_hash_table_iter_init (&iter, self->bridges_by_transport);
-  while (g_hash_table_iter_next (&iter, NULL, (gpointer *)&b))
-    {
-      cockpit_transport_close (b->transport, NULL);
     }
 }
 
@@ -478,13 +347,8 @@ cockpit_router_finalize (GObject *object)
 
   g_free (self->init_host);
   g_hash_table_destroy (self->channels);
-  g_hash_table_destroy (self->payloads);
   g_hash_table_destroy (self->groups);
   g_hash_table_destroy (self->fences);
-  g_hash_table_destroy (self->bridges_by_id);
-  g_hash_table_destroy (self->bridges_by_channel);
-  g_hash_table_destroy (self->bridges_by_transport);
-  g_list_free (self->channel_functions);
 
   G_OBJECT_CLASS (cockpit_router_parent_class)->finalize (object);
 }
@@ -504,6 +368,9 @@ cockpit_router_set_property (GObject *obj,
       break;
     case PROP_TRANSPORT:
       self->transport = g_value_dup_object (value);
+      break;
+    case PROP_CHANNEL_TYPES:
+      self->types = g_value_get_pointer (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -548,124 +415,26 @@ cockpit_router_class_init (CockpitRouterClass *class)
                                                          G_PARAM_WRITABLE |
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_STATIC_STRINGS));
-}
 
-static gboolean
-cockpit_router_add_payload (CockpitRouter *self,
-                            const gchar *type,
-                            TypeFunction channel_function)
-{
-  return g_hash_table_insert (self->payloads, (gchar *) type,
-                              channel_function);
-}
-
-void
-cockpit_router_add_channel_function (CockpitRouter *self,
-                                     CockpitRouterChannelFunc channel_function)
-{
-  self->channel_functions = g_list_append (self->channel_functions, channel_function);
+  g_object_class_install_property (object_class, PROP_CHANNEL_TYPES,
+                                   g_param_spec_pointer ("channel-types", NULL, NULL,
+                                                         G_PARAM_WRITABLE |
+                                                         G_PARAM_CONSTRUCT_ONLY |
+                                                         G_PARAM_STATIC_STRINGS));
 }
 
 CockpitRouter *
 cockpit_router_new (CockpitTransport *transport,
-                    CockpitPayloadType *payload_types,
+                    CockpitChannelType types,
                     const gchar *init_host)
 {
-  gint i;
-  CockpitRouter *router;
-
   g_return_val_if_fail (transport != NULL, NULL);
 
-  router = g_object_new (COCKPIT_TYPE_ROUTER,
-                         "transport", transport,
-                         "init-host", init_host,
-                         NULL);
-
-  if (payload_types)
-    {
-      for (i = 0; payload_types[i].name != NULL; i++)
-        {
-          cockpit_router_add_payload (router, payload_types[i].name,
-                                      payload_types[i].function);
-        }
-    }
-
-  return router;
+  return g_object_new (COCKPIT_TYPE_ROUTER,
+                       "transport", transport,
+                       "init-host", init_host,
+                       "channel-types", types,
+                       NULL);
 }
 
-/**
- * cockpit_router_ensure_external_bridge:
- * @self: a Router
- * @channel: Channel this bridge is for
- * @host: Host this bridge is for, used for init message
- * @argv: Arguments to launch a new bridge
- * @env: Custom environment variables to use when launching a new bridge.
- *
- * If no current transport has already been launched matching the
- * given environment a new transport will be created
- * and tracked by this router. Otherwise the existing transport
- * will be returned.
- *
- * Returns: (transfer none): a CockpitTransport instance
- */
-CockpitTransport *
-cockpit_router_ensure_external_bridge (CockpitRouter *self,
-                                       const gchar *channel,
-                                       const gchar *host,
-                                       const gchar **argv,
-                                       const gchar **env)
-{
-  gchar *id = NULL;
-  gchar *args = NULL;
-  gchar *envs = NULL;
-  gchar *data = NULL;
-  GBytes *bytes = NULL;
 
-  CockpitPipe *pipe = NULL;
-  ExternalBridge *bridge = NULL;
-
-  args = g_strjoinv ("|", (gchar **) argv);
-  if (env)
-    envs = g_strjoinv ("|", (gchar **) env);
-
-  id = g_strdup_printf ("CMD=%s|EVN=%s", args, envs);
-  bridge = g_hash_table_lookup (self->bridges_by_id, id);
-  if (!bridge)
-    {
-      pipe = cockpit_pipe_spawn ((const gchar**) argv, (const gchar**) env, NULL, 0);
-
-      bridge = g_new0 (ExternalBridge, 1);
-      bridge->transport = cockpit_pipe_transport_new (pipe);
-      bridge->id = g_strdup (id);
-      bridge->channels = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-      bridge->closed_sig = g_signal_connect (bridge->transport, "closed",
-                                            G_CALLBACK (on_external_transport_closed), self);
-
-      g_hash_table_insert (self->bridges_by_transport, bridge->transport, bridge);
-      g_hash_table_insert (self->bridges_by_id, bridge->id, bridge);
-
-      data = g_strdup_printf ("{\"command\":\"init\",\"host\":\"%s\",\"version\":1}",
-                              host ? host : self->init_host);
-      bytes = g_bytes_new (data, strlen (data));
-      cockpit_transport_send (bridge->transport, NULL, bytes);
-    }
-
-  if (bridge->timeout)
-    {
-      g_source_remove (bridge->timeout);
-      bridge->timeout = 0;
-    }
-
-  g_hash_table_add (bridge->channels, g_strdup (channel));
-  g_hash_table_replace (self->bridges_by_channel, g_strdup (channel), bridge);
-
-  g_free (id);
-  g_free (args);
-  g_free (envs);
-  g_free (data);
-
-  if (bytes)
-    g_bytes_unref (bytes);
-
-  return bridge->transport;
-}
