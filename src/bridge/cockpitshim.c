@@ -196,6 +196,7 @@ typedef struct {
   gulong control_sig;
   gulong closed_sig;
   guint timeout;
+  gboolean got_init;
 } ExternalBridge;
 
 
@@ -225,6 +226,8 @@ on_peer_closed (CockpitTransport *transport,
   GList *l, *channels;
 
   g_debug ("closed external bridge: %s", bridge->id);
+
+  xxxx if it closed without an init ... then ask channel to replay xxxx
 
   if (!problem)
     problem = "disconnected";
@@ -270,6 +273,12 @@ on_peer_control (CockpitTransport *transport,
 {
   ExternalBridge *bridge = user_data;
   CockpitChannel *channel = NULL;
+
+  if (g_str_equal (command, "init"))
+    {
+      bridge->got_init = TRUE;
+      return TRUE;
+    }
 
   if (!channel_id && options)
     cockpit_json_get_string (options, "channel", NULL, &channel_id);
