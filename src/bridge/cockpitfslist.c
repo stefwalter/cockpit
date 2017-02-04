@@ -96,7 +96,7 @@ on_files_listed (GObject *source_object,
         {
           CockpitFslist *self = COCKPIT_FSLIST (user_data);
           g_message ("%s: couldn't process files %s", COCKPIT_FSLIST(user_data)->path, error->message);
-          options = cockpit_channel_close_options (COCKPIT_CHANNEL (self));
+          options = cockpit_channel_close_options (COCKPIT_CHANNEL (self), NULL);
           json_object_set_string_member (options, "message", error->message);
           cockpit_channel_close (COCKPIT_CHANNEL (self), "internal-error");
         }
@@ -170,7 +170,7 @@ on_enumerator_ready (GObject *source_object,
             g_debug ("%s: couldn't list directory: %s", self->path, error->message);
           else
             g_warning ("%s: couldn't list directory: %s", self->path, error->message);
-          options = cockpit_channel_close_options (COCKPIT_CHANNEL (self));
+          options = cockpit_channel_close_options (COCKPIT_CHANNEL (self), NULL);
           json_object_set_string_member (options, "message", error->message);
           cockpit_channel_close (COCKPIT_CHANNEL (self), problem ? problem : "internal-error");
         }

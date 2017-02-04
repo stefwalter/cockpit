@@ -239,7 +239,7 @@ return_stderr_message (CockpitChannel *channel,
   g_assert (length > 0);
   data[length - 1] = '\0';
 
-  options = cockpit_channel_close_options (channel);
+  options = cockpit_channel_close_options (channel, NULL);
   json_object_set_string_member (options, "message", data);
   g_free (data);
 }
@@ -261,7 +261,7 @@ on_pipe_close (CockpitPipe *pipe,
 
   if (cockpit_pipe_get_pid (pipe, NULL))
     {
-      options = cockpit_channel_close_options (channel);
+      options = cockpit_channel_close_options (channel, NULL);
       status = cockpit_pipe_exit_status (pipe);
       if (WIFEXITED (status))
         {

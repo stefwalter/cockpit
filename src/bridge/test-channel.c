@@ -247,7 +247,7 @@ test_close_option (TestCase *tc,
   JsonObject *sent;
   JsonObject *options;
 
-  options = cockpit_channel_close_options (tc->channel);
+  options = cockpit_channel_close_options (tc->channel, NULL);
   json_object_set_string_member (options, "option", "four");
   cockpit_channel_close (tc->channel, "bad-boy");
 
@@ -270,7 +270,7 @@ test_close_json_option (TestCase *tc,
 
   obj = json_object_new ();
   json_object_set_string_member (obj, "test", "value");
-  options = cockpit_channel_close_options (tc->channel);
+  options = cockpit_channel_close_options (tc->channel, NULL);
   json_object_set_object_member (options, "option", obj);
 
   cockpit_channel_close (tc->channel, "bad-boy");

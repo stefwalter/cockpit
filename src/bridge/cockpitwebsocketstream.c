@@ -141,7 +141,7 @@ on_rejected_certificate (GTlsConnection *conn,
 
   g_return_val_if_fail (peer_cert != NULL, FALSE);
   g_object_get (peer_cert, "certificate-pem", &pem_data, NULL);
-  close_options = cockpit_channel_close_options (channel);
+  close_options = cockpit_channel_close_options (channel, NULL);
   json_object_set_string_member (close_options, "rejected-certificate", pem_data);
 
   g_free (pem_data);
@@ -276,7 +276,7 @@ on_socket_connect (GObject *object,
   if (error)
     {
       problem = cockpit_stream_problem (error, self->origin, "couldn't connect",
-                                        cockpit_channel_close_options (channel));
+                                        cockpit_channel_close_options (channel, NULL));
       cockpit_channel_close (channel, problem);
       goto out;
     }

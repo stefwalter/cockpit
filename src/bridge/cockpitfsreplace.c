@@ -161,7 +161,7 @@ cockpit_fsreplace_control (CockpitChannel *channel,
         }
       else
         {
-          options = cockpit_channel_close_options (channel);
+          options = cockpit_channel_close_options (channel, NULL);
           if (!self->got_content)
             {
               json_object_set_string_member (options, "tag", "-");

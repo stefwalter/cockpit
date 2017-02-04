@@ -98,7 +98,8 @@ void                cockpit_channel_send              (CockpitChannel *self,
 
 JsonObject *        cockpit_channel_get_options       (CockpitChannel *self);
 
-JsonObject *        cockpit_channel_close_options     (CockpitChannel *self);
+JsonObject *        cockpit_channel_close_options     (CockpitChannel *self,
+                                                       JsonObject *options);
 
 GSocketAddress *    cockpit_channel_parse_address     (CockpitChannel *self,
                                                        gchar **possible_name);

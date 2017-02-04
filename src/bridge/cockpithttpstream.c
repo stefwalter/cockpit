@@ -651,7 +651,7 @@ on_rejected_cert (CockpitStream *stream,
 
   if (self->state != FINISHED)
     {
-      close_options = cockpit_channel_close_options (channel);
+      close_options = cockpit_channel_close_options (channel, NULL);
       json_object_set_string_member (close_options, "rejected-certificate", pem_data);
     }
 }

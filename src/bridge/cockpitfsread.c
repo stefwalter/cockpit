@@ -77,7 +77,7 @@ on_idle_send_block (gpointer data)
           tag = cockpit_get_file_tag_from_fd (self->fd);
           if (g_strcmp0 (tag, self->start_tag) == 0)
             {
-              options = cockpit_channel_close_options (channel);
+              options = cockpit_channel_close_options (channel, NULL);
               json_object_set_string_member (options, "tag", tag);
             }
           else
@@ -218,7 +218,7 @@ cockpit_fsread_prepare (CockpitChannel *channel)
       int err = errno;
       if (err == ENOENT)
         {
-          options = cockpit_channel_close_options (channel);
+          options = cockpit_channel_close_options (channel, NULL);
           json_object_set_string_member (options, "tag", "-");
           cockpit_channel_close (channel, NULL);
         }

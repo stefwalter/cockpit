@@ -341,7 +341,7 @@ cockpit_channel_ensure_capable (CockpitChannel *channel,
             json_array_add_string_element (arr, channel->priv->capabilities[i]);
         }
 
-      close_options = cockpit_channel_close_options (channel);
+      close_options = cockpit_channel_close_options (channel, NULL);
       json_object_set_array_member (close_options, "capabilities", arr);
       cockpit_channel_close (channel, "not-supported");
     }
@@ -712,7 +712,7 @@ cockpit_channel_fail (CockpitChannel *self,
   message = g_strdup_vprintf (format, va);
   va_end (va);
 
-  options = cockpit_channel_close_options (self);
+  options = cockpit_channel_close_options (self, NULL);
   if (!json_object_has_member (options, "message"))
     json_object_set_string_member (options, "message", message);
   g_message ("%s: %s", self->priv->id, message);
@@ -824,15 +824,24 @@ cockpit_channel_get_options (CockpitChannel *self)
 /**
  * cockpit_channel_close_options
  * @self: a channel
+ * @options: A new options set, or NULL
  *
  * Called by implementations to get the channel's close options.
  *
  * Returns: (transfer none): the close options, should not be NULL
  */
 JsonObject *
-cockpit_channel_close_options (CockpitChannel *self)
+cockpit_channel_close_options (CockpitChannel *self,
+                               JsonObject *options)
 {
   g_return_val_if_fail (COCKPIT_IS_CHANNEL (self), NULL);
+  if (options)
+    {
+      json_object_ref (options);
+      if (self->priv->close_options)
+        json_object_unref (self->priv->close_options);
+      self->priv->close_options = options;
+    }
   if (!self->priv->close_options)
     self->priv->close_options = json_object_new ();
   return self->priv->close_options;
@@ -851,6 +860,13 @@ cockpit_channel_get_id (CockpitChannel *self)
 {
   g_return_val_if_fail (COCKPIT_IS_CHANNEL (self), NULL);
   return self->priv->id;
+}
+
+CockpitTransport *
+cockpit_channel_get_transport (CockpitChannel *self)
+{
+  g_return_val_if_fail (COCKPIT_IS_CHANNEL (self), NULL);
+  return self->priv->transport;
 }
 
 /**
