@@ -145,9 +145,8 @@ install -p -m 644 tools/cockpit.pam $RPM_BUILD_ROOT%{_sysconfdir}/pam.d/cockpit
 rm -f %{buildroot}/%{_libdir}/cockpit/*.so
 install -p -m 644 AUTHORS COPYING README.md %{buildroot}%{_docdir}/%{name}/
 
-# On RHEL we don't yet show options for changing language
 %if 0%{?rhel}
-echo '{ "linguas": null, "machine-limit": 5 }' > %{buildroot}%{_datadir}/%{name}/shell/override.json
+echo '{ "machine-limit": 5 }' > %{buildroot}%{_datadir}/%{name}/shell/override.json
 %endif
 
 # Build the package lists for resource packages

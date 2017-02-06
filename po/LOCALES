@@ -1,0 +1,22 @@
+{
+    "en-us": {
+    	"lingua": "en",
+        "label": "English"
+    },
+    "ca-es": {
+        "lingua": "ca",
+	"label": "Catalan"
+    },
+    "da-dk": {
+        "
+ca      ca-es   Catalan
+da      da-dk   Dansk
+de      de-de   Deutsch
+es      es-es   Español
+fr      fr-fr   Français
+pl      pl-pl   Polski
+pt_BR   pt-br   Portugueses
+tr      tr-tr   Türkçe
+uk      uk-ua   Українська
+zh_CN   zh-cn   中文
+
