@@ -1201,6 +1201,9 @@ spawn_setup (gpointer data)
 
   if (flags & COCKPIT_PIPE_STDERR_TO_STDOUT)
     dup2 (1, 2);
+
+  if (flags & COCKPIT_PIPE_PROCESS_GROUP)
+    setpgid (0, 0);
 }
 
 /**
@@ -1324,6 +1327,8 @@ cockpit_pipe_pty (const gchar **argv,
   pid = forkpty (&fd, NULL, NULL, &winsz);
   if (pid == 0)
     {
+      setpgid (0, 0);
+
       if (cockpit_unix_fd_close_all (3, -1) < 0)
         {
           g_printerr ("couldn't close file descriptors\n");

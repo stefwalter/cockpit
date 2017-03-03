@@ -510,7 +510,7 @@ spawn_process_for_config (CockpitPeer *self)
       g_debug ("%s: spawning peer bridge process", self->name);
       env = cockpit_pipe_get_environ ((const gchar **)envset, NULL);
       pipe = cockpit_pipe_spawn ((const gchar **)argv, (const gchar **)env,
-                                 directory, COCKPIT_PIPE_FLAGS_NONE);
+                                 directory, COCKPIT_PIPE_PROCESS_GROUP);
     }
   else
     {

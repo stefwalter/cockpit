@@ -271,11 +271,12 @@ finish_request (CockpitPolkitAgent *self)
   PolkitAgentSession *session = g_queue_pop_head (&self->requests);
   g_return_if_fail (session != NULL);
 
-  polkit_agent_session_response (session, self->reply->str);
-  cockpit_secclear (self->reply->str, self->reply->len);
-
   if (self->tty >= 0)
-    tcsetattr (self->tty, TCSAFLUSH, &self->reset);
+    {
+      polkit_agent_session_response (session, self->reply->str);
+      tcsetattr (self->tty, TCSAFLUSH, &self->reset);
+    }
+  cockpit_secclear (self->reply->str, self->reply->len);
 
   if (self->tag)
     {

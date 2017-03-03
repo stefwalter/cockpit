@@ -260,6 +260,12 @@ cockpit_tty_startup (void)
       goto out;
     }
 
+  if (tcsetpgrp (slave, getpgrp ()) < 0)
+    {
+      g_warning ("couldn't set terminal foreground process group: %s", g_strerror (errno));
+      goto out;
+    }
+
   fdname = ttyname (slave);
   g_debug ("opened pseudo-terminal: %s", fdname);
 
