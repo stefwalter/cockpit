@@ -29,7 +29,6 @@
 #include "config.h"
 
 #include "cockpitauthprocess.h"
-#include "cockpitsshagent.h"
 
 #include "common/cockpiterror.h"
 #include "common/cockpitjson.h"
