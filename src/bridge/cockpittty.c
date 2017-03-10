@@ -67,6 +67,9 @@ typedef struct {
   int slave;
   int master;
 
+  /* Various jobs */
+  GHashTable *jobs;
+
   GHashTable *channels;
   CockpitTtyChannel *claimed;
 } CockpitTtyShared;
@@ -228,6 +231,42 @@ on_pipe_close (CockpitPipe *pipe,
   g_list_free (channels);
 }
 
+static gboolean
+on_unix_sigchld (gpointer user_data)
+{
+  CockpitTtyShared *shared = user_data;
+  GHashTableIter iter;
+  gint status;
+
+  g_hash_table_iter_init (&iter, shared->jobs);
+  while (g_hash_table_iter_next (&iter, &key, NULL))
+    {
+      pid = GPOINTER_TO_UINT (key);
+      g_assert (pid > 0);
+
+      for (;;)
+        {
+          res = waitpid (pid, &status, WNOHANG);
+          if (pid < 0)
+            {
+              if (errno == EINTR)
+                continue;
+              g_warning (
+            }
+          if (pid > 0)
+            {
+              
+            }
+        }
+      while (pid == -1 && errno == EINTR);
+
+    }
+  enumerate through all the jobs
+
+  if (WIFSTOPPED ())
+    
+}
+
 void
 cockpit_tty_startup (void)
 {
@@ -272,11 +311,14 @@ cockpit_tty_startup (void)
   shared = g_new0 (CockpitTtyShared, 1);
   shared->pipe = cockpit_pipe_new (fdname, fd, fd);
   shared->channels = g_hash_table_new (g_direct_hash, g_direct_equal);
+  shared->jobs = g_hash_table_new (g_direct_hash, g_direct_equal);
   shared->slave = slave;
   shared->master = master;
 
   shared->pipe_read = g_signal_connect (shared->pipe, "read", G_CALLBACK (on_pipe_read), shared);
   shared->pipe_close = g_signal_connect (shared->pipe, "close", G_CALLBACK (on_pipe_close), shared);
+
+  cockpit_unix_sigchld_add (on_unix_sigchld, NULL);
 
   master = -1;
   slave = -1;
@@ -286,6 +328,20 @@ out:
     close (master);
   if (slave != -1)
     close (slave);
+}
+
+void
+cockpit_tty_add_job (pid_t pgid)
+{
+  g_return_if_fail (shared != NULL);
+  g_hash_table_insert (shared->jobs, GUINT_TO_POINTER (pgid));
+}
+
+void
+cockpit_tty_remove_job (pid_t pgid)
+{
+  g_return_if_fail (shared != NULL);
+  g_hash_table_remove (shared->jobs, GUINT_TO_POINTER (pgid));
 }
 
 void

@@ -26,6 +26,8 @@ G_BEGIN_DECLS
 
 gchar *         cockpit_strsignal            (int signum);
 
+guint           cockpit_unix_sigchild_add    (GSourceFunc handler,
+                                              gpointer user_data);
 G_END_DECLS
 
 #endif

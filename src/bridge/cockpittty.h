@@ -30,6 +30,10 @@ G_BEGIN_DECLS
 
 GType              cockpit_tty_channel_get_type   (void) G_GNUC_CONST;
 
+void               cockpit_tty_add_job    (pid_t pgid);
+
+void               cockpit_tty_remove_job (pid_t pgid);
+
 void               cockpit_tty_startup    (void);
 
 void               cockpit_tty_cleanup    (void);

@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include "cockpitpeer.h"
+#include "cockpittty.h"
 
 #include "common/cockpitjson.h"
 #include "common/cockpittransport.h"
@@ -601,6 +602,7 @@ cockpit_peer_ensure (CockpitPeer *self)
 {
   static const gchar *default_init = "{ \"command\": \"init\", \"version\": 1, \"host\": \"localhost\" }";
   CockpitPipe *pipe;
+  pid_t pid = 0;
 
   g_return_val_if_fail (COCKPIT_IS_PEER (self), NULL);
 
@@ -612,6 +614,13 @@ cockpit_peer_ensure (CockpitPeer *self)
           self->closed = TRUE;
           return NULL;
         }
+
+      if (!cockpit_pipe_get_pid (pipe, &pid))
+        g_return_val_if_reached (NULL);
+
+      if (pid != getpgid (pid))
+        g_return_val_if_reached (NULL);
+      cockpit_tty_add_job (pid);
 
       self->other = cockpit_pipe_transport_new (pipe);
       g_object_unref (pipe);

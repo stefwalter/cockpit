@@ -544,10 +544,7 @@ void
 cockpit_auth_process_terminate (CockpitAuthProcess *self)
 {
   if (self->process_pid != 0)
-    {
-      g_child_watch_add (self->process_pid, (GChildWatchFunc)g_spawn_close_pid, NULL);
-      kill (self->process_pid, SIGTERM);
-    }
+    kill (self->process_pid, SIGTERM);
   self->process_pid = 0;
 }
 
