@@ -1,4 +1,8 @@
 {
+    "version": "@VERSION@",
+    "requires": {
+	"cockpit": "134.x"
+    },
     "priority": 1,
     "bridges": [
         {
