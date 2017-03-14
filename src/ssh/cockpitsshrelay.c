@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include "common/cockpithex.h"
 #include "common/cockpitjson.h"
 #include "common/cockpitpipe.h"
 #include "common/cockpitlog.h"
@@ -90,41 +91,6 @@ exit_code_problem (int exit_code)
     }
 }
 
-static gpointer
-hex_decode (const gchar *hex,
-            gsize *data_len)
-{
-  static const char HEX[] = "0123456789abcdef";
-  const gchar *hpos;
-  const gchar *lpos;
-  gsize len;
-  gchar *out;
-  gint i;
-
-  len = strlen (hex);
-  if (len % 2 != 0)
-    return NULL;
-
-  out = g_malloc (len * 2 + 1);
-  for (i = 0; i < len / 2; i++)
-    {
-      hpos = strchr (HEX, hex[i * 2]);
-      lpos = strchr (HEX, hex[i * 2 + 1]);
-      if (hpos == NULL || lpos == NULL)
-        {
-          g_free (out);
-          return NULL;
-        }
-      out[i] = ((hpos - HEX) << 4) | ((lpos - HEX) & 0xf);
-    }
-
-  /* A convenience null termination */
-  out[i] = '\0';
-
-  *data_len = i;
-  return out;
-}
-
 static gss_cred_id_t
 gssapi_push_creds (CockpitSshData *data)
 {
@@ -137,7 +103,7 @@ gssapi_push_creds (CockpitSshData *data)
   if (!cache_name || !data->initial_auth_data)
     goto out;
 
-  buf.value = hex_decode (data->initial_auth_data, &buf.length);
+  buf.value = cockpit_hex_decode (data->initial_auth_data, &buf.length);
   if (buf.value == NULL)
     {
       g_critical ("invalid gssapi credentials returned from session");
