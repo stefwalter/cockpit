@@ -1,9 +1,10 @@
 {
-    "name": "another",
-    "description": "another",
+    "priority": 1,
     "bridges": [
         {
             "match": { "host": null },
+            "spawn": [ "@libexecdir@/cockpit-ssh" ],
+            "environ": [ "G_DEBUG=fatal_warnings" ],
             "problem": "not-supported"
         }
     ]
