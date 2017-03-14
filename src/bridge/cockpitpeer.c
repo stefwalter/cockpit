@@ -567,6 +567,8 @@ spawn_setup (gpointer data)
       perror ("couldn't set peer stdin/stout file descriptors");
       _exit (1);
     }
+
+  close (fd);
 }
 
 static CockpitPipe *
