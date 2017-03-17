@@ -85,5 +85,21 @@ with the domain user:
 
 If you thought that was nasty and tiresome, it's because it is at present :S
 
+## Using delegated credentials
 
+Cockpit can delegate forwardable credentials. Make sure to specify you want them
+during kinit:
 
+    $ kinit -f admin@COCKPIT.LAN
+    $ klist -f
+    Default principal: admin@COCKPIT.LAN
+    ...
+	Flags: FIA
+
+Use the IPA GUI to setup "Trusted for delegation" for the host and service that
+Cockpit is running on. Make sure to tell the browser to delegate credentials
+as seen in the guide:
+
+http://cockpit-project.org/guide/latest/sso.html
+
+Ze goggles, zey do nothing!
