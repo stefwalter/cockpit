@@ -61,7 +61,7 @@ static const char Pad64 = '=';
  it returns the number of data bytes stored at the target, or -1 on error.
  */
 
-int
+ssize_t
 cockpit_base64_pton (const char *src,
                      size_t length,
                      unsigned char *target,
@@ -201,7 +201,7 @@ cockpit_base64_pton (const char *src,
   return (tarindex);
 }
 
-int
+ssize_t
 cockpit_base64_ntop (const unsigned char *src,
                      size_t srclength,
                      char *target,

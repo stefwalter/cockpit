@@ -448,6 +448,44 @@ process_socket_authorize (CockpitWebService *self,
 }
 
 static gboolean
+authorize_check_user (CockpitCreds *creds,
+                      const char **challenge)
+{
+  unsigned char *subject = NULL;
+  gboolean ret = FALSE;
+  size_t subject_len = 0;
+  const gchar *user;
+  ssize_t res;
+
+  res = cockpit_authorize_subject (*challenge, &subject, &subject_len);
+  if (res < 0)
+    goto out;
+
+  if (memchr (subject, '\0', subject_len) != NULL)
+    {
+      g_message ("invalid \"authorize\" message \"challenge\": embedded nulls in user");
+      goto out;
+    }
+
+  if (subject_len == 0)
+    {
+      ret = TRUE;
+    }
+  else
+    {
+      user = cockpit_creds_get_user (creds);
+      ret = (user != NULL && strlen (user) == subject_len &&
+             memcmp (user, subject, subject_len) == 0);
+    }
+
+out:
+  free (subject);
+  if (res > 0)
+    challenge += res;
+  return ret;
+}
+
+static gboolean
 process_transport_authorize (CockpitWebService *self,
                              CockpitTransport *transport,
                              JsonObject *options)
@@ -462,7 +500,7 @@ process_transport_authorize (CockpitWebService *self,
   const gchar *password;
   const gchar *host;
   GBytes *data;
-  int rc;
+  ssize_t off;
 
   if (!cockpit_json_get_string (options, "challenge", NULL, &challenge) ||
       !cockpit_json_get_string (options, "cookie", NULL, &cookie) ||
@@ -475,40 +513,42 @@ process_transport_authorize (CockpitWebService *self,
   if (!challenge || !cookie)
     {
       g_message ("unsupported or unknown authorize command");
+      return FALSE;
     }
-  else if (cockpit_authorize_type (challenge, &type) < 0 ||
-           cockpit_authorize_user (challenge, &user) < 0)
+
+  off = cockpit_authorize_type (challenge, &type);
+  if (off < 0)
     {
       g_message ("received invalid authorize challenge command");
     }
-  else if (!g_str_equal (cockpit_creds_get_user (self->creds), user))
-    {
-      g_message ("received authorize command for wrong user: %s", user);
-    }
   else if (g_str_equal (type, "plain1"))
     {
+      challenge += off;
       data = cockpit_creds_get_password (self->creds);
       if (!data)
-        {
-          g_debug ("%s: received authorize crypt1 challenge, but no password to reauthenticate", host);
-        }
+        g_debug ("%s: received authorize plain1 challenge, but no password to reauthenticate", host);
+      else if (!authorize_check_user (self->creds, &challenge))
+        g_debug ("%s: received authorize plain1 challenge, but for wrong user", user);
       else
-        {
-          response = g_bytes_get_data (data, NULL);
-        }
+        response = g_bytes_get_data (data, NULL);
     }
   else if (g_str_equal (type, "crypt1"))
     {
+      challenge += off;
       data = cockpit_creds_get_password (self->creds);
       if (!data)
         {
-          g_debug ("received authorize crypt1 challenge, but no password to reauthenticate");
+          g_debug ("%s: received authorize plain1 challenge, but no password to reauthenticate", host);
+        }
+      else if (!authorize_check_user (self->creds, &challenge))
+        {
+          g_debug ("%s: received authorize crypt1 challenge, but for wrong user", user);
         }
       else
         {
           password = g_bytes_get_data (data, NULL);
-          rc = cockpit_authorize_crypt1 (challenge, password, &alloc);
-          if (rc < 0)
+          alloc = cockpit_authorize_crypt1 (challenge, password);
+          if (!alloc)
             g_message ("failed to \"authorize\" crypt1 \"challenge\"");
           else
             response = alloc;

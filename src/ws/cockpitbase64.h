@@ -47,12 +47,12 @@
 
 #define   cockpit_base64_size(len)     ((len) * 4 / 3 + 8)
 
-int       cockpit_base64_pton          (const char *src,
+ssize_t   cockpit_base64_pton          (const char *src,
                                         size_t length,
                                         unsigned char *target,
                                         size_t targsize);
 
-int       cockpit_base64_ntop          (const unsigned char *src,
+ssize_t   cockpit_base64_ntop          (const unsigned char *src,
                                         size_t srclength,
                                         char *target,
                                         size_t targsize);

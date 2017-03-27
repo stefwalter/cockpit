@@ -78,6 +78,8 @@ libcockpit_ws_a_SOURCES = \
 	src/ws/cockpitauthoptions.c \
 	src/ws/cockpitauthprocess.h \
 	src/ws/cockpitauthprocess.c \
+	src/ws/cockpitbase64.c \
+	src/ws/cockpitbase64.h \
 	src/ws/cockpitcertificate.c \
 	src/ws/cockpitcertificate.h \
 	src/ws/cockpitbranding.h \

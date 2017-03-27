@@ -20,21 +20,25 @@
 #ifndef COCKPIT_AUTHORIZE_H__
 #define COCKPIT_AUTHORIZE_H__
 
+#include <sys/types.h>
+
 void    cockpit_authorize_logger     (void (* func) (const char *data),
                                       int verbose);
 
-int     cockpit_authorize_type       (const char *challenge,
+ssize_t cockpit_authorize_type       (const char *challenge,
                                       char **type);
 
-int     cockpit_authorize_user       (const char *challenge,
-                                      char **user);
+ssize_t cockpit_authorize_subject    (const char *input,
+                                      unsigned char **subject,
+                                      size_t *subject_len);
 
-int     cockpit_authorize_crypt1     (const char *challenge,
-                                      const char *password,
-                                      char **response);
+char *  cockpit_authorize_crypt1     (const char *input,
+                                      const char *password);
 
-int     cockpit_authorize_plain1     (const char *challenge,
-                                      const char *password,
-                                      char **response);
+char *  cockpit_authorize_basic      (const char *input,
+                                      const char **user);
+
+void *  cockpit_authorize_negotiate  (const char *input,
+                                      size_t *length);
 
 #endif /* COCKPIT_AUTHORIZE_H__ */

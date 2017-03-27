@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include "cockpitauthorize.h"
+#include "cockpitbase64.h"
 
 #include "common/cockpithex.h"
 #include "common/cockpitmemory.h"
@@ -28,7 +29,9 @@
 #define _GNU_SOURCE
 #endif
 
+#include <assert.h>
 #include <crypt.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -137,103 +140,94 @@ parse_salt (const char *input)
  * Respond to challenges
  */
 
-int
+ssize_t
 cockpit_authorize_type (const char *challenge,
                         char **type)
 {
-  const char *pos;
-  char *val;
+  size_t i, len;
 
-  pos = strchr (challenge, ':');
-  if (pos == NULL || pos == challenge)
+  /*
+   * Either a space or a colon is the delimiter
+   * that splits the type from the remainder
+   * of the content.
+   */
+
+  len = strcspn (challenge, ": ");
+  if (len == 0 || challenge[len] == '\0')
     {
       message ("invalid \"authorize\" message");
-      return -EINVAL;
+      errno = EINVAL;
+      return -1;
     }
 
-  val = strndup (challenge, pos - challenge);
-  if (val == NULL)
+  if (type)
     {
-      message ("couldn't allocate memory for \"authorize\" challenge");
-      return -ENOMEM;
+      *type = strndup (challenge, len);
+      if (*type == NULL)
+        {
+          message ("couldn't allocate memory for \"authorize\" challenge");
+          errno = ENOMEM;
+          return -1;
+        }
+      for (i = 0; i < len; i++)
+        (*type)[i] = tolower ((*type)[i]);
     }
 
-  *type = val;
-  return 0;
+  while (challenge[len] == ' ')
+    len++;
+  return len;
 }
 
-int
-cockpit_authorize_user (const char *challenge,
-                        char **user)
+ssize_t
+cockpit_authorize_subject (const char *input,
+                           unsigned char **subject,
+                           size_t *subject_len)
 {
-  const char *beg = NULL;
-  void *result;
-  size_t user_len;
   size_t len;
 
-  beg = strchr (challenge, ':');
-  if (beg != NULL)
+  len = strcspn (input, ": ");
+  if (len == 0 || input[len] == '\0')
     {
-      beg++;
-      len = strcspn (beg, ":");
+      message ("invalid \"authorize\" message \"challenge\": no subject");
+      errno = EINVAL;
+      return -1;
     }
 
-  if (beg == NULL)
+  if (subject && subject_len)
     {
-      message ("invalid \"authorize\" message \"challenge\": no type");
-      return -EINVAL;
+      *subject = cockpit_hex_decode (input, len, subject_len);
+      if (!*subject)
+        {
+          message ("invalid \"authorize\" message \"challenge\": bad hex encoding");
+          errno = EINVAL;
+          return -1;
+        }
     }
 
-  result = cockpit_hex_decode (beg, len, &user_len);
-  if (!result)
-    {
-      message ("invalid \"authorize\" message \"challenge\": bad hex encoding");
-      return -EINVAL;
-    }
-  if (memchr (result, '\0', user_len) != NULL)
-    {
-      free (result);
-      message ("invalid \"authorize\" message \"challenge\": embedded nulls in user");
-      return -EINVAL;
-    }
-
-  *user = result;
-  return 0;
+  while (input[len] == ' ')
+    len++;
+  return len;
 }
 
-int
-cockpit_authorize_crypt1 (const char *challenge,
-                          const char *password,
-                          char **response)
+char *
+cockpit_authorize_crypt1 (const char *input,
+                          const char *password)
 {
   struct crypt_data *cd = NULL;
+  char *response = NULL;
   char *nonce = NULL;
   char *salt = NULL;
   const char *npos;
   const char *spos;
   char *secret;
   char *resp;
-  int ret;
+  int errn = 0;
 
-  if (strncmp (challenge, "crypt1:", 7) != 0)
-    {
-      message ("\"authorize\" message \"challenge\" is not a crypt1");
-      ret = -EINVAL;
-      goto out;
-    }
-  challenge += 7;
+  npos = input;
+  spos = strchr (npos, ':');
 
-  spos = NULL;
-  npos = strchr (challenge, ':');
-  if (npos != NULL)
+  if (spos == NULL)
     {
-      npos++;
-      spos = strchr (npos, ':');
-    }
-
-  if (npos == NULL || spos == NULL)
-    {
-      ret = -EINVAL;
       message ("couldn't parse \"authorize\" message \"challenge\"");
       goto out;
     }
@@ -242,7 +236,6 @@ cockpit_authorize_crypt1 (const char *challenge,
   salt = strdup (spos + 1);
   if (!nonce || !salt)
     {
-      ret = -ENOMEM;
       message ("couldn't allocate memory for challenge fields");
       goto out;
     }
@@ -251,7 +244,7 @@ cockpit_authorize_crypt1 (const char *challenge,
       parse_salt (salt) < 0)
     {
       message ("\"authorize\" message \"challenge\" has bad nonce or salt");
-      ret = -EINVAL;
+      errn = EINVAL;
       goto out;
     }
 
@@ -259,7 +252,7 @@ cockpit_authorize_crypt1 (const char *challenge,
   if (cd == NULL)
     {
       message ("couldn't allocate crypt data");
-      ret = -ENOMEM;
+      errn = ENOMEM;
       goto out;
     }
 
@@ -272,7 +265,7 @@ cockpit_authorize_crypt1 (const char *challenge,
   secret = crypt_r (password, salt, cd + 0);
   if (secret == NULL)
     {
-      ret = -errno;
+      errn = errno;
       message ("couldn't hash password via crypt: %m");
       goto out;
     }
@@ -280,24 +273,116 @@ cockpit_authorize_crypt1 (const char *challenge,
   resp = crypt_r (secret, nonce, cd + 1);
   if (resp == NULL)
     {
-      ret = -errno;
+      errn = errno;
       message ("couldn't hash secret via crypt: %m");
       goto out;
     }
 
-  if (asprintf (response, "crypt1:%s", resp) < 0)
+  if (asprintf (&response, "crypt1:%s", resp) < 0)
     {
-      ret = -ENOMEM;
+      errn = ENOMEM;
       message ("couldn't allocate response");
       goto out;
     }
-
-  ret = 0;
 
 out:
   free (nonce);
   free (salt);
   secfree (cd, sizeof (struct crypt_data) * 2);
 
-  return ret;
+  if (!response)
+    errno = errn;
+
+  return response;
+}
+
+char *
+cockpit_authorize_basic (const char *input,
+                         const char **user)
+{
+  unsigned char *buf = NULL;
+  size_t len;
+  ssize_t res;
+  int errn = 0;
+  size_t off;
+
+  len = strcspn (input, " ");
+  buf = malloc (len + 1);
+  if (!buf)
+    {
+      message ("couldn't allocate memory for Basic header");
+      errn = ENOMEM;
+      goto out;
+    }
+
+  /* Decode and find split point */
+  res = cockpit_base64_pton (input, len, buf, len);
+  if (res < 0)
+    {
+      message ("invalid base64 data in Basic header");
+      errn = EINVAL;
+      goto out;
+    }
+  assert (res <= len);
+  buf[res] = 0;
+  off = strcspn ((char *)buf, ":");
+  if (off == 0 || off == res)
+    {
+      message ("invalid base64 data in Basic header");
+      errn = EINVAL;
+      goto out;
+    }
+
+  if (user)
+    {
+      *user = strndup ((char *)buf, off);
+      if (!*user)
+        {
+          message ("couldn't allocate memory for user name");
+          errn = ENOMEM;
+          goto out;
+        }
+    }
+
+  memmove (buf, buf + off + 1, res - (off + 1));
+
+out:
+  if (errn != 0)
+    {
+      errno = errn;
+      free (buf);
+      buf = NULL;
+    }
+  return (char *)buf;
+}
+
+void *
+cockpit_authorize_negotiate (const char *input,
+                             size_t *length)
+{
+  unsigned char *buf = NULL;
+  size_t len;
+  ssize_t res;
+
+  len = strcspn (input, " ");
+  buf = malloc (len + 1);
+  if (!buf)
+    {
+      message ("couldn't allocate memory for Negotiate header");
+      errno = ENOMEM;
+      return NULL;
+    }
+
+  /* Decode and find split point */
+  res = cockpit_base64_pton (input, len, buf, len);
+  if (res < 0)
+    {
+      message ("invalid base64 data in Negotiate header");
+      free (buf);
+      errno = EINVAL;
+      return NULL;
+    }
+
+  *length = res;
+  return buf;
 }
