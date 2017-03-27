@@ -232,6 +232,7 @@ test_server_LDADD = 					\
 	$(NULL)
 
 WS_CHECKS = \
+	test-base64 \
 	test-creds \
 	test-auth \
 	test-authoptions \
@@ -261,6 +262,14 @@ test_authoptions_SOURCES = src/ws/test-authoptions.c
 test_authoptions_LDADD = \
 	libcockpit-ws.a \
 	$(cockpit_ws_LDADD)
+
+test_base64_CFLAGS = $(cockpit_ws_CFLAGS)
+test_base64_SOURCES = \
+	src/ws/test-base64.c \
+	src/ws/cockpitbase64.h \
+	src/ws/cockpitbase64.c \
+	$(NULL)
+test_base64_LDADD = libretest.a
 
 test_channelresponse_CFLAGS = $(cockpit_ws_CFLAGS)
 test_channelresponse_SOURCES = src/ws/test-channelresponse.c \
