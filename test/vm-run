@@ -50,11 +50,6 @@ try:
             sys.stderr.write("vm-run: linking kubeconfig into ~/.kube/config\n")
             os.symlink(src, kubeconfig)
 
-    # Check that things are configured
-    with open(os.devnull, 'w') as fp:
-        if subprocess.call(["ip", "address", "show", "dev", "cockpit1"], stdout=fp, stderr=fp) != 0:
-            raise Exception("vm-run: please run: sudo {0}/vm-prep".format(BASE))
-
     # Check that image is downloaded
     if not os.path.exists(machine.image_base):
         ret = subprocess.call(["./vm-download", args.image])

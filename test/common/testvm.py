@@ -867,8 +867,8 @@ TEST_DOMAIN_XML="""
       <serial>ROOT</serial>
     </disk>
     <controller type='scsi' model='virtio-scsi' index='0' id='hot'/>
-    <interface type='bridge'>
-      <source bridge='cockpit1'/>
+    <interface type='mcast'>
+      <source address='230.0.0.1' port='5558'/>
       <model type='virtio'/>
       %(mac)s
     </interface>

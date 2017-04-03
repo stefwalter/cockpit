@@ -23,6 +23,7 @@ BASE=$(dirname $0)
 SELF=vm-prep
 
 set -euf
+set -x
 
 usage()
 {
@@ -42,7 +43,7 @@ silent()
 
 prepare()
 {
-	systemctl start libvirtd
+	virsh list 2> /dev/null > /dev/null || /usr/sbin/libvirtd -d
 
 	if silent $VIRSH net-info $NETWORK_NAME; then
 		$VIRSH net-destroy $NETWORK_NAME || true
@@ -83,11 +84,11 @@ EOF
   done
 
     # We really want nested virtualization
-    if [ -d /sys/module/kvm_intel -a ! -f /etc/modprobe.d/kvm-intel.conf ]; then
+    if [ -d /sys/module/kvm_intel -a -d /etc/modprobe.d -a ! -f /etc/modprobe.d/kvm-intel.conf ]; then
         echo "options kvm-intel nested=1" > /etc/modprobe.d/kvm-intel.conf
         rmmod kvm-intel && modprobe kvm-intel || true
     fi
-    if [ -d /sys/module/kvm_amd -a ! -f /etc/modprobe.d/kvm-amd.conf ]; then
+    if [ -d /sys/module/kvm_amd -a -d /etc/modprobe.d -a ! -f /etc/modprobe.d/kvm-amd.conf ]; then
         echo "options kvm-amd nested=1" > /etc/modprobe.d/kvm-amd.conf
         rmmod kvm-amd && modprobe kvm-amd || true
     fi
