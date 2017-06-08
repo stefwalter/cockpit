@@ -284,7 +284,7 @@ class GitHub(object):
         opened = True
         label = ",".join(labels)
         while count == 100 and opened:
-            req = "issues?labels={0}&state=all&page={2}&per_page={3}".format(label, page, count)
+            req = "issues?labels={0}&state=all&page={1}&per_page={2}".format(label, page, count)
             issues = self.get(req)
             count = 0
             page += 1
@@ -297,10 +297,10 @@ class GitHub(object):
                     continue
                 if after:
                     closed = issue.get("closed_at", None)
-                    if closed and after > time.strptime(closed):
+                    if closed and after > time.strptime(closed, "%Y-%m-%dT%H:%M:%SZ"):
                         continue
                     created = issue.get("created_at", None)
-                    if created and after > time.strptime(created):
+                    if created and after > time.strptime(created, "%Y-%m-%dT%H:%M:%SZ"):
                         continue
                 result.append(issue)
         return result
