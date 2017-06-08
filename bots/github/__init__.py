@@ -277,7 +277,7 @@ class GitHub(object):
                 count = len(pulls)
         return result
 
-    def issues(self, labels=[ "bot" ], state="open"):
+    def issues(self, labels=[ "bot" ], state="open", after=None):
         result = [ ]
         page = 1
         count = 100
@@ -293,8 +293,16 @@ class GitHub(object):
                 if issue["state"] == "open":
                     opened = True
                 count += 1
-                if state == "all" or issue["state"] == state:
-                    result.append(issue)
+                if state != "all" and issue["state"] != state:
+                    continue
+                if after:
+                    closed = issue.get("closed_at", None)
+                    if closed and after > time.strptime(closed):
+                        continue
+                    created = issue.get("created_at", None)
+                    if created and after > time.strptime(created):
+                        continue
+                result.append(issue)
         return result
 
 class Checklist(object):

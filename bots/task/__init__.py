@@ -272,8 +272,8 @@ def stale(days, pathspec):
 
     return timestamp < due
 
-def issue(title, body, name, context=None, state="open"):
-    for issue in api.issues(state=state):
+def issue(title, body, name, context=None, state="open", after=None):
+    for issue in api.issues(state=state, after=after):
         if issue["title"].endswith(title):
             return issue
 
