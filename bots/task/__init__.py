@@ -350,6 +350,10 @@ def pull(branch, issue=None, **kwargs):
             data["issue"] = issue["number"]
         except TypeError:
             data["issue"] = int(issue)
+
+        # For finish() and other methods
+        issue["title"] = kwargs["title"]
     else:
         data["title"] = kwargs["title"]
+
     return api.post("pulls", data)
