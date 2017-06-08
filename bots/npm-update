@@ -26,6 +26,7 @@
 import collections
 import json
 import os
+import random
 import sys
 import subprocess
 
@@ -63,25 +64,29 @@ def run(package, verbose=False, **kwargs):
 
     data = package_json()
 
+    if package:
         packages = [ package ]
     else:
-        packages = data["dependencies"].keys()
+        packages = random.shuffle(data["dependencies"].keys())
 
-    # Add a tilde to all package.json dependencies
-    data["dependencies"] = map_dict(data["dependencies"], lambda v: "~" + v)
+    for package in packages:
 
-    # Run npm upgrade for our package
-    execute("npm", "upgrade", "--save", package)
+        # Add a tilde to all package.json dependencies
+        data["dependencies"] = map_dict(data["dependencies"], lambda v: "~" + v)
 
-    # Now remove all tildes or other version prefixes to lock dependency
-    map_dependencies(package_path, lambda v: v.strip(" ^~=<>"))
+        # Run npm upgrade for our package
+        execute("npm", "upgrade", "--save", package)
 
-    # Create a pull request from these changes
-    branch = task.branch(package, "package.json: Update {0} dependency".format(package),
-            pathspec="package.json", **kwargs)
+        # Now remove all tildes or other version prefixes to lock dependency
+        map_dependencies(package_path, lambda v: v.strip(" ^~=<>"))
 
-    if branch:
-        task.pull(branch, **kwargs)
+        # Create a pull request from these changes
+        title = "package.json: Update {0} package dependency".format(package)
+        branch = task.branch(package, title, pathspec="package.json", **kwargs)
+
+        if branch:
+            task.pull(branch, title=title, **kwargs)
+            break
 
 if __name__ == '__main__':
     task.main(function=run, title="Upgrade a node dependency")
