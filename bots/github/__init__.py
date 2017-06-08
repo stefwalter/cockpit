@@ -284,7 +284,7 @@ class GitHub(object):
         opened = True
         label = ",".join(labels)
         while count == 100 and opened:
-            req = "issues?labels={0}&state={1}&page={2}&per_page={3}".format(label, state, page, count)
+            req = "issues?labels={0}&state=all&page={2}&per_page={3}".format(label, page, count)
             issues = self.get(req)
             count = 0
             page += 1
@@ -293,7 +293,8 @@ class GitHub(object):
                 if issue["state"] == "open":
                     opened = True
                 count += 1
-                result.append(issue)
+                if state == "all" or issue["state"] == state:
+                    result.append(issue)
         return result
 
 class Checklist(object):
