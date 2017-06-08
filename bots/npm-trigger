@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# This file is part of Cockpit.
+#
+# Copyright (C) 2017 Red Hat, Inc.
+#
+# Cockpit is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# Cockpit is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
+
+DAYS = 7
+
+import argparse
+import sys
+import time
+
+sys.dont_write_bytecode = True
+
+import github
+import task
+
+def main():
+    parser = argparse.ArgumentParser(description='Ensure necessary issue exists for npm upgrades')
+    parser.add_argument('-v', '--verbose', action="store_true", default=False,
+                        help="Print verbose information")
+    parser.add_argument("package", nargs="?")
+    opts = parser.parse_args()
+    api = github.GitHub()
+
+    if package:
+        text = "Update package dependency {0}".format(package)
+    else:
+        text = "Check for NPM dependency updates"
+    issue = task.issue(text, text, "npm-update", package or None, state="all")
+
+    # If a very old closed issue, then ensure we open a new one
+    if issue["state"] == "closed":
+        age = time.time() - time.mktime(time.strptime(issue['created_at'], "%Y-%m-%dT%H:%M:%SZ"))
+        if DAYS > (age / (24 * 60 * 60)):
+            issue = task.issue(text, text, "npm-update", package or None)
+        else:
+            issue = None
+
+    if issue:
+        sys.stderr.write("#{0}: npm-update {1}\n".format(issue["number"], package or ""))
+
+    return 0
+if __name__ == '__main__':
+    sys.exit(main())
