@@ -280,6 +280,11 @@ class PullTask(object):
         def mark_respawn():
             if "github" in sink.status:
                 self.github_status_data["state"] = "pending"
+        sink.status["github"]["requests"].append({
+            "method": "POST",
+            "resource": "https://api.datahub.com/web_hook/point",
+            "data": { "name": "cockpit-test-logs", "target": ":link" }
+        })
         if isinstance(ret, basestring):
             message = ret
             mark_failed()
