@@ -14,7 +14,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"PO-Revision-Date: 2017-10-31 02:06-0400\n"
+"PO-Revision-Date: 2017-11-11 12:10-0500\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: pl\n"
@@ -1111,7 +1111,7 @@ msgstr "Zaczyna się od „-----BEGIN PGP PUBLIC KEY BLOCK-----”"
 
 #: pkg/storaged/block-details.jsx:34
 msgid "Block"
-msgstr ""
+msgstr "Zablokuj"
 
 #: pkg/storaged/content-views.jsx:606
 msgid "Block device for filesystems"
@@ -3726,7 +3726,7 @@ msgstr "Lokalny system plików"
 
 #: pkg/storaged/overview.js:505
 msgid "Local Mount Point"
-msgstr ""
+msgstr "Lokalny punkt montowania"
 
 #: pkg/kdump/kdump-view.jsx:174
 msgid "Location"
@@ -4092,11 +4092,11 @@ msgstr "Punkt montowania nie może być pusty"
 
 #: pkg/storaged/overview.js:509
 msgid "Mount point cannot be empty."
-msgstr ""
+msgstr "Punkt montowania nie może być pusty."
 
 #: pkg/storaged/overview.js:511
 msgid "Mount point must start with \"/\"."
-msgstr ""
+msgstr "Punkt montowania musi zaczynać się od „/”."
 
 #: pkg/storaged/format-dialog.jsx:99
 msgid "Mount read only"
@@ -4124,7 +4124,7 @@ msgstr "Punkt montowania NFS"
 
 #: pkg/storaged/index.html:283
 msgid "NFS Mounts"
-msgstr ""
+msgstr "Punkty montowania NFS"
 
 #: pkg/networkmanager/interfaces.js:1938
 msgid "NSNA Ping"
@@ -4262,7 +4262,7 @@ msgstr "Nowa grupa"
 
 #: pkg/storaged/overview.js:480
 msgid "New NFS Mount"
-msgstr ""
+msgstr "Nowy punkt montowania NFS"
 
 #: pkg/shell/index.html:322 pkg/users/index.html:249
 msgid "New Password"
@@ -4323,7 +4323,7 @@ msgstr "Brak woluminów logicznych"
 
 #: pkg/storaged/index.html:354
 msgid "No NFS mounts set up"
-msgstr ""
+msgstr "Nie ustawiono żadnych punktów montowania NFS"
 
 #: pkg/ostree/app.js:107
 msgid "No OSTree deployments found"
@@ -4785,7 +4785,7 @@ msgstr "Opcje"
 
 #: pkg/storaged/overview.js:520
 msgid "Options cannot be empty."
-msgstr ""
+msgstr "Opcje nie mogą być puste."
 
 #: pkg/subscriptions/subscriptions-register.jsx:176
 msgid "Organization"
@@ -4941,15 +4941,15 @@ msgstr "Koszt ścieżki $path_cost"
 
 #: pkg/storaged/overview.js:493
 msgid "Path on Server"
-msgstr ""
+msgstr "Ścieżka na serwerze"
 
 #: pkg/storaged/overview.js:498
 msgid "Path on server cannot be empty."
-msgstr ""
+msgstr "Ścieżka na serwerze nie może być pusta."
 
 #: pkg/storaged/overview.js:500
 msgid "Path on server must start with \"/\"."
-msgstr ""
+msgstr "Ścieżka na serwerze musi zaczynać się od „/”."
 
 #: pkg/lib/cockpit-components-file-autocomplete.jsx:265
 msgid "Path to file"
@@ -6011,7 +6011,7 @@ msgstr "Działające"
 
 #: pkg/ovirt/components/VmOverviewColumn.jsx:74
 msgid "Running Since:"
-msgstr ""
+msgstr "Działa od:"
 
 #: pkg/selinux/setroubleshoot-view.jsx:345
 msgid "SELinux Access Control Errors"
@@ -6194,7 +6194,7 @@ msgstr "Adres serwera nie może być pusty."
 
 #: pkg/storaged/overview.js:488
 msgid "Server cannot be empty."
-msgstr ""
+msgstr "Serwer nie może być pusty."
 
 #: src/base1/cockpit.js:3958
 msgid "Server has closed the connection."
@@ -6595,11 +6595,11 @@ msgstr "Zatrzymaj kontrolę"
 
 #: pkg/storaged/overview.js:574
 msgid "Stop and remove"
-msgstr ""
+msgstr "Zatrzymaj i usuń"
 
 #: pkg/storaged/overview.js:431
 msgid "Stop and unmount"
-msgstr ""
+msgstr "Zatrzymaj i odmontuj"
 
 #: node_modules/registry-image-widgets/views/image-config.html:14
 msgid "Stop with"
@@ -6977,6 +6977,8 @@ msgid ""
 "The filesystem is in use by system services or login sessions.               "
 " Proceeding will stop these services and sessions."
 msgstr ""
+"System plików jest używany przez usługi systemu lub sesje logowania.         "
+"       Kontynuacja zatrzyma te usługi i sesje."
 
 #: pkg/packagekit/updates.jsx:347
 msgid "The following packages were recently updated:"
@@ -7203,6 +7205,7 @@ msgstr "Cienki wolumin logiczny"
 #: pkg/storaged/overview.js:481
 msgid "This NFS mount is in use and only its options can be changed."
 msgstr ""
+"Ten punkt montowania NFS jest używany. Można zmieniać tylko jego opcje."
 
 #: pkg/kubernetes/views/pvc-delete.html:8
 msgid ""
@@ -7576,7 +7579,7 @@ msgstr "Nie można odczytać manifestu aplikacji Kubernetes. Kod $0."
 
 #: pkg/storaged/overview.js:572
 msgid "Unable to remove mount"
-msgstr ""
+msgstr "Nie można usunąć punktu montowania"
 
 #: pkg/users/local.js:59
 msgid "Unable to rename root account"
@@ -7596,7 +7599,7 @@ msgstr "Nie można uruchomić usługi setroubleshootd"
 
 #: pkg/storaged/overview.js:429
 msgid "Unable to unmount filesystem"
-msgstr ""
+msgstr "Nie można odmontować systemu plików"
 
 #: pkg/playground/translate.html:34 pkg/playground/translate.html:39
 #: pkg/kubernetes/scripts/charts.js:112

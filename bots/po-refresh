@@ -29,6 +29,12 @@ import task
 BOTS = os.path.abspath(os.path.dirname(__file__))
 BASE = os.path.normpath(os.path.join(BOTS, ".."))
 
+DEFAULT_LOCALES = {
+    "af": "af-za",
+    "am": "am-et",
+    "sq": "sq-al",
+}
+
 def run(context, verbose=False, **kwargs):
     cwd = BASE
 

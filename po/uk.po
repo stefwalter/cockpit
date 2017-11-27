@@ -10,7 +10,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"PO-Revision-Date: 2017-10-31 01:10-0400\n"
+"PO-Revision-Date: 2017-11-12 03:59-0500\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <kde-i18n-uk@kde.org>\n"
 "Language: uk\n"
@@ -1108,7 +1108,7 @@ msgstr "Починається з '-----BEGIN PGP PUBLIC KEY BLOCK-----'"
 
 #: pkg/storaged/block-details.jsx:34
 msgid "Block"
-msgstr ""
+msgstr "Блок"
 
 #: pkg/storaged/content-views.jsx:606
 msgid "Block device for filesystems"
@@ -3740,7 +3740,7 @@ msgstr "Локальна файлова система"
 
 #: pkg/storaged/overview.js:505
 msgid "Local Mount Point"
-msgstr ""
+msgstr "Локальна точка монтування"
 
 #: pkg/kdump/kdump-view.jsx:174
 msgid "Location"
@@ -4107,11 +4107,11 @@ msgstr "Точка монтування не може бути порожньо�
 
 #: pkg/storaged/overview.js:509
 msgid "Mount point cannot be empty."
-msgstr ""
+msgstr "Точка монтування не може бути порожньою."
 
 #: pkg/storaged/overview.js:511
 msgid "Mount point must start with \"/\"."
-msgstr ""
+msgstr "Запис точки монтування має починатися з «/»."
 
 #: pkg/storaged/format-dialog.jsx:99
 msgid "Mount read only"
@@ -4139,7 +4139,7 @@ msgstr "Змонтована NFS"
 
 #: pkg/storaged/index.html:283
 msgid "NFS Mounts"
-msgstr ""
+msgstr "Монтування NFS"
 
 #: pkg/networkmanager/interfaces.js:1938
 msgid "NSNA Ping"
@@ -4277,7 +4277,7 @@ msgstr "Нова група"
 
 #: pkg/storaged/overview.js:480
 msgid "New NFS Mount"
-msgstr ""
+msgstr "Нове монтування NFS"
 
 #: pkg/shell/index.html:322 pkg/users/index.html:249
 msgid "New Password"
@@ -4338,7 +4338,7 @@ msgstr "Немає логічних томів"
 
 #: pkg/storaged/index.html:354
 msgid "No NFS mounts set up"
-msgstr ""
+msgstr "Монтувань NFS не налаштовано"
 
 #: pkg/ostree/app.js:107
 msgid "No OSTree deployments found"
@@ -4797,7 +4797,7 @@ msgstr "Параметри"
 
 #: pkg/storaged/overview.js:520
 msgid "Options cannot be empty."
-msgstr ""
+msgstr "Параметри не можуть бути порожніми."
 
 #: pkg/subscriptions/subscriptions-register.jsx:176
 msgid "Organization"
@@ -4953,15 +4953,15 @@ msgstr "Вартість шляху $path_cost"
 
 #: pkg/storaged/overview.js:493
 msgid "Path on Server"
-msgstr ""
+msgstr "Шлях на сервері"
 
 #: pkg/storaged/overview.js:498
 msgid "Path on server cannot be empty."
-msgstr ""
+msgstr "Шлях на сервері не може бути порожнім."
 
 #: pkg/storaged/overview.js:500
 msgid "Path on server must start with \"/\"."
-msgstr ""
+msgstr "Шлях на сервері має починатися з «/»."
 
 #: pkg/lib/cockpit-components-file-autocomplete.jsx:265
 msgid "Path to file"
@@ -6027,7 +6027,7 @@ msgstr "Працює"
 
 #: pkg/ovirt/components/VmOverviewColumn.jsx:74
 msgid "Running Since:"
-msgstr ""
+msgstr "Працює з:"
 
 #: pkg/selinux/setroubleshoot-view.jsx:345
 msgid "SELinux Access Control Errors"
@@ -6210,7 +6210,7 @@ msgstr "Адреса сервера не може бути порожньою."
 
 #: pkg/storaged/overview.js:488
 msgid "Server cannot be empty."
-msgstr ""
+msgstr "Запис сервера не може бути порожнім."
 
 #: src/base1/cockpit.js:3958
 msgid "Server has closed the connection."
@@ -6611,11 +6611,11 @@ msgstr "Зупинити витирання"
 
 #: pkg/storaged/overview.js:574
 msgid "Stop and remove"
-msgstr ""
+msgstr "Зупинити і вилучити"
 
 #: pkg/storaged/overview.js:431
 msgid "Stop and unmount"
-msgstr ""
+msgstr "Зупинити і демонтувати"
 
 #: node_modules/registry-image-widgets/views/image-config.html:14
 msgid "Stop with"
@@ -6994,6 +6994,8 @@ msgid ""
 "The filesystem is in use by system services or login sessions.               "
 " Proceeding will stop these services and sessions."
 msgstr ""
+"Файлова система використовується службами системи або сеансами користувачів. "
+"Виконання цієї дії призведе до припинення роботи цих служб та сеансів."
 
 #: pkg/packagekit/updates.jsx:347
 msgid "The following packages were recently updated:"
@@ -7219,6 +7221,7 @@ msgstr "Тонкий логічний том"
 #: pkg/storaged/overview.js:481
 msgid "This NFS mount is in use and only its options can be changed."
 msgstr ""
+"Це монтування NFS використовується; можна лише змінювати його параметри."
 
 #: pkg/kubernetes/views/pvc-delete.html:8
 msgid ""
@@ -7594,7 +7597,7 @@ msgstr "Не вдалося прочитати маніфест програми
 
 #: pkg/storaged/overview.js:572
 msgid "Unable to remove mount"
-msgstr ""
+msgstr "Не вдалося вилучити монтування"
 
 #: pkg/users/local.js:59
 msgid "Unable to rename root account"
@@ -7614,7 +7617,7 @@ msgstr "Не вдалося запустити setroubleshootd"
 
 #: pkg/storaged/overview.js:429
 msgid "Unable to unmount filesystem"
-msgstr ""
+msgstr "Не вдалося демонтувати файлову систему"
 
 #: pkg/playground/translate.html:34 pkg/playground/translate.html:39
 #: pkg/kubernetes/scripts/charts.js:112
