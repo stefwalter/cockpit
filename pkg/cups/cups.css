@@ -1,0 +1,39 @@
+body {
+    margin: 20px;
+}
+
+div.header {
+    display: none;
+}
+
+div.footer {
+    display: none;
+}
+
+.row {
+  width: 100%;
+  *zoom: 1;
+  margin-left: 0;
+  margin-right: 0;
+}
+.row:after {
+  clear: both;
+}
+.row .thirds:first-child {
+  margin-left: 0;
+}
+
+.row .halves {
+  float: left;
+  margin-left: 0.5%;
+  margin-right: 0;
+  width: 49.75%;
+}
+.row .halves:first-child {
+  margin-left: 0;
+}
+
+FORM {
+  display: inline;
+}
+

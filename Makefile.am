@@ -150,6 +150,7 @@ SUBST_RULE = \
 
 WEBPACK_PACKAGES = \
 	apps \
+	cups \
 	dashboard \
 	docker \
 	kdump \

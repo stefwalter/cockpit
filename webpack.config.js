@@ -8,6 +8,11 @@ var info = {
             "apps/index.jsx"
         ],
 
+        "cups/cups": [
+            "cups/cups.es6",
+            "cups/cups.css"
+        ],
+
         "dashboard/dashboard": [
             "dashboard/list.js",
         ],
@@ -193,6 +198,8 @@ var info = {
     files: [
         "apps/index.html",
         "apps/default.png",
+
+        "cups/index.html",
 
         "dashboard/index.html",
 

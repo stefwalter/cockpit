@@ -1,0 +1,15 @@
+{
+  "version": "@VERSION@",
+  "name": "printers",
+  "requires": {
+       "cockpit": "122"
+  },
+  "menu": {
+     "tools": {
+        "label": "Printers",
+        "path": "index.html",
+        "order": 60
+     }
+  },
+  "content-security-policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
+}

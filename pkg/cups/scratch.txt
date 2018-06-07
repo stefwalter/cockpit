@@ -1,0 +1,2 @@
+[stef@falcon machines]$ sudo curl -v -X POST -H "Authorization: PeerCred root" -H "Cookie: org.cups.sid=21f376f26d2833f9c17a4cd44b6905f4" -d "org.cups.sid=21f376f26d2833f9c17a4cd44b6905f4&OP=config-server&SHARE_PRINTERS=on&CHANGESETTINGS=Change+Settings" --unix-socket /var/run/cups/cups.sock http://localhost:631/admin
+
