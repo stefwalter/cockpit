@@ -113,13 +113,18 @@ def tasks_for_issues():
                 results.append((item, issue))
     return results
 
-def output_task(command, issue, verbose):
+def output_task(command, issue, seen, verbose):
     name, unused, context = command.partition(" ")
     if name not in NAMES:
         return None
     number = issue.get("number", None)
     if number is None:
         return None
+
+    # Only output one task per issue
+    if number in seen:
+        return None
+    seen.add(number)
 
     context = context.strip()
     checkout = "PRIORITY={priority:04d} "
@@ -150,10 +155,11 @@ def scan(verbose):
     global issues
 
     results = [ ]
+    seen = set()
 
     # Now go through each fixture
     for (command, issue) in tasks_for_issues():
-        result = output_task(command, issue, verbose)
+        result = output_task(command, issue, seen, verbose)
         if result is not None:
             results.append(result)
 
