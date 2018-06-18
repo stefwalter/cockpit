@@ -92,14 +92,15 @@ class Cluster():
     def analyze(self, features):
         num_merged = 0
 
+        total = 0
         for point in self.points:
-            merged = features[point][extractor.FEATURE_MERGED]
-            if merged == 1:
-                num_merged += 1
-
-        total = len(self.points)
+            total += features[point][extractor.FEATURE_ITEMS]
+            for merged in features[point][extractor.FEATURE_MERGED]:
+                if merged:
+                    num_merged += 1
 
         # Calculate the merged probabilities
+        merged = 0
         if total:
             merged = (float(num_merged) / float(total))
             if merged > 1:
@@ -152,7 +153,7 @@ class Cluster():
                 fp.write("{0}: {1}\n".format(row[0], repr(row[1])))
             fp.write("\n\n")
             for point in self.points:
-                url = features[point][extractor.FEATURE_URL]
+                url = features[point][extractor.FEATURE_URLS]
                 if url:
                     fp.write("{0}\n".format(url))
                 fp.write(features[point][extractor.FEATURE_LOG])

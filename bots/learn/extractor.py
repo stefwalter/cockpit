@@ -30,7 +30,9 @@ VERSION = 3
 # NCD distance we use cannot do that.
 
 import calendar
+import json
 import re
+import sys
 import time
 
 import sklearn.feature_extraction.text
@@ -70,13 +72,13 @@ NUMBERS = (
 
 # Various features extracted
 FEATURE_LOG = 0                # string: The normalized and collapsed log extracted
-FEATURE_INDEX = 1              # number: Unique index of the item
-FEATURE_URL = 2                # string: The full URL to the test result
+FEATURE_ITEMS = 1              # [ number, number ]: Unique indexes of the items
+FEATURE_WHEN = 2               # [ start, end ]: The time frame since epoch at which test was run
 FEATURE_NAME = 3               # string: The name of the test run
 FEATURE_CONTEXT = 4            # string: The context in which the test is run
 FEATURE_TRACKER = 5            # string: A tracker issue for this
-FEATURE_MERGED = 6             # number: 1 if merged, 0 if not, -1 if unknown
-FEATURE_TIMESTAMP = 7          # number: The time since epoch at which test was run
+
+TOTAL = { }
 
 # Return already tokenized data
 def noop(value):
@@ -126,31 +128,49 @@ class Extractor():
 
     def transform(self, items, tokenized=None):
         tokenized = list(tokenized or map(Extractor.tokenize, items))
-        results = [ ]
+        seen = { }
         for index, item in enumerate(items):
             if not select(item):
                 continue
             lines = tokenized[index]
             filtered = filter(lambda line: line not in self.extract.stop_words_, lines)
+            log = "\n".join(filtered)
+
             try:
                 timestamp = calendar.timegm(time.strptime(item.get("date", ""), "%Y-%m-%dT%H:%M:%SZ"))
             except ValueError:
                 timestamp = -1
+
+            context = item.get("context", "")
+            tracker = item.get("tracker", "")
+            name = item.get("name", "")
+
+            # For identifying duplicates
+            key = "{}\n{}\n{}\n{}".format(context, tracker, name, log)
+            if not key in seen:
+                seen[key] = [
+                    log,                  # FEATURE_LOG
+                    [ ],                  # FEATURE_ITEMS
+                    [ ],                  # FEATURE_WHEN
+                    [ ],                  # FEATURE_MERGED
+                    name,                 # FEATURE_NAME
+                    context,              # FEATURE_CONTEXT
+                    tracker,              # FEATURE_TRACKER
+                ]
+            seen[key][FEATURE_ITEMS].append(index)
+            seen[key][FEATURE_WHEN].append(timestamp)
+
             merged = item.get("merged")
-            if merged is None:
-                merged = -1
-            else:
-                merged = merged and 1 or 0
-            results.append((
-                "\n".join(filtered),      # FEATURE_LOG
-                index,                    # FEATURE_INDEX
-                item.get("url", ""),      # FEATURE_URL
-                item.get("test", ""),     # FEATURE_NAME
-                item.get("context", ""),  # FEATURE_CONTEXT
-                item.get("tracker", ""),  # FEATURE_TRACKER
-                merged,                   # FEATURE_MERGED
-                timestamp                 # FEATURE_TIMESTAMP
-            ))
+            if merged is not None:
+                seen[key][FEATURE_MERGED].append(merged and 1 or 0)
+
+        sys.stderr.write("TOTAL: {}\n".format(len(seen)))
+
+        results = [ ]
+        for key, features in seen.items():
+            features[FEATURE_ITEMS] = tuple(features[FEATURE_ITEMS])
+            features[FEATURE_WHEN] = tuple(features[FEATURE_WHEN])
+            results.append(tuple(features))
         return results
 
     def fit_transform(self, items):
