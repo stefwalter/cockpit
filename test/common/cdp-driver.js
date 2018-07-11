@@ -61,6 +61,7 @@ function success(result) {
 var messages = [];
 var logPromiseResolver;
 var nReportedLogMessages = 0;
+var unhandledExceptions = [];
 
 function setupLogging(client) {
     client.Runtime.enable();
@@ -71,6 +72,8 @@ function setupLogging(client) {
         process.stderr.write("> " + info.type + ": " + msg + "\n")
         resolveLogPromise();
     });
+
+    client.Runtime.exceptionThrown(info => unhandledExceptions.push(info.exceptionDetails));
 
     client.Log.enable();
     client.Log.entryAdded(entry => {
@@ -288,7 +291,14 @@ CDP.New(options)
                                 pageLoadPromise = new Promise((resolve, reject) => { pageLoadResolve = resolve; pageLoadReject = reject; });
 
                             // run the command
-                            eval(command).then(success, fail);
+                            eval(command).then(reply => {
+                                    if (unhandledExceptions.length === 0) {
+                                        success(reply);
+                                    } else {
+                                        fail(unhandledExceptions[0].exception.description);
+                                        unhandledExceptions.length = 0;
+                                    }
+                                }, fail);
 
                             input_buf = input_buf.slice(i+1);
                         }
