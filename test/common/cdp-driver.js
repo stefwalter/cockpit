@@ -47,11 +47,15 @@ function fatal() {
 }
 
 function fail(err) {
+    if (typeof err === 'undefined')
+        err = null;
     process.stdout.write(JSON.stringify({"error": err}) + '\n');
 }
 
 function success(result) {
-    process.stdout.write(JSON.stringify({"result": result === undefined ? null : result}) + '\n');
+    if (typeof result === 'undefined')
+        result = null;
+    process.stdout.write(JSON.stringify({"result": result}) + '\n');
 }
 
 /**
@@ -73,7 +77,11 @@ function setupLogging(client) {
         resolveLogPromise();
     });
 
-    client.Runtime.exceptionThrown(info => unhandledExceptions.push(info.exceptionDetails));
+    client.Runtime.exceptionThrown(info => {
+        let details = info.exceptionDetails;
+        unhandledExceptions.push(details)
+        process.stderr.write(details.description || JSON.stringify(details) + "\n");
+    });
 
     client.Log.enable();
     client.Log.entryAdded(entry => {
@@ -292,13 +300,18 @@ CDP.New(options)
 
                             // run the command
                             eval(command).then(reply => {
-                                    if (unhandledExceptions.length === 0) {
-                                        success(reply);
-                                    } else {
-                                        fail(unhandledExceptions[0].exception.description);
-                                        unhandledExceptions.length = 0;
-                                    }
-                                }, fail);
+                                if (unhandledExceptions.length === 0) {
+                                    success(reply);
+                                } else {
+                                    let details = unhandledExceptions[0];
+                                    let message = details.exception.message ||
+                                                  details.exception.description ||
+                                                  details.exception.value ||
+                                                  JSON.stringify(details.exception);
+                                    fail(message.split("\n")[0]);
+                                    unhandledExceptions.length = 0;
+                                }
+                            }, fail);
 
                             input_buf = input_buf.slice(i+1);
                         }
