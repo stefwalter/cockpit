@@ -45,6 +45,7 @@ static gint      opt_port         = 9090;
 static gchar     *opt_address     = NULL;
 static gboolean  opt_no_tls       = FALSE;
 static gboolean  opt_local_ssh    = FALSE;
+static gboolean  opt_local_bridge = FALSE;
 static gboolean  opt_version      = FALSE;
 
 static GOptionEntry cmd_entries[] = {
@@ -52,6 +53,7 @@ static GOptionEntry cmd_entries[] = {
   {"address", 'a', 0, G_OPTION_ARG_STRING, &opt_address, "Address to bind to (binds on all addresses if unset)", NULL},
   {"no-tls", 0, 0, G_OPTION_ARG_NONE, &opt_no_tls, "Don't use TLS", NULL},
   {"local-ssh", 0, 0, G_OPTION_ARG_NONE, &opt_local_ssh, "Log in locally via SSH", NULL },
+  {"local-bridge", 0, 0, G_OPTION_ARG_NONE, &opt_local_bridge, "Serve from an bridge connected on stdin/stdout", NULL },
   {"version", 0, 0, G_OPTION_ARG_NONE, &opt_version, "Print version information", NULL },
   {NULL}
 };
@@ -162,6 +164,10 @@ main (int argc,
 
   data.os_release = cockpit_system_load_os_release ();
   data.auth = cockpit_auth_new (opt_local_ssh);
+
+  if (opt_local_bridge)
+    cockpit_auth_local_session (data.auth, getlogin (), 0, 1);
+
   roots = setup_static_roots (data.os_release);
 
   data.branding_roots = (const gchar **)roots;

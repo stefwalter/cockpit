@@ -48,6 +48,7 @@
 
 #define ACTION_SSH "remote-login-ssh"
 #define ACTION_NONE "none"
+#define LOCAL_SESSION "local-session"
 
 /* Some tunables that can be set from tests */
 const gchar *cockpit_ws_session_program =
@@ -1217,10 +1218,18 @@ session_for_headers (CockpitAuth *self,
             ret = g_hash_table_lookup (self->sessions, cookie);
           else
             g_debug ("invalid or unsupported cookie: %s", cookie);
+
+          /* We must never find the default session based on a cookie */
+          g_assert (!ret || !g_str_equal (ret->cookie, LOCAL_SESSION));
+          g_assert (!ret || !g_str_equal (ret->name, LOCAL_SESSION));
           g_free (cookie);
         }
       g_free (raw);
     }
+
+  /* Check for a default session for auto-login */
+  if (!ret)
+    ret = g_hash_table_lookup (self->sessions, LOCAL_SESSION);
 
   g_free (application);
   g_free (cookie_name);
@@ -1248,6 +1257,53 @@ cockpit_auth_check_cookie (CockpitAuth *self,
       g_debug ("received unknown/invalid credential cookie");
       return NULL;
     }
+}
+
+void
+cockpit_auth_local_session (CockpitAuth *self,
+                            const gchar *user,
+                            gint in_fd,
+                            gint out_fd)
+{
+  CockpitTransport *transport;
+  CockpitSession *session;
+  CockpitCreds *creds;
+  gchar *csrf_token;
+  CockpitPipe *pipe;
+
+  pipe = g_object_new (COCKPIT_TYPE_PIPE,
+                       "in-fd", in_fd,
+                       "out-fd", out_fd,
+                       "name", LOCAL_SESSION,
+                       NULL);
+
+  transport = cockpit_pipe_transport_new (pipe);
+
+  csrf_token = cockpit_auth_nonce (self);
+  creds = cockpit_creds_new ("cockpit",
+                             COCKPIT_CRED_USER, user,
+                             COCKPIT_CRED_RHOST, "localhost",
+                             COCKPIT_CRED_CSRF_TOKEN, csrf_token,
+                             NULL);
+
+  session = g_new0 (CockpitSession, 1);
+  session->refs = 1;
+  session->name = LOCAL_SESSION;
+  session->auth = self;
+
+  session->service = cockpit_web_service_new (creds, transport);
+
+  session->transport = g_object_ref (transport);
+  session->control_sig = g_signal_connect (transport, "control", G_CALLBACK (on_transport_control), session);
+  session->close_sig = g_signal_connect (transport, "closed", G_CALLBACK (on_transport_closed), session);
+
+  session->cookie = g_strdup (LOCAL_SESSION);
+  g_hash_table_insert (self->sessions, session->cookie, session);
+
+  g_object_unref (pipe);
+  g_free (csrf_token);
+  g_object_unref (transport);
+  cockpit_creds_unref (creds);
 }
 
 /*

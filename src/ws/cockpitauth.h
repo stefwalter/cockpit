@@ -96,6 +96,11 @@ gchar *         cockpit_auth_steal_authorization      (GHashTable *headers,
 
 gchar *         cockpit_auth_empty_cookie_value       (const gchar *path);
 
+void            cockpit_auth_local_session            (CockpitAuth *self,
+                                                       const gchar *user,
+                                                       gint in_fd,
+                                                       gint out_fd);
+
 G_END_DECLS
 
 #endif
