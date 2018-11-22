@@ -103,6 +103,8 @@ COCKPIT_BRIDGE_LIBS="$COCKPIT_LIBS $POLKIT_LIBS"
 AC_SUBST(COCKPIT_BRIDGE_CFLAGS)
 AC_SUBST(COCKPIT_BRIDGE_LIBS)
 
+AC_SUBST(COCKPIT_LOCAL_LIBS)
+
 COCKPIT_PCP_CFLAGS="$COCKPIT_CFLAGS"
 COCKPIT_PCP_LIBS="$COCKPIT_LIBS"
 AC_SUBST(COCKPIT_PCP_CFLAGS)
@@ -169,6 +171,15 @@ AC_ARG_WITH([pamdir],
              [], [with_pamdir='${libdir}/security'])
 pamdir=$with_pamdir
 AC_SUBST(pamdir)
+
+# keyutils
+AC_CHECK_HEADER([keyutils.h], ,
+  [AC_MSG_ERROR([Couldn't find keyutils headers. Try installing keyutils-libs-devel])]
+)
+AC_CHECK_LIB(keyutils, keyctl_join_session_keyring, [ true ],
+  [AC_MSG_ERROR([Couldn't find keyutils library. Try installing keyutils-libs-devel])]
+)
+COCKPIT_LOCAL_LIBS="$COCKPIT_LOCAL_LIBS -lkeyutils"
 
 # crypt
 AC_CHECK_HEADER([crypt.h], ,

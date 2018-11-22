@@ -45,11 +45,13 @@ static gint      opt_port         = 9090;
 static gchar     *opt_address     = NULL;
 static gboolean  opt_no_tls       = FALSE;
 static gboolean  opt_local_ssh    = FALSE;
+static gchar     *opt_local_session = NULL;
 static gboolean  opt_version      = FALSE;
 
 static GOptionEntry cmd_entries[] = {
   {"port", 'p', 0, G_OPTION_ARG_INT, &opt_port, "Local port to bind to (9090 if unset)", NULL},
   {"address", 'a', 0, G_OPTION_ARG_STRING, &opt_address, "Address to bind to (binds on all addresses if unset)", NULL},
+  {"authenticator", 0, 0, G_OPTION_ARG_STRING, &opt_authenticator, "The authenticator and session executable", NULL },
   {"no-tls", 0, 0, G_OPTION_ARG_NONE, &opt_no_tls, "Don't use TLS", NULL},
   {"local-ssh", 0, 0, G_OPTION_ARG_NONE, &opt_local_ssh, "Log in locally via SSH", NULL },
   {"version", 0, 0, G_OPTION_ARG_NONE, &opt_version, "Print version information", NULL },
@@ -144,6 +146,13 @@ main (int argc,
 
   cockpit_set_journal_logging (NULL, !isatty (2));
 
+  if (opt_local_ssh && opt_local_session)
+    {
+      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                   "The --local-ssh and --local-session arguments are incompatible.");
+      goto out;
+    }
+
   if (opt_no_tls)
     {
       /* no certificate */
@@ -161,7 +170,7 @@ main (int argc,
   loop = g_main_loop_new (NULL, FALSE);
 
   data.os_release = cockpit_system_load_os_release ();
-  data.auth = cockpit_auth_new (opt_local_ssh);
+  data.auth = cockpit_auth_new (opt_local_ssh, opt_local_session);
   roots = setup_static_roots (data.os_release);
 
   data.branding_roots = (const gchar **)roots;

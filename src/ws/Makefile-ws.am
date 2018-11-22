@@ -112,7 +112,20 @@ EXTRA_DIST += \
 
 sbin_PROGRAMS += remotectl
 
-libexec_PROGRAMS += cockpit-ws cockpit-session
+libexec_PROGRAMS += cockpit-ws cockpit-local cockpit-session
+
+cockpit_local_SOURCES = \
+	src/common/cockpitauthorize.c \
+	src/common/cockpitauthorize.h \
+	src/common/cockpitbase64.c \
+	src/common/cockpitbase64.h \
+	src/common/cockpitframe.c \
+	src/common/cockpitframe.h \
+	src/common/cockpitmemory.c \
+	src/common/cockpitmemory.h \
+	src/ws/local.c \
+	$(NULL)
+cockpit_local_LDADD = $(COCKPIT_LOCAL_LIBS)
 
 cockpit_session_SOURCES = \
 	src/common/cockpitauthorize.c \

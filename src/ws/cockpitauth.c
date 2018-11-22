@@ -1478,7 +1478,8 @@ out:
 }
 
 CockpitAuth *
-cockpit_auth_new (gboolean login_loopback)
+cockpit_auth_new (gboolean login_loopback,
+                  const gchar *local_token_file)
 {
   CockpitAuth *self = g_object_new (COCKPIT_TYPE_AUTH, NULL);
   const gchar *max_startups_conf;

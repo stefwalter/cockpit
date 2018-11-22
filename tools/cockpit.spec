@@ -109,6 +109,7 @@ BuildRequires: zlib-devel
 BuildRequires: krb5-devel
 BuildRequires: libxslt-devel
 BuildRequires: docbook-style-xsl
+BuildRequires: keyutils-libs-devel
 BuildRequires: glib-networking
 BuildRequires: sed
 BuildRequires: git
