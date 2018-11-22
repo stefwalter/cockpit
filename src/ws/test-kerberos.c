@@ -64,7 +64,7 @@ setup (TestCase *test,
   if (!mock_kdc_available)
     return;
 
-  test->auth = cockpit_auth_new (FALSE);
+  test->auth = cockpit_auth_new (BUILDDIR "/cockpit-session");
 
   mock_kdc_up ();
 
@@ -487,8 +487,6 @@ main (int argc,
       char *argv[])
 {
   int ret;
-
-  cockpit_ws_session_program = BUILDDIR "/cockpit-session";
 
   cockpit_test_init (&argc, &argv);
 

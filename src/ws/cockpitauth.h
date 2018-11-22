@@ -50,7 +50,7 @@ struct _CockpitAuth
   GHashTable *conversations;
 
   guint64 nonce_seed;
-  gboolean login_loopback;
+  gchar *default_command;
   gulong timeout_tag;
   guint startups;
   guint max_startups;
@@ -65,7 +65,7 @@ struct _CockpitAuthClass
 
 GType           cockpit_auth_get_type        (void) G_GNUC_CONST;
 
-CockpitAuth *   cockpit_auth_new             (gboolean login_loopback);
+CockpitAuth *   cockpit_auth_new             (const gchar *default_command);
 
 gchar *         cockpit_auth_nonce           (CockpitAuth *self);
 

@@ -69,6 +69,8 @@ libcockpit_ws_a_SOURCES = \
 	src/ws/cockpitws.h				\
 	src/ws/cockpithandlers.h	src/ws/cockpithandlers.c	\
 	src/ws/cockpitauth.h		src/ws/cockpitauth.c		\
+	src/ws/cockpitbrowser.c \
+	src/ws/cockpitbrowser.h \
 	src/ws/cockpitcertificate.c \
 	src/ws/cockpitcertificate.h \
 	src/ws/cockpitcompat.c \
@@ -112,20 +114,7 @@ EXTRA_DIST += \
 
 sbin_PROGRAMS += remotectl
 
-libexec_PROGRAMS += cockpit-ws cockpit-local cockpit-session
-
-cockpit_local_SOURCES = \
-	src/common/cockpitauthorize.c \
-	src/common/cockpitauthorize.h \
-	src/common/cockpitbase64.c \
-	src/common/cockpitbase64.h \
-	src/common/cockpitframe.c \
-	src/common/cockpitframe.h \
-	src/common/cockpitmemory.c \
-	src/common/cockpitmemory.h \
-	src/ws/local.c \
-	$(NULL)
-cockpit_local_LDADD = $(COCKPIT_LOCAL_LIBS)
+libexec_PROGRAMS += cockpit-ws cockpit-token cockpit-session
 
 cockpit_session_SOURCES = \
 	src/common/cockpitauthorize.c \
@@ -139,6 +128,19 @@ cockpit_session_SOURCES = \
 	src/ws/session.c \
 	$(NULL)
 cockpit_session_LDADD = $(COCKPIT_SESSION_LIBS)
+
+cockpit_token_SOURCES = \
+	src/common/cockpitauthorize.c \
+	src/common/cockpitauthorize.h \
+	src/common/cockpitbase64.c \
+	src/common/cockpitbase64.h \
+	src/common/cockpitframe.c \
+	src/common/cockpitframe.h \
+	src/common/cockpitmemory.c \
+	src/common/cockpitmemory.h \
+	src/ws/token.c \
+	$(NULL)
+cockpit_token_LDADD = $(COCKPIT_TOKEN_LIBS)
 
 cockpit_ws_SOURCES =					\
 	src/ws/main.c					\

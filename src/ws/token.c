@@ -23,7 +23,13 @@
 #include "common/cockpitframe.h"
 #include "common/cockpitmemory.h"
 
+#include <err.h>
+#include <errno.h>
 #include <keyutils.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 /* This program lets the user into the local already running session by checking
  * the the browser can access a shared secret.
@@ -48,15 +54,15 @@ static char *
 read_authorize_response (void)
 {
   const char *auth_prefix = "\n{\"command\":\"authorize\",\"cookie\":\"local\",\"response\":\"";
-  size_t auth_prefix_length = strlen (auth_prefix);
+  size_t auth_prefix_size = strlen (auth_prefix);
   const char *auth_suffix = "\"}";
-  size_t auth_suffix_length = strlen (auth_suffix);
+  size_t auth_suffix_size = strlen (auth_suffix);
   unsigned char *message;
   ssize_t len;
 
   debug ("reading authorize message");
 
-  len = cockpit_frame_read (STDIN_FILENO, &message);
+  len = cockpit_frame_read (0, &message);
   if (len < 0)
     err (127, "couldn't read \"authorize\" message");
 
@@ -78,6 +84,8 @@ static char *
 read_keyring_token (void)
 {
   key_serial_t key;
+  char *buffer = NULL;
+  char *secret = NULL;
 
   key = keyctl_search (KEY_SPEC_SESSION_KEYRING, "user", "cockpit/session-token", 0);
   if (key < 0)
@@ -90,12 +98,12 @@ read_keyring_token (void)
 
   if (keyctl_describe_alloc (key, &buffer) < 0)
     {
-      warn ("couldn't describe cockpit/session-token secret key: %s");
+      warn ("couldn't describe cockpit/session-token secret key");
       return NULL;
     }
   if (strncmp (buffer, "user;0;0;001f0000;", 18) != 0)
     {
-      warn ("kernel cockpit/session-token secret key has invalid permissions: %s");
+      warnx ("kernel cockpit/session-token secret key has invalid permissions");
       free (buffer);
       return NULL;
     }
@@ -105,7 +113,7 @@ read_keyring_token (void)
   /* null-terminates */
   if (keyctl_read_alloc (key, (void **)secret) < 0)
     {
-      warn ("couldn't read kernel cockpit/session-token secret key: %s");
+      warn ("couldn't read kernel cockpit/session-token secret key");
       return NULL;
     }
 
@@ -113,27 +121,39 @@ read_keyring_token (void)
 }
 
 static int
-perform_basic (const char *authorization)
+perform_auth (const char *authorization)
 {
-  struct pam_conv conv = { pam_conv_func, };
-  pam_handle_t *pamh;
+  const char *challenge = NULL;
+  const char *token = NULL;
   char *password = NULL;
+  char *secret = NULL;
   char *user = NULL;
-  int res;
+  char *type = NULL;
+  int ret = 0;
 
-  debug ("basic authentication");
-
-  /* The input should be a user:password */
-  password = cockpit_authorize_parse_basic (authorization, &user);
+  challenge = cockpit_authorize_type (authorization, &type);
+  if (challenge)
+    {
+      if (strcmp (type, "basic") == 0)
+        token = password = cockpit_authorize_parse_basic (authorization, &user);
+      else if (strcmp (type, "token") == 0)
+        token = challenge;
+      else
+        warnx ("unrecognized authentication method: %s", type);
+    }
 
   secret = read_keyring_token ();
-  ret = secret && password && strcmp (secret, password) == 0;
+  ret = secret && token && strcmp (secret, token) == 0;
 
   if (secret)
-    cockpit_memory_clear (secret, strlen (secret));
-  if (password)
-    cockpit_memory_clear (password, strlen (password));
+    cockpit_memory_clear (secret, -1);
+  free (secret);
 
+  if (password)
+    cockpit_memory_clear (password, -1);
+  free (password);
+
+  free (type);
   return ret;
 }
 
@@ -147,28 +167,17 @@ int
 main (int argc,
       char **argv)
 {
-  char *argv[] = { "cockpit-bridge", NULL };
+  char *command[] = { "cockpit-bridge", NULL };
   char *authorization;
-  char *type = NULL;
-  char **env;
-  int status;
-  int res;
-  int i;
 
   cockpit_authorize_logger (authorize_logger, DEBUG_SESSION);
 
   /* Request authorization header */
-  printf ("61\n{\"command\":\"authorize\",\"cookie\":\"local\",\"challenge\":\"basic\"}");
+  printf ("57\n{\"command\":\"authorize\",\"cookie\":\"local\",\"challenge\":\"*\"}");
 
   /* And get back the authorization header */
-  authorization = read_authorize_response ("authorization");
-  if (!cockpit_authorize_type (authorization, &type))
-    errx (EX, "invalid authorization header received");
-
-  if (strcmp (type, "basic") != 0)
-    errx (2, "unrecognized authentication method: %s", type);
-
-  if (!perform_basic (authorization))
+  authorization = read_authorize_response ();
+  if (!perform_auth (authorization))
     {
       printf ("65\n{\"command\":\"init\",\"version\":1,\"problem\":\"authentication-failed\"}");
       exit (5);
@@ -176,11 +185,10 @@ main (int argc,
 
   cockpit_memory_clear (authorization, -1);
   free (authorization);
-  free (type);
 
-  debug ("executing bridge: %s", argv[0]);
+  debug ("executing bridge: %s", command[0]);
 
-  execvp (argv[0], argv);
+  execvp (command[0], command);
 
   /* Should normally not return */
   warn ("can't exec %s", argv[0]);

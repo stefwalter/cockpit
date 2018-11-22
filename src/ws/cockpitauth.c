@@ -50,9 +50,6 @@
 #define ACTION_NONE "none"
 
 /* Some tunables that can be set from tests */
-const gchar *cockpit_ws_session_program =
-    PACKAGE_LIBEXEC_DIR "/cockpit-session";
-
 const gchar *cockpit_ws_ssh_program =
     PACKAGE_LIBEXEC_DIR "/cockpit-ssh";
 
@@ -1032,8 +1029,6 @@ cockpit_session_create (CockpitAuth *self,
 
   if (host)
     section = COCKPIT_CONF_SSH_SECTION;
-  else if (self->login_loopback && g_strcmp0 (type, "basic") == 0)
-    section = COCKPIT_CONF_SSH_SECTION;
   else if (g_strcmp0 (action, ACTION_SSH) == 0)
     section = COCKPIT_CONF_SSH_SECTION;
   else
@@ -1048,7 +1043,7 @@ cockpit_session_create (CockpitAuth *self,
     }
   else
     {
-      program_default = cockpit_ws_session_program;
+      program_default = self->default_command;
     }
 
   command = type_option (section, "command", program_default);
@@ -1478,14 +1473,16 @@ out:
 }
 
 CockpitAuth *
-cockpit_auth_new (gboolean login_loopback,
-                  const gchar *local_token_file)
+cockpit_auth_new (const gchar *default_command)
 {
   CockpitAuth *self = g_object_new (COCKPIT_TYPE_AUTH, NULL);
   const gchar *max_startups_conf;
   gint count = 0;
 
-  self->login_loopback = login_loopback;
+  if (default_command == NULL)
+    default_command = PACKAGE_LIBEXEC_DIR "/cockpit-session";
+
+  self->default_command = g_strdup (default_command);
 
   if (cockpit_ws_max_startups == NULL)
     max_startups_conf = cockpit_conf_string ("WebService", "MaxStartups");

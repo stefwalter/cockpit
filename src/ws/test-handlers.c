@@ -824,7 +824,6 @@ main (int argc,
 {
   /* See mock-resource */
   cockpit_ws_shell_component = "/another/test.html";
-  cockpit_ws_session_program = BUILDDIR "/mock-auth-command";
 
   cockpit_test_init (&argc, &argv);
 

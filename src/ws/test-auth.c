@@ -43,7 +43,7 @@ static void
 setup (Test *test,
        gconstpointer data)
 {
-  test->auth = cockpit_auth_new (FALSE);
+  test->auth = cockpit_auth_new (BUILDDIR "/mock-auth-command");
 }
 
 static void
@@ -58,7 +58,7 @@ setup_normal (Test *test,
               gconstpointer data)
 {
   cockpit_config_file = SRCDIR "/src/ws/mock-config/cockpit/cockpit.conf";
-  test->auth = cockpit_auth_new (FALSE);
+  test->auth = cockpit_auth_new (BUILDDIR "/mock-auth-command");
 }
 
 static void
@@ -66,7 +66,7 @@ setup_alt_config (Test *test,
               gconstpointer data)
 {
   cockpit_config_file = SRCDIR "/src/ws/mock-config/cockpit/cockpit-alt.conf";
-  test->auth = cockpit_auth_new (FALSE);
+  test->auth = cockpit_auth_new (BUILDDIR "/mock-auth-command");
 }
 
 static void
@@ -1070,7 +1070,7 @@ setup_startups (Test *test,
   if (fix->warn)
     cockpit_expect_warning ("Illegal MaxStartups spec*");
 
-  test->auth = cockpit_auth_new (FALSE);
+  test->auth = cockpit_auth_new (BUILDDIR "/mock-auth-command");
 }
 
 static void
@@ -1167,7 +1167,6 @@ int
 main (int argc,
       char *argv[])
 {
-  cockpit_ws_session_program = BUILDDIR "/mock-auth-command";
   cockpit_ws_service_idle = 1;
   cockpit_ws_process_idle = 2;
 

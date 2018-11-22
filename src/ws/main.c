@@ -28,6 +28,7 @@
 
 #include "cockpitws.h"
 
+#include "cockpitbrowser.h"
 #include "cockpitcertificate.h"
 #include "cockpithandlers.h"
 #include "cockpitbranding.h"
@@ -41,19 +42,19 @@
 
 /* ---------------------------------------------------------------------------------------------------- */
 
-static gint      opt_port         = 9090;
+static gint      opt_port         = -1;
 static gchar     *opt_address     = NULL;
 static gboolean  opt_no_tls       = FALSE;
 static gboolean  opt_local_ssh    = FALSE;
-static gchar     *opt_local_session = NULL;
+static gboolean  opt_local_browser = FALSE;
 static gboolean  opt_version      = FALSE;
 
 static GOptionEntry cmd_entries[] = {
   {"port", 'p', 0, G_OPTION_ARG_INT, &opt_port, "Local port to bind to (9090 if unset)", NULL},
   {"address", 'a', 0, G_OPTION_ARG_STRING, &opt_address, "Address to bind to (binds on all addresses if unset)", NULL},
-  {"authenticator", 0, 0, G_OPTION_ARG_STRING, &opt_authenticator, "The authenticator and session executable", NULL },
   {"no-tls", 0, 0, G_OPTION_ARG_NONE, &opt_no_tls, "Don't use TLS", NULL},
   {"local-ssh", 0, 0, G_OPTION_ARG_NONE, &opt_local_ssh, "Log in locally via SSH", NULL },
+  {"local-browser", 0, 0, G_OPTION_ARG_NONE, &opt_local_browser, "Log into the current session with a local browser window", NULL },
   {"version", 0, 0, G_OPTION_ARG_NONE, &opt_version, "Print version information", NULL },
   {NULL}
 };
@@ -107,6 +108,7 @@ main (int argc,
   GOptionContext *context;
   CockpitHandlerData data;
   GTlsCertificate *certificate = NULL;
+  const char *authenticator = NULL;
   GError *local_error = NULL;
   GError **error = &local_error;
   gchar **roots = NULL;
@@ -137,6 +139,14 @@ main (int argc,
       goto out;
     }
 
+  /* We must be in a real login session in order to use --local-browser */
+  if (opt_local_browser && getlogin () == NULL)
+    {
+      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                   "The --local-browser option must be used in a login session");
+      goto out;
+    }
+
   if (opt_version)
     {
       print_version ();
@@ -145,13 +155,6 @@ main (int argc,
     }
 
   cockpit_set_journal_logging (NULL, !isatty (2));
-
-  if (opt_local_ssh && opt_local_session)
-    {
-      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
-                   "The --local-ssh and --local-session arguments are incompatible.");
-      goto out;
-    }
 
   if (opt_no_tls)
     {
@@ -169,9 +172,24 @@ main (int argc,
 
   loop = g_main_loop_new (NULL, FALSE);
 
+  if (opt_local_ssh)
+    authenticator = cockpit_ws_ssh_program;
+  else if (opt_local_browser)
+    authenticator = PACKAGE_LIBEXEC_DIR "/cockpit-token";
+  else
+    authenticator = PACKAGE_LIBEXEC_DIR "/cockpit-session";
+
   data.os_release = cockpit_system_load_os_release ();
-  data.auth = cockpit_auth_new (opt_local_ssh, opt_local_session);
+  data.auth = cockpit_auth_new (authenticator);
   roots = setup_static_roots (data.os_release);
+
+  if (opt_port == -1)
+    {
+      if (opt_local_browser)
+        opt_port = 0; /* Automatically choose a high port */
+      else
+        opt_port = 9090; /* The default port */
+    }
 
   data.branding_roots = (const gchar **)roots;
   login_html = g_strdup (DATADIR "/cockpit/static/login.html");
@@ -229,6 +247,10 @@ main (int argc,
   signal (SIGABRT, cockpit_test_signal_backtrace);
   signal (SIGSEGV, cockpit_test_signal_backtrace);
 #endif
+
+  /* We were invoked to start a browser logged into the current session */
+  if (opt_local_browser)
+    cockpit_browser_launch (opt_address, cockpit_web_server_get_port (server));
 
   g_main_loop_run (loop);
 
