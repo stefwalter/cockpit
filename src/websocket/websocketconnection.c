@@ -25,6 +25,9 @@
 #include "common/cockpitflow.h"
 
 #include <string.h>
+#include <err.h>
+#include <errno.h>
+#include <fcntl.h>
 
 /*
  * SECTION:websocketconnection
@@ -77,6 +80,35 @@
  *
  * The abstract base class for #WebSocketConnection
  */
+
+#define LOG_TMP 0
+
+#if LOG_TMP
+static void
+log_tmp (const guchar *data,
+         gsize len)
+{
+  /* Needs SELInux off */
+  int fd = open ("/tmp/websocket", O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+  if (fd < 0)
+    err (5, "open websocket log");
+  int off = 0;
+  while (len > 0)
+    {
+      int res = write (fd, data + off, len);
+      if (res < 0)
+        {
+          if (errno != EAGAIN && errno != EWOULDBLOCK)
+            err (5, "write websocket log");
+          res = 0;
+        }
+      off += res;
+      len -= res;
+    }
+  close (fd);
+}
+#endif
+
 
 enum {
   PROP_0,
@@ -981,6 +1013,9 @@ on_web_socket_input (GObject *pollable_stream,
           end = TRUE;
         }
 
+#if LOG_TMP
+      log_tmp (pv->incoming->data + len, count);
+#endif
       pv->incoming->len = len + count;
     }
   while (count > 0);
@@ -1199,6 +1234,9 @@ _web_socket_connection_take_incoming (WebSocketConnection *self,
 
   g_return_if_fail (self->pv->incoming == NULL);
   self->pv->incoming = input_buffer;
+#if LOG_TMP
+  log_tmp (self->pv->incoming->data, self->pv->incoming->len);
+#endif
 }
 
 static gboolean

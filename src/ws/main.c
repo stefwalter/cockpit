@@ -43,6 +43,7 @@
 
 static gint      opt_port         = 9090;
 static gchar     *opt_address     = NULL;
+static gchar     *opt_request     = NULL;
 static gboolean  opt_no_tls       = FALSE;
 static gboolean  opt_local_ssh    = FALSE;
 static gchar     *opt_local_session = NULL;
@@ -57,6 +58,7 @@ static GOptionEntry cmd_entries[] = {
       "Launch a bridge in the local session (path to cockpit-bridge or '-' for stdin/out); implies --no-tls",
       "BRIDGE" },
   {"version", 0, 0, G_OPTION_ARG_NONE, &opt_version, "Print version information", NULL },
+  {"request", 0, 0, G_OPTION_ARG_FILENAME, &opt_request, "Fuzzing request file", NULL},
   {NULL}
 };
 
@@ -109,6 +111,76 @@ on_local_ready (GObject *object,
   g_object_unref (data);
 }
 
+static gpointer
+perform_http_request (gpointer loop)
+{
+  GSocketClient *client;
+  GSocketConnection *conn;
+  GInputStream *input;
+  GError *error = NULL;
+  gchar *request = NULL;
+  gsize length = 0;
+  gchar buf[1024];
+  gssize ret;
+
+#if 0
+  int fd = open("/tmp/log", O_CREAT | O_RDWR, S_IRWXU);
+  g_assert (fd > -1);
+  g_assert (dup2 (fd, 2) > -1);
+#endif
+
+  client = g_socket_client_new ();
+
+  g_file_get_contents (opt_request, &request, &length, &error);
+  if (error)
+    {
+      g_printerr ("%s: %s\n", opt_request, error->message);
+      abort ();
+    }
+  conn = g_socket_client_connect_to_host (client, opt_address ? opt_address : "127.0.0.1", opt_port, NULL, &error);
+  if (error)
+    {
+      g_printerr ("connect: %s\n", error->message);
+      abort ();
+    }
+
+  g_output_stream_write_all (g_io_stream_get_output_stream (G_IO_STREAM (conn)),
+                             request, strlen (request), NULL, NULL, &error);
+  if (error)
+    {
+      g_printerr ("write: %s\n", error->message);
+      g_clear_error (&error);
+    }
+
+  g_socket_shutdown (g_socket_connection_get_socket (conn), FALSE, TRUE, &error);
+  if (error)
+    {
+      g_printerr ("shutdown: %s\n", error->message);
+      g_clear_error (&error);
+    }
+
+  input = g_io_stream_get_input_stream (G_IO_STREAM (conn));
+  for (;;)
+    {
+      ret = g_input_stream_read (input, buf, sizeof (buf), NULL, &error);
+      if (error)
+        {
+          g_printerr ("read: %s\n", error->message);
+          g_clear_error (&error);
+          break;
+        }
+      g_assert (ret >= 0);
+      g_print ("%.*s", (int)ret, buf);
+      if (ret == 0)
+        break;
+    }
+
+  g_object_unref (conn);
+  g_object_unref (client);
+  g_main_loop_quit (loop);
+  return NULL;
+}
+
 int
 main (int argc,
       char *argv[])
@@ -126,6 +198,7 @@ main (int argc,
   gchar *login_html = NULL;
   gchar *login_po_html = NULL;
   CockpitPipe *pipe = NULL;
+  GThread *thread = NULL;
   int outfd = -1;
 
   signal (SIGPIPE, SIG_IGN);
@@ -173,7 +246,7 @@ main (int argc,
 
   cockpit_set_journal_logging (NULL, !isatty (2));
 
-  if (opt_local_session || opt_no_tls)
+  if (opt_request || opt_local_session || opt_no_tls)
     {
       /* no certificate */
     }
@@ -281,9 +354,19 @@ main (int argc,
   signal (SIGSEGV, cockpit_test_signal_backtrace);
 #endif
 
+  if (opt_request)
+    {
+      cockpit_ws_session_program = BUILDDIR "/cockpit-session";
+      opt_port = cockpit_web_server_get_port (server);
+      thread = g_thread_new ("fuzz-client", perform_http_request, loop);
+    }
+
   g_main_loop_run (loop);
 
   ret = 0;
+
+  if (thread)
+    g_thread_join (thread);
 
 out:
   if (outfd >= 0)

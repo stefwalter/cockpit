@@ -1,0 +1,5 @@
+67
+
+{"command":"authorize","cookie":"session","response":"negotiate "}83
+
+{"command":"authorize","cookie":"session","response":"negotiate YWRtaW46Zm9vYmFy"}

@@ -59,7 +59,7 @@
  * this job.
  */
 
-#define DEBUG_SESSION 0
+#define DEBUG_SESSION 1
 #define EX 127
 #define DEFAULT_PATH "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 #define COCKPIT_KTAB PACKAGE_SYSCONF_DIR "/cockpit/krb5.keytab"
@@ -177,8 +177,7 @@ write_authorize_begin (void)
       auth_prefix = NULL;
     }
 
-  if (asprintf (&auth_prefix, "\n{\"command\":\"authorize\",\"cookie\":\"session%u%u\"",
-                (unsigned int)getpid(), (unsigned int)time (NULL)) < 0)
+  if (asprintf (&auth_prefix, "\n{\"command\":\"authorize\",\"cookie\":\"session\"") < 0)
     {
       errx (EX, "out of memory allocating string");
     }

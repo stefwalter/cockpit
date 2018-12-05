@@ -38,6 +38,7 @@
 
 /* Used during testing */
 gboolean cockpit_webserver_want_certificate = FALSE;
+const gchar *cockpit_webserver_dump_directory = NULL;
 
 guint cockpit_webserver_request_timeout = 30;
 gsize cockpit_webserver_request_maximum = 4096;
