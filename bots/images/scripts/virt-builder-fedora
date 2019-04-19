@@ -82,7 +82,9 @@ virt-builder "$os" \
              --upload $BASE/../../../test/verify/nested-kvm:/root/nested-kvm \
              --upload $BASE/network-ifcfg-eth0:/etc/sysconfig/network-scripts/ifcfg-eth0 \
              --upload $BASE/network-ifcfg-eth1:/etc/sysconfig/network-scripts/ifcfg-eth1 \
-             --run-command "sed -i 's/GRUB_TIMEOUT.*/GRUB_TIMEOUT=0/; /GRUB_CMDLINE_LINUX=/ s/"'"'"$/ net.ifnames=0 biosdevname=0"'"'"/' /etc/default/grub" \
-             --run-command 'grub2-mkconfig -o /boot/grub2/grub.cfg' \
              --selinux-relabel \
              $subscription_args
+
+#             --run-command "sed -i 's/GRUB_TIMEOUT.*/GRUB_TIMEOUT=0/; /GRUB_CMDLINE_LINUX=/ s/"'"'"$/ net.ifnames=0 biosdevname=0"'"'"/' /etc/default/grub" \
+#             --run-command 'grub2-mkconfig -o /boot/grub2/grub.cfg' \
+

@@ -1,0 +1,86 @@
+
+#!/bin/bash
+
+set -e
+IMAGE="$1"
+
+# If the file /root/.skip_repos is present on the machine,
+# all actions regarding the repositories will be skipped:
+# subscriptions, adding repos, deleting existing entries
+SKIP_REPO_FLAG="/root/.skip_repos"
+SUBSCRIBED=
+
+if [ ! -f "$SKIP_REPO_FLAG" ]; then
+    # Remove any internal files
+    rm -f /etc/yum.repos.d/download.devel.redhat.com.repo
+
+    # register system
+    subscription-manager register --auto-attach --username=`cat ~/.rhel/login` --password=`cat ~/.rhel/pass`
+    # remove credentials from test machine
+    rm -rf ~/.rhel
+    SUBSCRIBED=1
+fi
+
+
+# Only start logging here.  Otherwise the subscription credentials
+# appear in the output above.
+#
+set -x
+
+yum --nogpgcheck -y update
+
+echo foobar | passwd --stdin root
+
+# We install all dependencies of the cockpit packages since we want
+# them to not spontaneously change from one test run to the next when
+# the distribution repository is updated.
+COCKPIT_DEPS="\
+device-mapper-multipath \
+glib-networking \
+kexec-tools \
+libvirt-client \
+openssl \
+PackageKit \
+pcp-libs \
+pcp \
+redhat-logos \
+selinux-policy-targeted \
+setroubleshoot-server \
+subscription-manager \
+sos \
+tuned \
+"
+
+
+TEST_PACKAGES="\
+valgrind \
+gdb \
+nmap \
+yum-utils \
+virt-install \
+cryptsetup \
+qemu-kvm \
+dracut-fips \
+"
+
+yum install -y $TEST_PACKAGES $COCKPIT_DEPS
+yum clean all || true
+
+[ -z "$SUBSCRIBED" ] || subscription-manager unregister
+
+echo 'NETWORKING=yes' > /etc/sysconfig/network
+
+useradd -c Administrator -G wheel admin
+echo foobar | passwd --stdin admin
+
+# To enable persistent logging
+mkdir -p /var/log/journal
+
+/var/lib/testvm/zero-disk.setup --keep-mock-cache
+
+# Final tweaks
+
+# Prevent SSH from hanging for a long time when no external network access
+echo 'UseDNS no' >> /etc/ssh/sshd_config
+
+rm -rf /var/log/audit/
