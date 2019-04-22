@@ -1,0 +1,20 @@
+set -euf
+
+HOST=$1
+CA=test/verify/files/
+
+# How the CA certificate was made
+# openssl req -new -newkey rsa:4096 -nodes -out ca.csr -keyout $CA/cockpit-test-ca.key -subj '/OU=Cockpit Test CA'
+# openssl x509 -trustout -signkey $CA/cockpit-test-ca.key -days 36500 -req -in ca.csr -out $CA/cockpit-test-ca.pem
+
+set -- $(dd if=/dev/urandom bs=1K count=1 2> /dev/null | md5sum)
+printf '[ req ]\nreq_extensions = v3_req\nextensions = v3_req\ndistinguished_name = req_distinguished_name\n[ req_distinguished_name ]\n[ v3_req ]\nsubjectAltName=DNS:*.cockpit.lan\n' > host.conf
+openssl req -new -newkey rsa:4096 -nodes -keyout host.key -out host.csr -subj "/CN=$1.cockpit.lan" -config host.conf -extensions v3_req
+openssl x509 -req -days 36500 -in host.csr -CA $CA/cockpit-test-ca.pem -CAkey $CA/cockpit-test-ca.key -set_serial 0x$1 -out host.pem -extfile host.conf -extensions v3_req
+
+cat host.pem host.key > $1.cockpit.lan.cert
+rm -r host.pem host.key host.csr host.conf
+
+if [ -n "$HOST" ]; then
+    scp $1.cockpit.lan.cert $HOST:/etc/cockpit/ws-certs.d/
+fi
